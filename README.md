@@ -62,7 +62,7 @@ Useful though the protocol might be in other contexts, the motiviation for creat
     - `Int2048`
     - `Int4096`
 
-Any of the `WideUnsignedInteger`s can be used as digits for `WideInt`, and `WideUInt`, and in fact, that's exactly how they are built.  If you want to create your own, there's a small amount of boilerplate, but's fairly easy.   Let's say you want to create `UInt8192` and `Int8192`.  This is the code to make that happen:
+Any of the `WideUnsignedInteger`s can be used as digits for `WideInt`, and `WideUInt`, and in fact, that's exactly how they are built.  If you want to create your own, there's a small amount of boilerplate, but it's fairly easy.   Let's say you want to create `UInt8192` and `Int8192`.  This is the code to make that happen:
 
     public struct UInt8192: WideUnsignedInteger
     {
@@ -96,4 +96,16 @@ Any of the `WideUnsignedInteger`s can be used as digits for `WideInt`, and `Wide
 Note that the signed type has to specify the unsigned type for it's `Magnitude`, but they both use the same `Digit` type.
 That's it.  The protocol extensions for `WideUnsignedInteger`, and `WideSignedInteger` make the rest happen for you.  You can build the unsigned type without creating the signed type, but the signed type will always need the unsigned type.
 
+## Performance
+
+I haven't done a lot of real benchmarking yet, though I have informal comparisons experiments on the performance for the smaller types (UInt128, and UInt256) that are promising.  Real benchmarking is a to-do, and an important once since performance is the whole reason for writing my own BigMath library anyway.
+
 The extensions for these protocols make heavy use of `@inlinable`, as do `WideInt` and `WideUInt`.  That means the compiler can see their implementation, and even if it chooses not to actually inline them, it should generate specialized functions that can be called without the protocol/generic witness table thunking overhead that would otherwise be required.
+
+The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result it's superior complexity advantages only appear for large numbers of digits.  I haven't yet tested where that cut-off is for my implementation, and my use is almost certainly below whatever that number turns out to be, which is why I default to school book.  I haven't yet made it available in the `WrappedInteger` types.  
+
+Division uses Donald Knuth's "Algorthm D" from *The Art of Computer Programming*, which assuming the divisor and dividend are similar lengths, as they are in this package, is O(*n*^2). At least two of the libraries I looked at claimed that their bitshift-subtract algorithm was O(*n*), but on closer inspection it definitely isn't. Actually both had identical code, so either one borrowed from the other or they both borrowed from a common source.  Both the shift and subtract are each O(*n*) and they are in an O(*n*) loop, making the algorithm O(*n*^2) as well, and inefficiently so, as they have to process each bit individually, whereas Knuth's algorithm does whole digit arithmetic, which for my implemenation translates to native 64-bit integer instructions (or 32-bit if you're still a on a 32-bit machine).  Bitshift-subtract is a reasonable hardware implementation, but I don't see how it could be a good software one.  I may get around to implementing it anyway just to get empirical data to verify or falsify my intuition, but the Knuth algorithm is already implemented and pretty well optimized.
+
+Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.
+
+

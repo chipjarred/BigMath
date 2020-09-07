@@ -146,7 +146,7 @@ extension FixedWidthInteger
     public func getBit(at bitIndex: Int) -> Self
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
-        return (self >> bitIndex) | 1
+        return (self >> bitIndex) & 1
     }
     
     // -------------------------------------

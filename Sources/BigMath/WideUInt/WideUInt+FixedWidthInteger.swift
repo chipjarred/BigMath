@@ -132,7 +132,7 @@ extension WideUInt: FixedWidthInteger
         
         @inlinable public init() { }
     }
-
+    
     // -------------------------------------
     @inlinable
     public func dividingFullWidth_KnuthD(_ dividend: (high: Self, low: Self))
@@ -162,6 +162,41 @@ extension WideUInt: FixedWidthInteger
                                 scratch: scratch
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        return (
+            quotient: q.r,
+            remainder: r.r.low
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func dividingFullWidth_ShiftSubtract(_ dividend: (high: Self, low: Self))
+        -> (quotient: Self, remainder: Self)
+    {
+        typealias BiggerInt = WideUInt<Self>
+        var q = KnuthDRemainder<Self>()
+        var r = KnuthDRemainder<BiggerInt>()
+        let dividend = BiggerInt(dividend)
+        
+        dividend.withBuffer
+        { dividend in
+            self.withBuffer
+            { divisor in
+                q.withMutableBuffer
+                { quotient in
+                    r.withMutableBuffer
+                    { remainder in
+                        fullWidthDivide_ShiftSubtract(
+                            dividend,
+                            by: divisor,
+                            quotient: quotient,
+                            remainder: remainder
+                        )
                     }
                 }
             }

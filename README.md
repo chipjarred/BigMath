@@ -35,8 +35,8 @@ And then create 256-bit integer type from it:
 
 `WideInt` is the *signed* integer type.  It conforms to `FixedWidthInteger`, and `SignedInteger`.  You build one up just like you do `WideUInt`.   And when I say, "just like", I mean, "just like."  They are built of *unsigned* digits, just like `WideUInt`.  So if you want to build your own wide signed integers, you will build unsigned integers to use as the digits:
 
-    typealias MyInt128 = WideUInt<UInt64>
-    typealias MyInt256 = WideUInt<MyUInt128>
+    typealias MyInt128 = WideInt<UInt64>
+    typealias MyInt256 = WideInt<MyUInt128>
 
 ### Wrapped Integers
 

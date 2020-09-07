@@ -32,9 +32,7 @@ public struct WideInt<T: WideDigit>: Hashable where T.Magnitude == T
     public static var max: Self { return Self(bitPattern: Magnitude.max >> 1) }
     
     @inlinable
-    public static var min: Self {
-        return Self(bitPattern: Magnitude(1) << (bitWidth - 1))
-    }
+    public static var min: Self { return Self.max &+ 1 }
 
     @usableFromInline
     var bitPattern: Magnitude
@@ -69,33 +67,22 @@ extension WideInt
         
         var delta = range.upperBound
         delta &-= range.lowerBound
-        delta &+= 1
         
         if delta == 0 { return range.lowerBound }
-        
-        var result = Self(
-            bitPattern: Magnitude.random(in: Magnitude.min...Magnitude.max)
-        )
-        result %= delta
+
+        var result = Self(bitPattern: Magnitude.random(in: 0...delta.bitPattern))
         result &+= range.lowerBound
+        
+        assert(result >= range.lowerBound && result <= range.upperBound)
         return result
     }
-    
+
     // -------------------------------------
     @inlinable
     public static func random(in range: Range<Self>) -> Self
     {
         assert(range.lowerBound < range.upperBound)
-
-        var delta = range.upperBound
-        delta &-= range.lowerBound
-        
-        var result = Self(
-            bitPattern: Magnitude.random(in: Magnitude.min...Magnitude.max)
-        )
-        result %= delta
-        result &+= range.lowerBound
-        return result
+        return random(in: range.lowerBound...(range.upperBound &- 1))
     }
     
     // -------------------------------------

@@ -35,4 +35,56 @@ public extension WideSignedInteger
     @inlinable var magnitude: Magnitude {
         return Magnitude(wrapped: wrapped.magnitude)
     }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: ClosedRange<Self>) -> Self
+    {
+        return Self(
+            wrapped: Wrapped.random(
+                in: range.lowerBound.wrapped...range.upperBound.wrapped
+            )
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: Range<Self>) -> Self
+    {
+        return Self(
+            wrapped: Wrapped.random(
+                in: range.lowerBound.wrapped..<range.upperBound.wrapped
+            )
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: PartialRangeUpTo<Self>) -> Self
+    {
+        return Self(
+            wrapped: Wrapped.random(in: Wrapped.min..<range.upperBound.wrapped)
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: PartialRangeThrough<Self>) -> Self
+    {
+        return Self(
+            wrapped: Wrapped.random(in: Wrapped.min...range.upperBound.wrapped)
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: PartialRangeFrom<Self>) -> Self
+    {
+        return Self(
+            wrapped: Wrapped.random(in: range.lowerBound.wrapped...Wrapped.max)
+        )
+    }
+    
+    // -------------------------------------
+    @inlinable static func random(in range: UnboundedRange) -> Self
+    {
+        let lowerBound = Wrapped.min
+        let upperBound = Wrapped.max
+        return Self(wrapped: Wrapped.random(in: lowerBound...upperBound))
+    }
 }

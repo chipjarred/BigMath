@@ -123,7 +123,7 @@ func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
     U.Element == T.Element,
     U.Index == T.Index
 {
-    assert(y.count == x.count)
+    assert(y.count >= x.count)
     assert(y.startIndex == x.startIndex)
     let bitWidth = MemoryLayout<T.Element>.size * 8
     
@@ -420,7 +420,7 @@ internal func fullWidthDivide_KnuthD(
     
     let vLast = BigDigit(v.last!)
     let vNextToLast = BigDigit(v[n - 2])
-    let cRightDelta = vLast * radix
+    let cRightDelta = vLast &* radix
     var (q̂, r̂) = (BigDigit(), BigDigit())
     
     for j in (0...(m - n)).reversed()

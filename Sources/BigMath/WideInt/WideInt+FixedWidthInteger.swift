@@ -81,12 +81,9 @@ extension WideInt: FixedWidthInteger
         
         var result = dividend.quotientAndRemainder(dividingBy: divisor)
 
-        if resultIsNegative
-        {
-            result.quotient.negate()
-            result.remainder.negate()
-        }
-        
+        if resultIsNegative { result.quotient.negate() }
+        if dividendIsNegative { result.remainder.negate() }
+
         return (
             quotient: Self(bitPattern: result.quotient),
             remainder: Self(bitPattern: result.remainder)

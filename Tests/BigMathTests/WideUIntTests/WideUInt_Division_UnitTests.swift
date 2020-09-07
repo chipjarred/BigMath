@@ -59,4 +59,68 @@ class WideUInt_Division_UnitTests: XCTestCase
             XCTAssertEqual(r, IntType(_r64))
         }
     }
+    
+    // -------------------------------------
+    func test_WideUInt_division_operator_gives_same_results_as_UInt64_division_operator()
+    {
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64:UInt64 = 6
+            let q64 = x64 / y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let q = x / y
+            
+            XCTAssertEqual(q, IntType(q64))
+        }
+        
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64 = random64
+            let q64 = x64 / y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let q = x / y
+            
+            XCTAssertEqual(q, IntType(q64))
+        }
+    }
+    
+    // -------------------------------------
+    func test_WideUInt_modulo_operator_gives_same_results_as_UInt64_division_operator()
+    {
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64:UInt64 = 6
+            let r64 = x64 % y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let r = x % y
+            
+            XCTAssertEqual(r, IntType(r64))
+        }
+        
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64 = random64
+            let r64 = x64 % y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let r = x % y
+            
+            XCTAssertEqual(
+                r,
+                IntType(r64),
+                "\(x64) % \(y64) = \(r64) : got \(r)"
+            )
+        }
+    }
 }

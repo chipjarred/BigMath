@@ -233,13 +233,15 @@ extension WideUInt
         var delta = range.upperBound
         delta &-= range.lowerBound
         delta &+= 1
-        
-        if delta == 0 { return range.lowerBound }
 
+        if delta == 1 { return range.lowerBound }
+        
         var result = Self(
             low: Digit.random(in: Digit.min...Digit.max),
             high: Digit.random(in: Digit.min...Digit.max)
         )
+        if delta == 0 { return result }
+        
         result %= delta
         result &+= range.lowerBound
         return result

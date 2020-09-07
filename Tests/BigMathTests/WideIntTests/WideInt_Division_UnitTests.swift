@@ -85,4 +85,81 @@ class WideInt_Division_UnitTests: XCTestCase
             XCTAssertEqual(r, IntType(r64))
         }
     }
+    
+    // -------------------------------------
+    func test_WideInt_division_operator_gives_same_results_as_UInt64_division_operator()
+    {
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64:Int64 = 6
+            let q64 = x64 / y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let q = x / y
+            
+            XCTAssertEqual(q, IntType(q64))
+        }
+        
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64 = random64
+            let q64 = x64 / y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let q = x / y
+            
+            XCTAssertEqual(q, IntType(q64))
+        }
+    }
+    
+    // -------------------------------------
+    func test_WideInt_modulo_operator_gives_same_results_as_UInt64_division_operator()
+    {
+        repeat
+        {
+            let x64 = Int64(bitPattern: 0xe7c35dad_48b15c44)
+            let y64 = Int64(6)
+            let r64 = x64 % y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let r = x % y
+            
+            XCTAssertEqual(r, IntType(r64))
+        } while false
+        
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64:Int64 = 6
+            let r64 = x64 % y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let r = x % y
+            
+            XCTAssertEqual(r, IntType(r64))
+        }
+        
+        for _ in 0..<100
+        {
+            let x64 = random64
+            let y64 = random64
+            let r64 = x64 % y64
+            
+            let x = IntType(x64)
+            let y = IntType(y64)
+            let r = x % y
+            
+            XCTAssertEqual(
+                r,
+                IntType(r64),
+                "\(x64) % \(y64) = \(r64) : got \(r)"
+            )
+        }
+    }
 }

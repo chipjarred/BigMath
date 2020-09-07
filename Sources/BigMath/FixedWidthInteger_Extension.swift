@@ -25,18 +25,7 @@ extension FixedWidthInteger
 {
     @inlinable
     public static var bitWidth: Int { MemoryLayout<Self>.size * 8 }
-    
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    internal init(_ source: Bool)
-    {
-        assert(
-            unsafeBitCast(source, to: UInt8.self) & 0xfe == 0,
-            "Upper bits of Bool are not 0"
-        )
-        self.init(unsafeBitCast(source, to: UInt8.self))
-    }
-    
+        
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal func addingReportingCarry(_ other: Self)
@@ -98,5 +87,71 @@ extension FixedWidthInteger
         return withUnsafeMutableBytes(of: &self) {
             return body($0.bindMemory(to: UInt.self)[...])
         }
+    }
+}
+
+// -------------------------------------
+// TODO: Move this to SwiftTypeExtensions Package
+extension FixedWidthInteger
+{
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal init(_ source: Bool)
+    {
+        assert(
+            unsafeBitCast(source, to: UInt8.self) & 0xfe == 0,
+            "Upper bits of Bool are not 0"
+        )
+        self.init(unsafeBitCast(source, to: UInt8.self))
+    }
+    
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index relative to a buffer.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: Bool) {
+        setBit(at: bitIndex, to: Self(value))
+    }
+    
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index relative to a buffer.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: Self)
+    {
+        assert(value & ~1 == 0, "Not 1 or 0")
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        
+        // Non-branching bit set/clear
+        let mask: Self = 1 << bitIndex
+
+        // Choice of branchless bit setting/clearing twiddling. Either should be
+        // faster than a conditional branch for any CPU manufactured since the
+        // mid-1990s.
+        #if false
+        // This should work faster for CPUs that do speculative execution with
+        // limited ALU redundancy.
+        self ^= ((~value &+ 1) ^ self) & mask
+        #else
+        // This should work faster for most modern CPUs with significant ALU
+        // redundancy.
+        self = (self & ~mask) | ((~value &+ 1) & mask)
+        #endif
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func getBit(at bitIndex: Int) -> Self
+    {
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        return (self >> bitIndex) | 1
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func bit(at bitIndex: Int) -> Bool {
+        return getBit(at: bitIndex) != 0
     }
 }

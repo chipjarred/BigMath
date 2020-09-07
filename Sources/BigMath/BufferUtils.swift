@@ -253,3 +253,67 @@ internal func signficantDigits(of x: UIntBuffer) -> UIntBuffer {
 internal func signficantDigits(of x: MutableUIntBuffer) -> MutableUIntBuffer {
     return x[...indexOfMostSignificantUInt(of: x.immutable)]
 }
+
+// -------------------------------------
+/**
+ Given a bit index relative to a buffer, obtain the index for the corresponding digit and the
+ index of the bit in that digit.
+ */
+@usableFromInline @inline(__always)
+internal func digitAndBitIndex(for bitIndex: Int)
+    -> (digitIndex: Int, bitIndex: Int)
+{
+    // Since memory layouts are known at compile-time, these ifs should be
+    // optimized away leaving branchless calculations
+    if MemoryLayout<UInt>.size == 8
+    {
+        return (
+            digitIndex: bitIndex >> 6,
+            bitIndex: bitIndex & 0x3F
+        )
+    }
+    else if MemoryLayout<UInt>.size == 4
+    {
+        return (
+            digitIndex: bitIndex >> 5,
+            bitIndex: bitIndex & 0x1F
+        )
+    }
+    else
+    {
+        return (
+            digitIndex: bitIndex / UInt.bitWidth,
+            bitIndex: bitIndex % UInt.bitWidth
+        )
+    }
+}
+
+// -------------------------------------
+/**
+ Set or clear the bit at a bit index relative to a buffer.
+ */
+@usableFromInline @inline(__always)
+internal func setBit(
+    at bitIndex: Int,
+    in buff: inout MutableUIntBuffer,
+    to value: UInt)
+{
+    assert(value == 0 || value == 1)
+    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
+    
+    assert(buff.indices.contains(digitIndex))
+    
+    buff[digitIndex].setBit(at: bitIndex, to: value)
+}
+
+// -------------------------------------
+/**
+Retrieve the value of a bit at a bit index relative to a buffer.
+*/
+internal func getBit(at bitIndex: Int, from buff: UIntBuffer) -> UInt
+{
+    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
+    assert(buff.indices.contains(digitIndex))
+
+    return buff[digitIndex].getBit(at: bitIndex)
+}

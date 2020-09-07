@@ -130,9 +130,20 @@ extension WideUInt: BinaryInteger
     public init<S>(_truncatingBits source: S) where S : BinaryInteger
     {
         // First get the data from source into self
-        self =  Swift.withUnsafeBytes(of: source) {
-            $0.baseAddress!
-                .bindMemory(to: Self.self, capacity: 1).pointee
+        if MemoryLayout<S>.size >= MemoryLayout<Self>.size
+        {
+            self =  Swift.withUnsafeBytes(of: source) {
+                $0.baseAddress!
+                    .bindMemory(to: Self.self, capacity: 1).pointee
+            }
+        }
+        else
+        {
+            self.init()
+            Swift.withUnsafeMutableBytes(of: &self) {
+                $0.baseAddress!.bindMemory(to: S.self, capacity: 1)
+                    .pointee = source
+            }
         }
         
         // In case source has a smaller bitwidth, mask out the extra bits

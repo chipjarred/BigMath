@@ -61,11 +61,22 @@ extension WideInt: Numeric
     public init<T>(_truncatingBits source: T) where T : BinaryInteger
     {
         // First get the data from source into self
-        self =  Swift.withUnsafeBytes(of: source) {
-            $0.baseAddress!
-                .bindMemory(to: Self.self, capacity: 1).pointee
+        if MemoryLayout<T>.size >= MemoryLayout<Self>.size
+        {
+            self =  Swift.withUnsafeBytes(of: source) {
+                $0.baseAddress!
+                    .bindMemory(to: Self.self, capacity: 1).pointee
+            }
         }
-        
+        else
+        {
+            self.init()
+            Swift.withUnsafeMutableBytes(of: &self) {
+                $0.baseAddress!.bindMemory(to: T.self, capacity: 1)
+                    .pointee = source
+            }
+        }
+
         // In case source has a smaller bitwidth, mask out the extra bits
         // Since memory layouts are known at compile time, this condition
         // should be optimized away.

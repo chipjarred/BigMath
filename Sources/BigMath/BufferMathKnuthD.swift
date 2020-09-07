@@ -431,9 +431,9 @@ internal func fullWidthDivide_KnuthD(
             BigDigit(low: u[jPlusN &- 1], high: u[jPlusN])
         
         r̂.high = 0
-        (q̂.low, r̂.low) = dividendHead.high.quotientAndRemainder(dividingBy: vLast.low)
-        (q̂.high, r̂.low) = vLast.low.dividingFullWidth((r̂.low, dividendHead.low))
-        
+        (q̂.high, r̂.low) = dividendHead.high.quotientAndRemainder(dividingBy: vLast.low)
+        (q̂.low, r̂.low) = vLast.low.dividingFullWidth((r̂.high, dividendHead.low))
+
         let ujPlusNMinus2 = BigDigit(u[jPlusN &- 2])
         
         /*

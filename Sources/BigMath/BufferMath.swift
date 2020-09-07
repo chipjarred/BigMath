@@ -348,7 +348,7 @@ internal func addReportingCarry(
     let xEnd = xPtr + x.count
     let commonEnd = xPtr + fastMin(x.count, y.count)
     var yPtr = y.baseAddress!
-    let yEnd = xPtr + y.count
+    let yEnd = yPtr + y.count
     var zPtr = z.baseAddress!
 
     var carry = carryIn
@@ -425,19 +425,21 @@ internal func subtractReportingBorrow(
 {
     assert(x.count > 0)
     assert(y.count > 0)
-    assert(z.count == fastMax(x.count, y.count))
+    assert(z.count == max(x.count, y.count))
     
     var xPtr = x.baseAddress!
     let xEnd = xPtr + x.count
     let commonEnd = xPtr + fastMin(x.count, y.count)
     var yPtr = y.baseAddress!
-    let yEnd = xPtr + y.count
+    let yEnd = yPtr + y.count
     var zPtr = z.baseAddress!
+    let zEnd = zPtr + z.count
 
     var borrow = borrowIn
     
     repeat
     {
+        assert(zPtr < zEnd)
         // To allow x or y to alias z, compute the difference in a local
         // variable before storing it in z
         var difference: UInt
@@ -451,6 +453,7 @@ internal func subtractReportingBorrow(
     
     while xPtr < xEnd
     {
+        assert(zPtr < zEnd)
         (zPtr.pointee, borrow) = xPtr.pointee.subtractingReportingBorrow(borrow)
         xPtr += 1
         zPtr += 1
@@ -458,7 +461,10 @@ internal func subtractReportingBorrow(
     
     while yPtr < yEnd
     {
-        (zPtr.pointee, borrow) = yPtr.pointee.subtractingReportingBorrow(borrow)
+        assert(zPtr < zEnd)
+        let zP: UInt
+        (zP, borrow) = yPtr.pointee.subtractingReportingBorrow(borrow)
+        zPtr.pointee = zP
         yPtr += 1
         zPtr += 1
     }

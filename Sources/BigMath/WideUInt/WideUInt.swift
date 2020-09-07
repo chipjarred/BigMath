@@ -1,0 +1,289 @@
+/*
+Copyright 2020 Chip Jarred
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+ so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+import Foundation
+
+// -------------------------------------
+public struct WideUInt<T: WideDigit>: Hashable where T.Magnitude == T
+{
+    public typealias Digit = T
+    public typealias Magnitude = Self
+    
+    // -------------------------------------
+    @inlinable public static var max: Self {
+        return Self(low: Digit.max, high: Digit.max)
+    }
+    
+    @inlinable public static var min: Self { return 0 }
+    
+    @usableFromInline var low: Digit
+    @usableFromInline var high: Digit
+    
+    // -------------------------------------
+    @inlinable
+    public init(low: Digit, high: Digit)
+    {
+        self.low = low
+        self.high = high
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public init(low: Digit) {
+        self.low = low
+        self.high = 0
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public init(high: Digit) { self.init(low: 0, high: high) }
+    
+    // -------------------------------------
+    @inlinable
+    public init() { self.init(low: 0, high: 0) }
+
+    // -------------------------------------
+    @inlinable
+    public init(_ source: (high: Digit, low: Digit)) {
+        self.init(low: source.low, high: source.high)
+    }
+
+    // -------------------------------------
+    public static func extendingSign(of low: Digit) -> Self
+    {
+        let signBit = low >> (Digit.bitWidth - 1)
+        let signMask = ~signBit &+ 1
+        let extend: Digit = signMask & Digit.max
+        return Self(low: low, high: extend)
+    }
+}
+
+// -------------------------------------
+extension WideUInt
+{    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal mutating func withBuffers<R, S, T>(
+        _ x: S,
+        _ y: T,
+        body: (MutableUIntBuffer, UIntBuffer, UIntBuffer) -> R) -> R
+        where S: FixedWidthInteger, T: FixedWidthInteger
+    {
+        return self.withMutableBuffer
+        { selfBuffer in
+            return x.withBuffer
+            { xBuffer in
+                return y.withBuffer { yBuffer in
+                    return body(selfBuffer, xBuffer, yBuffer)
+                }
+            }
+        }
+    }
+    
+    // -------------------------------------
+    @usableFromInline
+    static func assertSourceIsUsable<T: BinaryInteger>(
+        _ source: T,
+        file: StaticString = #file,
+        line: UInt = #line)
+    {
+        assert(source.bitWidth == MemoryLayout<T>.size * 8,
+            "\(Self.self) can only represent a FixedWidthInteger that"
+            + " stores its bit pattern and *only* its bit pattern directly"
+            + " in itself (ie. not in an Array, or other indirect storage.)"
+        )
+        assert(source as? ContiguousBytes != nil,
+            "\(Self.self) can only represent a FixedWidthInteger that"
+            + " stores its bit pattern and *only* its bit pattern directly"
+            + " in itself (ie. not in an Array, or other indirect storage.)"
+        )
+    }
+}
+
+// -------------------------------------
+extension WideUInt
+{
+    // -------------------------------------
+    @inlinable
+    public init(_ source: Self) { self = source }
+    
+    // -------------------------------------
+    @inlinable
+    public init<T: WideDigit>(_ source: WideUInt<T>)
+    {
+        precondition(
+            Self.compareValues(of: Self.max, and: source) == .orderedDescending,
+            "\(source) cannot be represented by \(Self.self)"
+        )
+        self.init(_truncatingBits: source)
+    }
+
+    // -------------------------------------
+    @inlinable public init(_ source: UInt) { self.init(UInt64(source)) }
+    @inlinable public init(_ source: UInt8) { self.init(UInt64(source)) }
+    @inlinable public init(_ source: UInt16) { self.init(UInt64(source)) }
+    @inlinable public init(_ source: UInt32) {
+        self.init(_truncatingBits: source)
+    }
+    @inlinable public init(_ source: UInt64) {
+        self.init(_truncatingBits: source)
+    }
+
+    // -------------------------------------
+    @inlinable public init(_ source: Int) { self.init(Int64(source)) }
+    @inlinable public init(_ source: Int8) { self.init(Int64(source)) }
+    @inlinable public init(_ source: Int16) { self.init(Int64(source)) }
+    @inlinable public init(_ source: Int32) { self.init(Int64(source)) }
+    @inlinable public init(_ source: Int64)
+    {
+        precondition(
+            source >= 0,
+            "\(source) cannot be represented by \(Self.self)"
+        )
+        self.init(UInt64(source))
+    }
+
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal static func compareSizes<T, U>(
+        of x: T,
+        and y: U) -> ComparisonResult
+        where T: FixedWidthInteger, U: FixedWidthInteger
+    {
+        if MemoryLayout<T>.size < MemoryLayout<U>.size {
+            return .orderedAscending
+        }
+        if MemoryLayout<T>.size > MemoryLayout<U>.size {
+            return .orderedDescending
+        }
+        
+        return .orderedSame
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal static func compareValues<T, U>(
+        of x: T,
+        and y: U) -> ComparisonResult
+        where T: FixedWidthInteger, U: FixedWidthInteger
+    {
+        if compareSizes(of: x, and: y) == .orderedAscending {
+            return compareValues(of: U(truncatingIfNeeded: x), and: y)
+        }
+        return compareValues(of: x, and: T(truncatingIfNeeded: y))
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal static func compareValues<T>(
+        of x: T,
+        and y: T) -> ComparisonResult
+        where T: FixedWidthInteger
+    {
+        if x < y { return .orderedAscending }
+        if x > y { return .orderedDescending }
+        return .orderedSame
+    }
+}
+
+// -------------------------------------
+extension WideUInt where Digit == UInt32
+{
+    // -------------------------------------
+    @inlinable public init(_ source: UInt64)
+    {
+        self.init(
+            low: Digit(source & UInt64(Digit.max)),
+            high: Digit(source >> Digit.bitWidth)
+        )
+    }
+}
+
+// -------------------------------------
+extension WideUInt: Codable { }
+
+// -------------------------------------
+extension WideUInt
+{
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: ClosedRange<Self>) -> Self
+    {
+        assert(range.lowerBound <= range.upperBound)
+        
+        var delta = range.upperBound
+        delta &-= range.lowerBound
+        delta &+= 1
+        
+        if delta == 0 { return range.lowerBound }
+
+        var result = Self(
+            low: Digit.random(in: Digit.min...Digit.max),
+            high: Digit.random(in: Digit.min...Digit.max)
+        )
+        result %= delta
+        result &+= range.lowerBound
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: Range<Self>) -> Self
+    {
+        assert(range.lowerBound < range.upperBound)
+        
+        var delta = range.upperBound
+        delta &-= range.lowerBound
+        
+        var result = Self(
+            low: Digit.random(in: Digit.min...Digit.max),
+            high: Digit.random(in: Digit.min...Digit.max)
+        )
+        result %= delta
+        result &+= range.lowerBound
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: PartialRangeFrom<Self>) -> Self {
+        return random(in: range.lowerBound...Self.max)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: PartialRangeUpTo<Self>) -> Self {
+        return random(in: Self.min..<range.upperBound)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: PartialRangeThrough<Self>) -> Self {
+        return random(in: Self.min...range.upperBound)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func random(in range: UnboundedRange) -> Self {
+        return random(in: Self.min...Self.max)
+    }
+}

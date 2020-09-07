@@ -310,10 +310,46 @@ internal func setBit(
 /**
 Retrieve the value of a bit at a bit index relative to a buffer.
 */
+@usableFromInline @inline(__always)
 internal func getBit(at bitIndex: Int, from buff: UIntBuffer) -> UInt
 {
     let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
     assert(buff.indices.contains(digitIndex))
 
     return buff[digitIndex].getBit(at: bitIndex)
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func copyBytes<T, U>(of src: T, into dst: inout U)
+{
+    #if true
+    if MemoryLayout<T>.size >= MemoryLayout<U>.size {
+        dst = unsafeBitCast(src, to: U.self)
+    }
+    else
+    {
+        withUnsafeMutableBytes(of: &dst)
+        {
+            $0.bindMemory(to: T.self).baseAddress!.pointee = src
+            
+            // TODO: Implement a faster zero-fill.
+            var unusedBytes = $0[MemoryLayout<T>.size...]
+            for i in unusedBytes.indices {
+                unusedBytes[i] = 0
+            }
+        }
+    }
+    #else
+    withUnsafeBytes(of: src)
+    {
+        let srcBuf = UnsafeRawBufferPointer(
+            start: $0.baseAddress!,
+            count: min($0.count, MemoryLayout<U>.size)
+        )
+        withUnsafeMutableBytes(of: &dst) { dstBuf in
+            dstBuf.copyMemory(from: srcBuf)
+        }
+    }
+    #endif
 }

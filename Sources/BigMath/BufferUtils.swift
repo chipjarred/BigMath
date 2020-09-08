@@ -39,14 +39,14 @@ extension UIntBuffer
     var low: Self
     {
         assert(self.count.isMultiple(of: 2))
-        return self[..<(self.count / 2)]
+        return self[..<(self.startIndex + self.count / 2)]
     }
     
     @usableFromInline @inline(__always)
     var high: Self
     {
         assert(self.count.isMultiple(of: 2))
-        return self[(self.count / 2)...]
+        return self[(self.startIndex + self.count / 2)...]
     }
     
     // -------------------------------------
@@ -97,14 +97,14 @@ extension MutableUIntBuffer
     var low: Self
     {
         assert(self.count.isMultiple(of: 2))
-        return self[..<(self.count / 2)]
+        return self[..<(self.startIndex + self.count / 2)]
     }
     
     @usableFromInline @inline(__always)
     var high: Self
     {
         assert(self.count.isMultiple(of: 2))
-        return self[(self.count / 2)...]
+        return self[(self.startIndex + self.count / 2)...]
     }
     
     // -------------------------------------

@@ -55,6 +55,22 @@ import Foundation
  In fact, it's just adjusting a pointer to an address on the stack, so it's
  fast.
  
+ - Note: I've done the benchmark, and I was right.  Shift-subtract is way
+    slower than Knuth's algorithm.
+ 
+    Time in seconds to run algorithm 100,000 times:
+ 
+         | Integer Type | Shift-Subtract | Knuth D |
+         |--------------|----------------|---------|
+         |    UInt128   |      13.63     |   0.55  |
+         |    UInt256   |      27.47     |   0.93  |
+         |    UInt512   |      55.57     |   1.66  |
+         |   UInt1024   |     114.69     |   3.15  |
+         |   UInt2048   |     243.78     |   6.40  |
+         |   UInt4096   |     543.61     |  13.40  |
+ 
+
+ 
  This algorithm does have the advantage of not requiring any scratch buffer at
  all.
  */

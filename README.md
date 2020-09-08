@@ -102,10 +102,28 @@ I haven't done a lot of real benchmarking yet, though I have done informal compa
 
 The extensions for these protocols make heavy use of `@inlinable`, as do `WideInt` and `WideUInt`.  That means the compiler can see their implementation, and even if it chooses not to actually inline them, it should generate specialized functions that can be called without the protocol/generic witness table thunking overhead that would otherwise be required.
 
+### Multiplication
 The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.  I haven't yet tested where that cut-off is for my implementation, and my use is almost certainly below whatever that number turns out to be, which is why I default to school book.  I haven't yet made it available in the `WrappedInteger` types.  
 
-Division uses Donald Knuth's "Algorthm D" from *The Art of Computer Programming*, which assuming the divisor and dividend are similar lengths, as they are in this package, is O(*n*^2). At least two of the libraries I looked at claimed that their bitshift-subtract algorithm was O(*n*), but on closer inspection it definitely isn't. Actually both had identical code and comments, so either one borrowed from the other or they both borrowed from a common source.  Both the shift and subtract are each O(*n*) and they are in an O(*n*) loop, making the algorithm O(*n*^2) as well, and inefficiently so, as they have to process each bit individually, whereas Knuth's algorithm does whole digit arithmetic, which for my implemenation translates to native 64-bit integer arithmetic instructions (or 32-bit if you're still a on a 32-bit machine).  Bitshift-subtract is a reasonable hardware implementation, but I don't see how it could be a good software one.  I may get around to implementing it anyway just to get empirical data to verify or falsify my intuition, but the Knuth algorithm is already implemented and pretty well optimized.
+### Division
+Division uses Donald Knuth's "Algorthm D" from *The Art of Computer Programming*, which assuming the divisor and dividend are similar lengths, as they are in this package, is O(*n*^2). 
 
+At least two of the libraries I looked at claimed that their shift-subtract algorithm was O(*n*), but on closer inspection it definitely isn't. Actually both had identical code and comments, so either one borrowed from the other or they both borrowed from a common source.  Both the shift and subtract are each O(*n*) and they are in an O(*n*) loop, making the algorithm O(*n*^2) as well, and inefficiently so, as they have to process each bit individually, whereas Knuth's algorithm does whole digit arithmetic, which for my implemenation translates to native 64-bit integer arithmetic instructions (or 32-bit if you're still a on a 32-bit machine).  Bitshift-subtract is a reasonable hardware implementation, but I don't see how it could be a good software one.  
+
+I've implemented the shift-subtract division algorithm to benchmark it, and though I suspected it was going to be slower that Knuth's, and so was a little biased, I nonetheless did my best it to give every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divsor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were generated prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
+
+Time in seconds to run algorithm 100,000 times :
+| Integer Type | Shift-Subtract | Knuth D |
+|     :--:     |            --: |     --: |
+|    UInt128   |      13.63     |   0.55  |
+|    UInt256   |      27.47     |   0.93  |
+|    UInt512   |      55.57     |   1.66  |
+|   UInt1024   |     114.69     |   3.15  |
+|   UInt2048   |     243.78     |   6.40  |
+|   UInt4096   |     543.61     |  13.40  |
+
+
+### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.
 
 

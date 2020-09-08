@@ -24,5 +24,8 @@ let package = Package(
         .testTarget(
             name: "BigMathTests",
             dependencies: ["BigMath"]),
+        .testTarget(
+            name: "BigMathPerformanceTests",
+            dependencies: ["BigMath"]),
     ]
 )

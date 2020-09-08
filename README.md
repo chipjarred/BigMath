@@ -146,6 +146,7 @@ Time in seconds to run algorithm 100,000 times :
 |   `UInt2048`   |     243.78     |   6.40  |
 |   `UInt4096`   |     543.61     |  13.40  |
 
+*After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*
 
 ### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.

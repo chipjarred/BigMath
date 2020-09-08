@@ -359,7 +359,7 @@ public func fullWidthDivide_KnuthD<T, U, V, W>(
     - scratch: Buffer to hold normalized divisor during computation.  Must be
         the same size as `divisor`.
  */
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func fullWidthDivide_KnuthD(
     _ dividend: UIntBuffer,
     by divisor: UIntBuffer,

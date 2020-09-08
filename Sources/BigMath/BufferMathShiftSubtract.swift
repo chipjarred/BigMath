@@ -74,7 +74,7 @@ import Foundation
  This algorithm does have the advantage of not requiring any scratch buffer at
  all.
  */
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func fullWidthDivide_ShiftSubtract(
     _ dividend: UIntBuffer,
     by divisor: UIntBuffer,

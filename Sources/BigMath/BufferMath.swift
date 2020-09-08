@@ -602,7 +602,7 @@ internal func fullMultiplyBuffers_Karatsuba(
     let middleProduct = scratch3.low
     let extraScratch = scratch3.high
     
-    guard xBuf.count > 4 else
+    guard xBuf.count > 128 else
     {
         fullMultiplyBuffers_SchoolBook(xBuf, yBuf, result: zBuf)
         return

@@ -113,35 +113,35 @@ public struct UInt4096: WideUnsignedInteger
     @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
 }
 
-// -------------------------------------
-public struct UInt8192: WideUnsignedInteger
-{
-    public typealias Digit = UInt4096
-    
-    public var wrapped: Wrapped
-
-    public static let zero: Self = Self(wrapped: Wrapped())
-    public static let one: Self = Self(wrapped: Wrapped(1))
-    public static let min: Self = Self(wrapped: Wrapped.min)
-    public static let max: Self = Self(wrapped: Wrapped.max)
-
-    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
-}
-
-// -------------------------------------
-public struct UInt16384: WideUnsignedInteger
-{
-    public typealias Digit = UInt8192
-    
-    public var wrapped: Wrapped
-
-    public static let zero: Self = Self(wrapped: Wrapped())
-    public static let one: Self = Self(wrapped: Wrapped(1))
-    public static let min: Self = Self(wrapped: Wrapped.min)
-    public static let max: Self = Self(wrapped: Wrapped.max)
-
-    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
-}
+//// -------------------------------------
+//public struct UInt8192: WideUnsignedInteger
+//{
+//    public typealias Digit = UInt4096
+//    
+//    public var wrapped: Wrapped
+//
+//    public static let zero: Self = Self(wrapped: Wrapped())
+//    public static let one: Self = Self(wrapped: Wrapped(1))
+//    public static let min: Self = Self(wrapped: Wrapped.min)
+//    public static let max: Self = Self(wrapped: Wrapped.max)
+//
+//    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
+//}
+//
+//// -------------------------------------
+//public struct UInt16384: WideUnsignedInteger
+//{
+//    public typealias Digit = UInt8192
+//    
+//    public var wrapped: Wrapped
+//
+//    public static let zero: Self = Self(wrapped: Wrapped())
+//    public static let one: Self = Self(wrapped: Wrapped(1))
+//    public static let min: Self = Self(wrapped: Wrapped.min)
+//    public static let max: Self = Self(wrapped: Wrapped.max)
+//
+//    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
+//}
 //
 //// -------------------------------------
 //public struct UInt32768: WideUnsignedInteger
@@ -270,44 +270,12 @@ public struct Int4096: WideSignedInteger
     @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
 }
 
-// -------------------------------------
-public struct Int8192: WideSignedInteger
-{
-    public typealias Digit = UInt4096
-    public typealias Magnitude = UInt8192
-    
-    public var wrapped: Wrapped
-
-    public static let zero: Self = Self(wrapped: Wrapped())
-    public static let one: Self = Self(wrapped: Wrapped(1))
-    public static let min: Self = Self(wrapped: Wrapped.min)
-    public static let max: Self = Self(wrapped: Wrapped.max)
-
-    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
-}
-
-// -------------------------------------
-public struct Int16384: WideSignedInteger
-{
-    public typealias Digit = UInt8192
-    public typealias Magnitude = UInt16384
-    
-    public var wrapped: Wrapped
-
-    public static let zero: Self = Self(wrapped: Wrapped())
-    public static let one: Self = Self(wrapped: Wrapped(1))
-    public static let min: Self = Self(wrapped: Wrapped.min)
-    public static let max: Self = Self(wrapped: Wrapped.max)
-
-    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
-}
-//
 //// -------------------------------------
-//public struct Int32768: WideSignedInteger
+//public struct Int8192: WideSignedInteger
 //{
-//    public typealias Digit = UInt16384
-//    public typealias Magnitude = UInt32768
-//    
+//    public typealias Digit = UInt4096
+//    public typealias Magnitude = UInt8192
+//
 //    public var wrapped: Wrapped
 //
 //    public static let zero: Self = Self(wrapped: Wrapped())
@@ -319,11 +287,43 @@ public struct Int16384: WideSignedInteger
 //}
 //
 //// -------------------------------------
+//public struct Int16384: WideSignedInteger
+//{
+//    public typealias Digit = UInt8192
+//    public typealias Magnitude = UInt16384
+//
+//    public var wrapped: Wrapped
+//
+//    public static let zero: Self = Self(wrapped: Wrapped())
+//    public static let one: Self = Self(wrapped: Wrapped(1))
+//    public static let min: Self = Self(wrapped: Wrapped.min)
+//    public static let max: Self = Self(wrapped: Wrapped.max)
+//
+//    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
+//}
+//
+//// -------------------------------------
+//public struct Int32768: WideSignedInteger
+//{
+//    public typealias Digit = UInt16384
+//    public typealias Magnitude = UInt32768
+//
+//    public var wrapped: Wrapped
+//
+//    public static let zero: Self = Self(wrapped: Wrapped())
+//    public static let one: Self = Self(wrapped: Wrapped(1))
+//    public static let min: Self = Self(wrapped: Wrapped.min)
+//    public static let max: Self = Self(wrapped: Wrapped.max)
+//
+//    @inlinable public init(wrapped: Wrapped) { self.wrapped = wrapped }
+//}
+
+//// -------------------------------------
 //public struct Int65536: WideSignedInteger
 //{
 //    public typealias Digit = UInt32768
 //    public typealias Magnitude = UInt65536
-//    
+//
 //    public var wrapped: Wrapped
 //
 //    public static let zero: Self = Self(wrapped: Wrapped())

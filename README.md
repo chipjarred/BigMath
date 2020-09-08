@@ -31,6 +31,8 @@ And then create 256-bit integer type from it:
     
     typealias MyUInt256 = WideUInt<MyUInt128>
 
+*You should be aware that composing larger and larger types does have a dramatic impact on release build time.  Their nested, heavily inlined structure really exercises the Swift compiler's optimizers.   I recommend you build up to what you've empirically determined you need, and only build larger types when you've determined that you actually need them*
+
 ### `WideInt<T>`
 
 `WideInt` is the *signed* integer type.  It conforms to `FixedWidthInteger`, and `SignedInteger`.  You build one up just like you do `WideUInt`.   And when I say, "just like", I mean, "just like."  They are built of *unsigned* digits, just like `WideUInt`.  So if you want to build your own wide signed integers, you will build unsigned integers to use as the digits:
@@ -103,7 +105,29 @@ I haven't done a lot of real benchmarking yet, though I have done informal compa
 The extensions for these protocols make heavy use of `@inlinable`, as do `WideInt` and `WideUInt`.  That means the compiler can see their implementation, and even if it chooses not to actually inline them, it should generate specialized functions that can be called without the protocol/generic witness table thunking overhead that would otherwise be required.
 
 ### Multiplication
-The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.  I haven't yet tested where that cut-off is for my implementation, and my use is almost certainly below whatever that number turns out to be, which is why I default to school book.  I haven't yet made it available in the `WrappedInteger` types.  
+The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  
+
+There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   For that reason most Karatsuba implementations, including mine, have a threshold for the number of digits, below which it fails over to school book.  After some experimentation, I've set mine to 128 digits (which is based on results on one particular 64-bit Mac, so hardly the best choice for every machine this package might run on.)
+
+The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384 bits integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over.
+
+These tests consisted of randomly generating 100,000 multilicand-multiplier pairs and doing full width multiplication (meaning the result is twice as wide as the operands).  The run times in the following table do not include generation of these pairs.  One algorithm is timed multiplying all of the pairs before  the second algorithm is timed multiplying the same pairs.  Both algorithms are tested on a single type before testing them on the next type.
+
+Time in seconds to run algorithm 100,000 times :
+| Integer Type | School Book | Karatsuba |
+|     :--:     |            --: |     --: |
+|    `UInt128`   |      0.09    |   0.116  |
+|    `UInt256`   |      0.14    |   0.341  |
+|    `UInt512`   |      0.27    |   0.690  |
+|   `UInt1024`   |     0.534    |   1.401  |
+|   `UInt2048`   |     1.142    |   2.980  |
+|   `UInt4096`   |     2.589    |   6.446  |
+|   `UInt8192`   |     6.363    |  14.333  |
+|  `UInt16384`   |    50.782    |  72.539  |
+
+Another thing to note is that up to `UInt8192` in these tests, Karatsuba is actually just calling the school book method.  On first blush, one would expect that their performance should be identical, and yet Karatsuba's failing over to school book is markedly slower than just calling school book directly.   The reason for this is that school book is a completely iterative algorithm, and easily inlinable.  Karatsuba, on the other hand, is recursive, and not tail recursive which one could translate into an iterative version fairly easily.  It works by doing 3 smaller multiplications and combining the results.   That recursive nature is a problem for inlining, so even the top-level call to that function is a real, honest-to-God function call.  That overhead accounts for the performance difference.  If I can figure out a clever way to do Karatsuba iteratively without doing any heap allocations, I will implement it, and revisit these tests.
+
+I should also mention that I only created the types larger than 4096 bits for these tests.  They have been disabled to keep build times reasonable.
 
 ### Division
 Division uses Donald Knuth's "Algorthm D" from *The Art of Computer Programming*, which assuming the divisor and dividend are similar lengths, as typically they are in this package, is O(*n*^2). 
@@ -115,12 +139,12 @@ I've implemented the shift-subtract division algorithm to benchmark it, and thou
 Time in seconds to run algorithm 100,000 times :
 | Integer Type | Shift-Subtract | Knuth D |
 |     :--:     |            --: |     --: |
-|    UInt128   |      13.63     |   0.55  |
-|    UInt256   |      27.47     |   0.93  |
-|    UInt512   |      55.57     |   1.66  |
-|   UInt1024   |     114.69     |   3.15  |
-|   UInt2048   |     243.78     |   6.40  |
-|   UInt4096   |     543.61     |  13.40  |
+|    `UInt128`   |      13.63     |   0.55  |
+|    `UInt256`   |      27.47     |   0.93  |
+|    `UInt512`   |      55.57     |   1.66  |
+|   `UInt1024`   |     114.69     |   3.15  |
+|   `UInt2048`   |     243.78     |   6.40  |
+|   `UInt4096`   |     543.61     |  13.40  |
 
 
 ### Memory Allocation

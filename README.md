@@ -98,7 +98,7 @@ That's it.  The protocol extensions for `WideUnsignedInteger`, and `WideSignedIn
 
 ## Performance
 
-I haven't done a lot of real benchmarking yet, though I have done informal comparisons experiments on the performance for the smaller types (`UInt128`, and `UInt256`) that are promising.  Real benchmarking is a to-do, and an important one since performance is the whole reason for writing my own BigMath library anyway.  Plus it would be helpful for anyone considering using package to see some actual numbers.
+I haven't done a lot of real benchmarking yet, though I have done informal comparisons experiments on the performance for the smaller types (`UInt128`, and `UInt256`) that are promising.  Real benchmarking is a to-do, and an important one since performance is the whole reason for writing my own BigMath library anyway.  Plus it would be helpful for anyone considering using this package to see some actual numbers.
 
 The extensions for these protocols make heavy use of `@inlinable`, as do `WideInt` and `WideUInt`.  That means the compiler can see their implementation, and even if it chooses not to actually inline them, it should generate specialized functions that can be called without the protocol/generic witness table thunking overhead that would otherwise be required.
 

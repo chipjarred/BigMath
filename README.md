@@ -111,7 +111,7 @@ There is a working version of Karatsuba multiplication available for `WideUInt`.
 
 The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384 bits integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over.
 
-These tests consisted of randomly generating 100,000 multilicand-multiplier pairs and doing full width multiplication (meaning the result is twice as wide as the operands).  The run times in the following table do not include generation of these pairs.  One algorithm is timed multiplying all of the pairs before  the second algorithm is timed multiplying the same pairs.  Both algorithms are tested on a single type before testing them on the next type.
+These tests consisted of randomly generating 100,000 multiplicand-multiplier pairs and doing full width multiplication (meaning the result is twice as wide as the operands).  The run times in the following table do not include generation of these pairs.  One algorithm is timed multiplying all of the pairs before  the second algorithm is timed multiplying the same pairs.  Both algorithms are tested on a single type before testing them on the next type.
 
 Time in seconds to run algorithm 100,000 times :
 | Integer Type | School Book | Karatsuba |

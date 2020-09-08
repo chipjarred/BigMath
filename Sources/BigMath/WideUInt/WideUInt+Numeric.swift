@@ -84,39 +84,7 @@ extension WideUInt: Numeric
     public func multipliedFullWidth(by other: Self)
         -> (high: Self, low: Self.Magnitude)
     {
-        return multipliedFullWidth_schoolbook2(by: other)
-    }
-    
-    // -------------------------------------
-    /**
-     Full width multiplication using the "school book" method, treating the
-     `WideUInt` parameters as 2-"digit" numbers.  This method *may* have better
-     performance for `WideUInt`s with relatively small bit widths, because it
-     contains no loops and therefore no branches, but for larger sizes is likely
-     to result in cache faults, slowing it down.
-     */
-    @inlinable
-    public func multipliedFullWidth_schoolbook(by other: Self)
-        -> (high: Self, low: Self.Magnitude)
-    {
-        typealias BiggerInt = WideUInt<Self>
-        
-        var result = BiggerInt(
-            high: Self(self.high.multipliedFullWidth(by: other.high))
-        )
-        var p = Self(self.high.multipliedFullWidth(by: other.low))
-        result &+= BiggerInt(
-            low: Self(high: p.low), high: Self(low: p.high)
-        )
-        p = Self(self.low.multipliedFullWidth(by: other.high))
-        result &+= BiggerInt(
-            low: Self(high: p.low), high: Self(low: p.high)
-        )
-        result &+= BiggerInt(
-            low: Self(self.low.multipliedFullWidth(by: other.low))
-        )
-
-        return (high: result.high, low: result.low)
+        return multipliedFullWidth_schoolbook(by: other)
     }
     
     // -------------------------------------
@@ -126,7 +94,7 @@ extension WideUInt: Numeric
      have better cache performance for `WideUInt`s with large bit widths.
      */
     @inlinable
-    public func multipliedFullWidth_schoolbook2(by other: Self)
+    public func multipliedFullWidth_schoolbook(by other: Self)
         -> (high: Self, low: Self.Magnitude)
     {
         typealias BiggerInt = WideUInt<Self>

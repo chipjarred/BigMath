@@ -602,7 +602,7 @@ internal func fullMultiplyBuffers_Karatsuba(
     let middleProduct = scratch3.low
     let extraScratch = scratch3.high
     
-    guard xBuf.count > 1 else
+    guard xBuf.count > 4 else
     {
         fullMultiplyBuffers_SchoolBook(xBuf, yBuf, result: zBuf)
         return
@@ -613,7 +613,7 @@ internal func fullMultiplyBuffers_Karatsuba(
         yBuf.low,
         scratch1: differences.low,
         scratch2: differences.high,
-        scratch3: middleTerm.low,
+        scratch3: middleTerm,
         result: zBuf.low
     )
     
@@ -622,7 +622,7 @@ internal func fullMultiplyBuffers_Karatsuba(
         yBuf.high,
         scratch1: differences.low,
         scratch2: differences.high,
-        scratch3: middleTerm.low,
+        scratch3: middleTerm,
         result: zBuf.high
     )
 

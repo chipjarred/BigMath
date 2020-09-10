@@ -107,7 +107,7 @@ The extensions for these protocols make heavy use of `@inlinable`, as do `WideIn
 ### Multiplication
 The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  
 
-There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   For that reason most Karatsuba implementations, including mine, have a threshold for the number of digits, below which it fails over to school book.  After some experimentation, I've set mine to 128 digits (which is based on results on one particular 64-bit Mac, so hardly the best choice for every machine this package might run on.)
+There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   For that reason most Karatsuba implementations, including mine, have a threshold for the number of digits, below which it fails over to school book.  After some experimentation, I've set mine to 8192 bits (which is based on results on one particular 64-bit Mac, so hardly the best choice for every machine this package might run on.)
 
 The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384-bit integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over.
 
@@ -137,16 +137,19 @@ At least two of the libraries I looked at claimed that their shift-subtract algo
 I've implemented the shift-subtract division algorithm to benchmark it, and though I suspected it was going to be slower than Knuth's, and so was a little biased, I nonetheless did my best to give it every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divisor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were created to be used in the tests prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
 
 Time in seconds to run algorithm 100,000 times :
-| Integer Type | Shift-Subtract | Knuth D |
-|     :--:     |            --: |     --: |
-|    `UInt128`   |      13.63     |   0.55  |
-|    `UInt256`   |      27.47     |   0.93  |
-|    `UInt512`   |      55.57     |   1.66  |
-|   `UInt1024`   |     114.69     |   3.15  |
-|   `UInt2048`   |     243.78     |   6.40  |
-|   `UInt4096`   |     543.61     |  13.40  |
+| Integer Type | Shift-Subtract | Knuth D[^1] | Knuth D2[^2] |
+|     :--:     |            --: |     --: |     --: |
+|    `UInt128`   |      13.63     |   0.55  |    0.19   |
+|    `UInt256`   |      27.47     |   0.93  |    0.37   |
+|    `UInt512`   |      55.57     |   1.66  |    0.70   |
+|   `UInt1024`   |     114.69     |   3.15  |  1.39   |
+|   `UInt2048`   |     243.78     |   6.40  |  2.89   |
+|   `UInt4096`   |     543.61     |  13.40  |  6.37  |
 
 *After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*
+
+[^1] Knuth D is the version of the algorithm used in the original comparison with shift-subtract
+[^2] Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
 
 ### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.

@@ -21,6 +21,16 @@ SOFTWARE.
 */
 
 // -------------------------------------
+/**
+ Subtract two `FixedWidthInteger`s, `x`, and `y`, storing the result back to
+ `y`. (ie. `x -= y`)
+ 
+ - Parameters:
+    - x: The minuend and recipient of the resulting difference.
+    - y: The subtrahend
+ 
+ - Returns: Borrow out of the difference.
+ */
 @usableFromInline @inline(__always)
 func subtractReportingBorrow<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
 {
@@ -30,6 +40,16 @@ func subtractReportingBorrow<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
 }
 
 // -------------------------------------
+/**
+ Add two `FixedWidthInteger`s, `x`, and `y`, storing the result back to `x`.
+ (ie. `x += y`)
+ 
+ - Parameters:
+    - x: The first addend and recipient of the resulting sum.
+    - y: The second addend
+ 
+ - Returns: Carry out of the sum.
+ */
 @usableFromInline @inline(__always)
 func addReportingCarry<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
 {
@@ -39,11 +59,25 @@ func addReportingCarry<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
 }
 
 // -------------------------------------
+/**
+ Compute `y = y - x * k`
+ 
+ - Parameters:
+    - x: A multiprecision number with the least signficant digit
+        stored at index 0 (ie. little endian).  It is multiplied by the "digit",
+        `k`, with the resulting product being subtracted from `y`
+    - k: Scalar multiple to apply to `x` prior to subtraction
+    - y: Both the number being subtracted from, and the storage for the result,
+        represented as a collection of digits with the least signficant digits
+        at index 0.
+ 
+ - Returns: The borrow out of the most signficant digit of `y`.
+ */
 @usableFromInline @inline(__always)
 func subtractReportingBorrow<T, U>(
     _ x: T,
     times k: T.Element,
-    from y: inout U) -> T.Element
+    from y: inout U) -> Bool
     where T: RandomAccessCollection,
     T.Element: FixedWidthInteger,
     T.Element.Magnitude == T.Element,
@@ -53,22 +87,39 @@ func subtractReportingBorrow<T, U>(
     U.Element == T.Element,
     U.Index == T.Index
 {
-    assert(x.count <= y.count)
+    assert(x.count + 1 <= y.count)
     
+    var i = x.startIndex
+    var j = y.startIndex
+
     var borrow: T.Element = 0
-    for (i, j) in zip(x.indices, y.indices)
+    while i < x.endIndex
     {
         borrow = subtractReportingBorrow(&y[j], borrow)
         let (pHi, pLo) = k.multipliedFullWidth(by: x[i])
         borrow &+= pHi
         borrow &+= subtractReportingBorrow(&y[j], pLo)
+        
+        i &+= 1
+        j &+= 1
     }
-    return borrow
+    
+    return 0 != subtractReportingBorrow(&y[j], borrow)
 }
 
 // -------------------------------------
+/**
+ Add two multiprecision numbers.
+ 
+ - Parameters:
+    - x: The first addend as a collection digits with the least signficant
+        digit at index 0 (ie. little endian).
+    - y: The second addend and the storage for the resulting sum as a
+        collection of digits with the the least signficant digit at index 0
+        (ie. little endian).
+ */
 @usableFromInline @inline(__always)
-func addReportingCarry<T, U>(x: T, to y: inout U) -> T.Element
+func += <T, U>(left: inout U, right: T )
     where T: RandomAccessCollection,
     T.Element: FixedWidthInteger,
     T.Index == Int,
@@ -77,18 +128,34 @@ func addReportingCarry<T, U>(x: T, to y: inout U) -> T.Element
     U.Element == T.Element,
     U.Index == T.Index
 {
-    assert(x.count == y.count)
+    assert(right.count + 1 == left.count)
     var carry: T.Element = 0
-    for (i, j) in zip(x.indices, y.indices)
+    
+    var i = right.startIndex
+    var j = left.startIndex
+    while i < right.endIndex
     {
-        carry = addReportingCarry(&y[j], carry)
-        carry &+= addReportingCarry(&y[j], x[i])
+        carry = addReportingCarry(&left[j], carry)
+        carry &+= addReportingCarry(&left[j], right[i])
+        
+        i &+= 1
+        j &+= 1
     }
     
-    return carry
+    left[j] &+= carry
 }
 
 // -------------------------------------
+/**
+ Shift the multiprecision unsigned integer, `x`, left by `shift` bits.
+ 
+ - Parameters:
+    - x: The mutliprecision unsigned integer to be left-shfited, stored as a
+        collection of digits with the least signficant digit stored at index 0.
+        (ie. little endian)
+    - shift: the number of bits to shift `x` by.
+    - y: Storage for the resulting shift of `x`.  May alias `x`.
+ */
 @usableFromInline @inline(__always)
 func leftShift<T, U>(_ x: T, by shift: Int, into y: inout U)
     where
@@ -112,6 +179,16 @@ func leftShift<T, U>(_ x: T, by shift: Int, into y: inout U)
 }
 
 // -------------------------------------
+/**
+ Shift the multiprecision unsigned integer,`x`, right by `shift` bits.
+ 
+ - Parameters:
+    - x: The mutliprecision unsigned integer to be right-shfited, stored as a
+        collection of digits with the least signficant digit stored at index 0.
+        (ie. little endian)
+    - shift: the number of bits to shift `x` by.
+    - y: Storage for the resulting shift of `x`.  May alias `x`.
+ */
 @usableFromInline @inline(__always)
 func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
     where
@@ -123,7 +200,7 @@ func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
     U.Element == T.Element,
     U.Index == T.Index
 {
-    assert(y.count >= x.count)
+    assert(y.count == x.count)
     assert(y.startIndex == x.startIndex)
     let bitWidth = MemoryLayout<T.Element>.size * 8
     
@@ -136,14 +213,14 @@ func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
 
 // -------------------------------------
 /**
- Divide the multiprecision number stored in x, by the "digit" y.
+ Divide the multiprecision number stored in `x`, by the "digit",`y.`
  
  - Parameters:
-    x: The dividend as a multiprecision number with the least signficant digit
+    - x: The dividend as a multiprecision number with the least signficant digit
         stored at index 0 (ie. little endian).
-    y: The single digit divisor (where digit is the same radix as digits of
+    - y: The single digit divisor (where digit is the same radix as digits of
         `x`).
-    z: storage to receive the quotient on exit.  Must be same size as `x`
+    - z: storage to receive the quotient on exit.  Must be same size as `x`
 
 - Returns: A single digit remainder.
  */
@@ -176,22 +253,109 @@ func divide<T, U>(_ x: T, by y: T.Element, result z: inout U) -> T.Element
 }
 
 // -------------------------------------
+/// Multiply a tuple of digits by 1 digit
+@usableFromInline @inline(__always)
+internal func * <T>(
+    left: (high: T, low: T),
+    right: T) -> (high: T, low: T)
+    where T: FixedWidthInteger, T.Magnitude == T
+{
+    var product = left.low.multipliedFullWidth(by: right)
+    let productHigh = left.high.multipliedFullWidth(by: right)
+    assert(productHigh.high == 0, "multiplication overflow")
+    let c = addReportingCarry(&product.high, productHigh.low)
+    assert(c == 0, "multiplication overflow")
+    
+    return product
+}
+
+infix operator /% : MultiplicationPrecedence
+
+// -------------------------------------
+/// Divide a tuple of digits by 1 digit obtaining both quotient and remainder
+@usableFromInline @inline(__always)
+internal func /% <T>(
+    left: (high: T, low: T),
+    right: T) -> (quotient: (high: T, low: T), remainder: (high: T, low: T))
+    where T: FixedWidthInteger, T.Magnitude == T
+{
+    var r: T
+    let q: (high: T, low: T)
+    (q.high, r) = left.high.quotientAndRemainder(dividingBy: right)
+    (q.low, r) = right.dividingFullWidth((high: r, low: left.low))
+    
+    return (q, (high: 0, low: r))
+}
+
+// -------------------------------------
+/**
+ Tests if  the tuple, `left`, is greater than tuple, `right`.
+ 
+ - Returns: `UInt8` that has the value of 1 if `left` is greater than right;
+    otherwise, 0.  This is done in place of returning a boolean as part of an
+    optimization to avoid hidden conditional branches in boolean expressions.
+ */
+
+@usableFromInline @inline(__always)
+internal func > <T>(left: (high: T, low: T), right: (high: T, low: T)) -> UInt8
+    where T: FixedWidthInteger, T.Magnitude == T
+{
+    return UInt8(left.high > right.high)
+        | (UInt8(left.high == right.high) & UInt8(left.low > right.low))
+}
+
+// -------------------------------------
+/// Add a digit to a tuple's low part, carrying to the high part.
+@usableFromInline @inline(__always)
+func += <T>(left: inout (high: T, low: T), right: T)
+    where T: FixedWidthInteger, T.Magnitude == T
+
+{
+    left.high &+= addReportingCarry(&left.low, right)
+}
+
+// -------------------------------------
+/// Add one tuple to another tuple
+@usableFromInline @inline(__always)
+func += <T>(left: inout (high: T, low: T), right: (high: T, low: T))
+    where T: FixedWidthInteger, T.Magnitude == T
+
+{
+    left.high &+= addReportingCarry(&left.low, right.low)
+    left.high &+= right.high
+}
+
+// -------------------------------------
+/// Subtract a digit from a tuple, borrowing the high part if necessary
+@usableFromInline @inline(__always)
+func -= <T>(left: inout (high: T, low: T), right: T)
+    where T: FixedWidthInteger, T.Magnitude == T
+
+{
+    left.high &-= subtractReportingBorrow(&left.low, right)
+}
+
+
+// -------------------------------------
 /**
  Divide multiprecision unsigned integer, `x`, by multiprecision unsigned
  integer, `y`, obtaining both the quotient and remainder.
  
  Implements Alogorithm D, from Donald Knuth's, *The Art of Computer Programming*
- , Volume 2,*Semi-numerical Algorithms*, Chapter 4.3.1.
+ , Volume 2,*Semi-numerical Algorithms*, Chapter 4.3.3.
  
- - Note: This version of the function is super-generic, hence the long list of type constraints, but you can
- use any kind of random access collection for the buffers, even different ones, so long as they use the same
- unsigned integer type for digits, that it is promotable (meaning there is a larger integer size defined on which
- basic  arithmetic operations can be performend, and so long as the collections use `Int` as their index type.
- For performance reasons, you probably want to specialize it for your particular collection types, in order to
- avoid lots of generic/protocol thunking through witness tables, but that should only require changing the
- function signature.  However, it is declared as `public` and `@inlinable`, not becuase I expect the
- compiler to actually inline it, but because it exposes the implementation for it create a specialized version for
- the parameters it is called with.
+ - Note: This version of the function is super-generic, hence the long list of
+ type constraints, but you can use any kind of random access collection for the
+ buffers, even different ones, so long as they use the same unsigned integer
+ type for digits, that it is promotable (meaning there is a larger integer size
+ defined on which basic  arithmetic operations can be performend, and so long
+ as the collections use `Int` as their index type.  For performance reasons,
+ you probably want to specialize it for your particular collection types, in
+ order to  avoid lots of generic/protocol thunking through witness tables, but
+ that should only require changing the function signature.  However, it is
+ declared as `public` and `@inlinable`, not becuase I expect the  compiler to
+ actually inline it, but because it exposes the implementation for it create a
+ specialized version for the parameters it is called with.
  
  - Parameters:
     - dividend: The dividend stored as an unsigned multiprecision integer with
@@ -209,12 +373,12 @@ public func fullWidthDivide_KnuthD<T, U, V, W>(
     _ dividend: T,
     by divisor: U,
     quotient: inout V,
-    remainder: inout W)
+    remainder: inout W
+)
     where
     T: RandomAccessCollection,
-    T.Element: PromotableInteger,
+    T.Element: FixedWidthInteger,
     T.Element.Magnitude == T.Element,
-    T.Element.Promoted.Demoted == T.Element,
     T.Index == Int,
     U: RandomAccessCollection,
     U.Element == T.Element,
@@ -229,7 +393,7 @@ public func fullWidthDivide_KnuthD<T, U, V, W>(
     W.Index == T.Index
 {
     typealias Digit = T.Element
-    typealias BigDigit = Digit.Promoted
+    typealias TwoDigits = (high: T.Element, low: T.Element)
     let digitWidth = Digit.bitWidth
     let m = dividend.count
     let n = divisor.count
@@ -238,17 +402,15 @@ public func fullWidthDivide_KnuthD<T, U, V, W>(
     assert(divisor.reduce(0) { $0 | $1 } != 0, "Division by 0")
     assert(m >= n, "Dividend must have at least as many digits as the divisor")
     assert(
-        quotient.count == m - n + 1,
-        "Quotient must have space for the number of digits in the dividend "
-        + "minus the number of digits in the divisor plus one more digit."
+        quotient.count >= m - n + 1,
+        "Must have space for the number of digits in the dividend minus the "
+        + "number of digits in the divisor plus one more digit."
     )
     assert(
         remainder.count == n,
         "Remainder must have space for the same number of digits as the divisor"
     )
 
-    let radix: Digit.Promoted = 1 << digitWidth
-    
     guard n > 1 else
     {
         remainder[0] = divide(dividend, by: divisor.first!, result: &quotient)
@@ -264,74 +426,42 @@ public func fullWidthDivide_KnuthD<T, U, V, W>(
     u[m] = dividend[m - 1] >> (digitWidth - shift)
     leftShift(dividend, by: shift, into: &u)
     
-    let vLast = BigDigit(v.last!)
-    let vNextToLast = BigDigit(v[n - 2])
-    let cRightDelta = vLast * radix
+    let vLast: Digit = v.last!
+    let vNextToLast: Digit = v[n - 2]
+    let partialDividendDelta: TwoDigits = (high: vLast, low: 0)
 
     for j in (0...(m - n)).reversed()
     {
         let jPlusN = j &+ n
         
-        let dividendHead: BigDigit =
-            BigDigit(u[jPlusN]) &* radix &+ BigDigit(u[jPlusN &- 1])
+        let dividendHead: TwoDigits = (high: u[jPlusN], low: u[jPlusN &- 1])
         
-        var (q̂, r̂) = dividendHead.quotientAndRemainder(dividingBy: vLast)
-        
-        let ujPlusNMinus2 = BigDigit(u[jPlusN &- 2])
-        
-        /*
-         These two lines are inside the loop according to Knuth's algorithm,
-         but in fact, we only need to do the multiplications once, then we can
-         update these with addition and subtraction in the loop if needed.  To
-         be sure, these multiplications translate directly to native
-         instructions, so they're not slow, but so do the addition and
-         subtraction, and they're faster than multiplication.
-         */
-        var c2Left = q̂ &* vNextToLast
-        var c2Right = radix &* r̂ &+ ujPlusNMinus2
+        // These are tuple arithemtic operations.  `/%` is custom combined
+        // division and remainder operator.  See TupleMath.swift
+        var (q̂, r̂) = dividendHead /% vLast
+        var partialProduct = q̂ * vNextToLast
+        var partialDividend:TwoDigits = (high: r̂.low, low: u[jPlusN &- 2])
         
         while true
         {
-            let q̂IsTwoDigits = UInt8(q̂ >= radix)
-            let otherDigitsMakeQTooHigh = UInt8(c2Left > c2Right)
-            
-            /*
-             Bitwise "or" here helps the branch predictor. The logical "or" one
-             would normally use implicitly adds another branch to be
-             mispredicted
-             */
-            if (q̂IsTwoDigits | otherDigitsMakeQTooHigh) == 1
+            if (UInt8(q̂.high != 0) | (partialProduct > partialDividend)) == 1
             {
-                q̂ &-= 1
-                r̂ &+= vLast
+                q̂ -= 1
+                r̂ += vLast
+                partialProduct -= vNextToLast
+                partialDividend += partialDividendDelta
                 
-                /*
-                 As mentioned in a previous comment, we avoid multiplying
-                 inside the loop.  The following two lines are the secret sauce.
-                 */
-                c2Left &-= vNextToLast
-                c2Right &+= cRightDelta
-                
-                if r̂ < radix { continue }
+                if r̂.high == 0 { continue }
             }
             break
         }
 
-        var borrow = subtractReportingBorrow(
-            v[0..<n],
-            times: q̂.low,
-            from: &u[j..<jPlusN]
-        )
-        
-        borrow = subtractReportingBorrow(&u[jPlusN], borrow)
-
         quotient[j] = q̂.low
         
-        if borrow != 0
+        if subtractReportingBorrow(v[0..<n], times: q̂.low, from: &u[j...jPlusN])
         {
             quotient[j] &-= 1
-            let carry = addReportingCarry(x: v[0..<n], to: &u[j..<(jPlusN)])
-            u[jPlusN] &+= carry
+            u[j...jPlusN] += v[0..<n] // digit collection addition!
         }
     }
     
@@ -373,7 +503,7 @@ internal func fullWidthDivide_KnuthD(
     var remainder = remainder[...]
     
     typealias Digit = UInt
-    typealias BigDigit = WideUInt<UInt>
+    typealias TwoDigits = (high: UInt, low: UInt)
     let digitWidth = Digit.bitWidth
     let m = dividend.count
     let n = divisor.count
@@ -397,8 +527,6 @@ internal func fullWidthDivide_KnuthD(
         + "divisor."
     )
 
-    let radix = WideUInt<UInt>(high: 1)
-    
     guard n > 1 else
     {
         remainder[0] = divide(
@@ -418,79 +546,44 @@ internal func fullWidthDivide_KnuthD(
     u[m] = dividend[m - 1] >> (digitWidth - shift)
     leftShift(dividend, by: shift, into: &u)
     
-    let vLast = BigDigit(v.last!)
-    let vNextToLast = BigDigit(v[n - 2])
-    let cRightDelta = vLast &* radix
-    var (q̂, r̂) = (BigDigit(), BigDigit())
-    
+    let vLast: Digit = v.last!
+    let vNextToLast: Digit = v[n - 2]
+    let partialDividendDelta: TwoDigits = (high: vLast, low: 0)
+
     for j in (0...(m - n)).reversed()
     {
         let jPlusN = j &+ n
         
-        let dividendHead: BigDigit =
-            BigDigit(low: u[jPlusN &- 1], high: u[jPlusN])
+        let dividendHead: TwoDigits = (high: u[jPlusN], low: u[jPlusN &- 1])
         
-        r̂.high = 0
-        (q̂.high, r̂.low) = dividendHead.high.quotientAndRemainder(dividingBy: vLast.low)
-        (q̂.low, r̂.low) = vLast.low.dividingFullWidth((r̂.high, dividendHead.low))
-
-        let ujPlusNMinus2 = BigDigit(u[jPlusN &- 2])
-        
-        /*
-         These two lines are inside the loop according to Knuth's algorithm,
-         but in fact, we only need to do the multiplications once, then we can
-         update these with addition and subtraction in the loop if needed.  To
-         be sure, these multiplications translate directly to native
-         instructions, so they're not slow, but so do the addition and
-         subtraction, and they're faster than multiplication.
-         */
-        var c2Left = q̂ &* vNextToLast
-        var c2Right = radix &* r̂ &+ ujPlusNMinus2
+        // These are tuple arithemtic operations.  `/%` is custom combined
+        // division and remainder operator.  See TupleMath.swift
+        var (q̂, r̂) = dividendHead /% vLast
+        var partialProduct = q̂ * vNextToLast
+        var partialDividend:TwoDigits = (high: r̂.low, low: u[jPlusN &- 2])
         
         while true
         {
-            let q̂IsTwoDigits = UInt8(q̂ >= radix)
-            let otherDigitsMakeQTooHigh = UInt8(c2Left > c2Right)
-            
-            /*
-             Bitwise "or" here helps the branch predictor. The logical "or" one
-             would normally use implicitly adds another branch to be
-             mispredicted
-             */
-            if (q̂IsTwoDigits | otherDigitsMakeQTooHigh) == 1
+            if (UInt8(q̂.high != 0) | (partialProduct > partialDividend)) == 1
             {
-                q̂ &-= 1
-                r̂ &+= vLast
+                q̂ -= 1
+                r̂ += vLast
+                partialProduct -= vNextToLast
+                partialDividend += partialDividendDelta
                 
-                /*
-                 As mentioned in a previous comment, we avoid multiplying
-                 inside the loop.  The following two lines are the secret sauce.
-                 */
-                c2Left &-= vNextToLast
-                c2Right &+= cRightDelta
-                
-                if r̂ < radix { continue }
+                if r̂.high == 0 { continue }
             }
             break
         }
 
-        var borrow = subtractReportingBorrow(
-            v[0..<n],
-            times: UInt(q̂.low),
-            from: &u[j..<jPlusN]
-        )
+        quotient[j] = q̂.low
         
-        borrow = subtractReportingBorrow(&u[jPlusN], borrow)
-
-        quotient[j] = UInt(q̂.low)
-        
-        if borrow != 0
+        if subtractReportingBorrow(v[0..<n], times: q̂.low, from: &u[j...jPlusN])
         {
             quotient[j] &-= 1
-            let carry = addReportingCarry(x: v[0..<n], to: &u[j..<(jPlusN)])
-            u[jPlusN] &+= carry
+            u[j...jPlusN] += v[0..<n] // digit collection addition!
         }
     }
     
-    rightShift(u[0..<n], by: shift, into: &u)
+    rightShift(u[0..<n], by: shift, into: &remainder)
 }

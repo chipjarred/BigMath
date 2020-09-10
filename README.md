@@ -147,6 +147,7 @@ Time in seconds to run algorithm 100,000 times :
 |   `UInt4096`   |     543.61     |  13.40  |  6.37  |
 
 "Knuth D" is the version of the algorithm used in the original comparison with shift-subtract
+
 "Knuth D2" is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
 
 *After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*

@@ -148,6 +148,9 @@ Time in seconds to run algorithm 100,000 times :
 
 *After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*
 
+*Update: After reaching out to the owner of one of those libraries that was using shift-subtract, we adapated the Knuth algothorithm for his array-based library and he now reports a 25x speed up for division!*
+
+
 [^1] Knuth D is the version of the algorithm used in the original comparison with shift-subtract
 [^2] Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
 

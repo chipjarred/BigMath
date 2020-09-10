@@ -137,7 +137,7 @@ At least two of the libraries I looked at claimed that their shift-subtract algo
 I've implemented the shift-subtract division algorithm to benchmark it, and though I suspected it was going to be slower than Knuth's, and so was a little biased, I nonetheless did my best to give it every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divisor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were created to be used in the tests prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
 
 Time in seconds to run algorithm 100,000 times :
-| Integer Type | Shift-Subtract | Knuth D[^1] | Knuth D2[^2] |
+| Integer Type | Shift-Subtract | Knuth D | Knuth D2 |
 |     :--:     |            --: |     --: |     --: |
 |    `UInt128`   |      13.63     |   0.55  |    0.19   |
 |    `UInt256`   |      27.47     |   0.93  |    0.37   |
@@ -146,13 +146,13 @@ Time in seconds to run algorithm 100,000 times :
 |   `UInt2048`   |     243.78     |   6.40  |  2.89   |
 |   `UInt4096`   |     543.61     |  13.40  |  6.37  |
 
+"Knuth D" is the version of the algorithm used in the original comparison with shift-subtract
+"Knuth D2" is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
+
 *After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*
 
 *Update: After reaching out to the owner of one of those libraries that was using shift-subtract, we adapated the Knuth algothorithm for his array-based library and he now reports a 25x speed up for division!*
 
-
-[^1]: Knuth D is the version of the algorithm used in the original comparison with shift-subtract
-[^2]: Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
 
 ### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.

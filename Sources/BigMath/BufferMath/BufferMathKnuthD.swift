@@ -309,7 +309,6 @@ internal func > <T>(left: (high: T, low: T), right: (high: T, low: T)) -> UInt8
 @usableFromInline @inline(__always)
 func += <T>(left: inout (high: T, low: T), right: T)
     where T: FixedWidthInteger, T.Magnitude == T
-
 {
     left.high &+= addReportingCarry(&left.low, right)
 }
@@ -319,7 +318,6 @@ func += <T>(left: inout (high: T, low: T), right: T)
 @usableFromInline @inline(__always)
 func += <T>(left: inout (high: T, low: T), right: (high: T, low: T))
     where T: FixedWidthInteger, T.Magnitude == T
-
 {
     left.high &+= addReportingCarry(&left.low, right.low)
     left.high &+= right.high
@@ -330,7 +328,6 @@ func += <T>(left: inout (high: T, low: T), right: (high: T, low: T))
 @usableFromInline @inline(__always)
 func -= <T>(left: inout (high: T, low: T), right: T)
     where T: FixedWidthInteger, T.Magnitude == T
-
 {
     left.high &-= subtractReportingBorrow(&left.low, right)
 }
@@ -453,5 +450,5 @@ internal func fullWidthDivide_KnuthD(
         }
     }
     
-    rightShift(u[0..<n], by: shift, into: &remainder)
+    rightShift(u[0..<n], by: shift, into: &u[0..<n])
 }

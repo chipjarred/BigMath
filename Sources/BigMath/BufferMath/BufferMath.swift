@@ -350,6 +350,7 @@ internal func addReportingCarry(
     var yPtr = y.baseAddress!
     let yEnd = yPtr + y.count
     var zPtr = z.baseAddress!
+    let zEnd = zPtr + z.count
 
     var carry = carryIn
     
@@ -383,6 +384,19 @@ internal func addReportingCarry(
         yPtr += 1
         zPtr += 1
     }
+    
+    if zPtr < zEnd
+    {
+        zPtr.pointee = carry
+        carry = 0
+        zPtr += 1
+        
+        while zPtr < zEnd {
+            zPtr.pointee = 0
+            zPtr += 1
+        }
+    }
+
 
     return carry
 }
@@ -467,6 +481,18 @@ internal func subtractReportingBorrow(
         zPtr.pointee = zP
         yPtr += 1
         zPtr += 1
+    }
+    
+    if zPtr < zEnd
+    {
+        zPtr.pointee = 0 &- borrow
+        borrow = 0
+        zPtr += 1
+        
+        while zPtr < zEnd {
+            zPtr.pointee = 0
+            zPtr += 1
+        }
     }
 
     return borrow

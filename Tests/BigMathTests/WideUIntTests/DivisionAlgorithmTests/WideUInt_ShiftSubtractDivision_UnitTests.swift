@@ -59,4 +59,25 @@ class WideUInt_ShiftSubtractDivision_UnitTests: XCTestCase
             XCTAssertEqual(r, IntType(_r64))
         }
     }
+    
+    // -------------------------------------
+    func test_fullWidthDividing_gives_same_results_as_KnuthD()
+    {
+        typealias IntType = WideUInt<UInt64>
+        for _ in 0..<100
+        {
+            let x = (
+                high: IntType.random(in: ...),
+                low: IntType.random(in: ...)
+            )
+            let y = IntType.random(in: ...)
+            if x.high == 0 && x.low < y { continue }
+
+            let (q, r) = y.dividingFullWidth_ShiftSubtract(x)
+            let (q2, r2) = y.dividingFullWidth_KnuthD(x)
+
+            XCTAssertEqual(q, q2)
+            XCTAssertEqual(r, r2)
+        }
+    }
 }

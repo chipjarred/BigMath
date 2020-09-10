@@ -151,8 +151,8 @@ Time in seconds to run algorithm 100,000 times :
 *Update: After reaching out to the owner of one of those libraries that was using shift-subtract, we adapated the Knuth algothorithm for his array-based library and he now reports a 25x speed up for division!*
 
 
-[^1] Knuth D is the version of the algorithm used in the original comparison with shift-subtract
-[^2] Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
+[^1]: Knuth D is the version of the algorithm used in the original comparison with shift-subtract
+[^2]: Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
 
 ### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.

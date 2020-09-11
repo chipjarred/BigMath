@@ -35,6 +35,14 @@ extension UIntBuffer
         return self.base.baseAddress?.advanced(by: self.startIndex)
     }
     
+    /**
+     This should be used cautiously, but there are places we need it to avoid code duplication
+     */
+    @usableFromInline @inline(__always)
+    var mutable: MutableUIntBuffer {
+        return UnsafeMutableBufferPointer(mutating: base)[indices]
+    }
+    
     @usableFromInline @inline(__always)
     var low: Self
     {
@@ -240,6 +248,12 @@ internal func indexOfMostSignificantUInt(of x: UIntBuffer) -> Int
     }
     
     return 0
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func indexOfMostSignificantUInt(of x: MutableUIntBuffer) -> Int {
+    return indexOfMostSignificantUInt(of: x.immutable)
 }
 
 // -------------------------------------

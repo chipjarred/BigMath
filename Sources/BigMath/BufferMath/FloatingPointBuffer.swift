@@ -5,13 +5,17 @@
 //  Created by Chip Jarred on 9/10/20.
 //
 
+import Foundation
+
+infix operator <=> : ComparisonPrecedence
+
 // -------------------------------------
 /**
- Although inspired by the IEEE 425 standard, we're not super-faithful to it.
+ Although inspired by the IEEE 754 standard, we're not super-faithful to it.
  We don't support subnormal values and we store the leading integral 1 for
  finite values.  Subnormal values would require handling offset exponents,
  which means having more conditional branches in basic operations.  Not storing
- the integral 1 likewise requires special case logic.  IEEE 425 does those
+ the integral 1 likewise requires special case logic.  IEEE 754 does those
  things because it allows gradual underflow, and in the case of not storing the
  leading 1 allows one extra bit of precision, but it's also typically
  implemented in hardware, and for smaller numbers of bits than we're using.
@@ -52,6 +56,9 @@ struct FloatingPointBuffer
             )
         }
     }
+
+    // -------------------------------------
+    var isNegative: Bool { return signBit == 1 }
     
     // -------------------------------------
     @inline(__always)
@@ -76,7 +83,7 @@ struct FloatingPointBuffer
      Magnitude of the most signficant `UInt` of the signficand.
      */
     @inline(__always)
-    private var signficandHeadValue: UInt
+    private var significandHeadValue: UInt
     {
         get { significandHead & (UInt.max >> 1)}
         set
@@ -102,7 +109,7 @@ struct FloatingPointBuffer
      */
     @inline(__always)
     private var significandIsZero: Bool {
-        return significandTail.reduce(signficandHeadValue) { $0 | $1 } == 0
+        return significandTail.reduce(significandHeadValue) { $0 | $1 } == 0
     }
     
     // -------------------------------------
@@ -125,7 +132,7 @@ struct FloatingPointBuffer
     private mutating func setInfinity()
     {
         exponent |= -1
-        signficandHeadValue = 1
+        significandHeadValue = 1
         var sTail = significandTail
         for i in sTail.indices { sTail[i] = 0  }
     }
@@ -150,7 +157,7 @@ struct FloatingPointBuffer
     private mutating func setNaN()
     {
         exponent |= Int.max
-        signficandHeadValue = 1
+        significandHeadValue = 1
     }
 
     // -------------------------------------
@@ -173,7 +180,7 @@ struct FloatingPointBuffer
     private mutating func setSignalingNaN(to set: Bool = true)
     {
         exponent |= -1
-        signficandHeadValue = 1
+        significandHeadValue = 1
     }
     
     // -------------------------------------
@@ -208,7 +215,7 @@ struct FloatingPointBuffer
     @inline(__always)
     private var leadingSignficandZeroBitCount: Int
     {
-        var leadingZeros = signficandHeadValue.leadingZeroBitCount
+        var leadingZeros = significandHeadValue.leadingZeroBitCount
         if leadingZeros == UInt8.bitWidth - 1 // head is +0 or -0
         {
             for digit in significandTail.reversed()
@@ -358,5 +365,99 @@ struct FloatingPointBuffer
 
         zeroBuffer(buffer)
         return Self(signficand: buffer, exponent: -1, isNegative: isNegative)
+    }
+    
+    // -------------------------------------
+    @usableFromInline
+    enum ComparisonResult: Int
+    {
+        case orderedAscending = -1
+        case orderedSame = 0
+        case orderedDescending = 1
+        case unordered = 2
+        
+        // This initializer can't be used to set .unordered.
+        @inline(__always) fileprivate init(_ x: Int)
+        {
+            let xIsNegative = Int(x < 0)
+            let xIsPositive = Int(x > 0)
+            self.init(rawValue: (-xIsNegative & -1) | (-xIsPositive & 1))!
+        }
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func <=> (left: Self, right: Self) -> ComparisonResult
+    {
+        assert(left.isNormalized && right.isNormalized)
+        assert(left.significand.count == right.significand.count)
+        
+        let leftIsSpecialCase = left.exponent & Int.max == Int.max
+        let rightIsSpecialCase = right.exponent & Int.max == Int.max
+        
+        if leftIsSpecialCase || rightIsSpecialCase
+        {
+            /*
+             If either is NaN then the result is unordered.
+             */
+            if (leftIsSpecialCase && left.significandIsZero)
+                || (rightIsSpecialCase && right.significandIsZero)
+            {
+                return .unordered
+            }
+            
+            /*
+             Neither is NaN, so the special case must be infinity. The
+             correct results for those will fall out naturally from the
+             normal finite number comparisons.  However, since our "official"
+             encoding for infinity sets all exponent bits, and so far we've
+             only tested the non-sign bits. We do assert that the exponent sign
+             bit is set, because if it's not we've made a mistake somewhere.
+             */
+            assert(!leftIsSpecialCase  || left.exponent == -1)
+            assert(!rightIsSpecialCase  || right.exponent == -1)
+        }
+        
+        let leftSign = left.signBit
+        let rightSign = right.signBit
+        let signResult = ComparisonResult(rawValue: Int(leftSign &- rightSign))!
+        guard signResult == .orderedSame else { return signResult }
+        
+        /*
+         With the easy case of differing significand signs being handled,
+         We know left and right are either both positive or both negative.
+         We pretend that they're both positive, and then fix up for the
+         negative case at the end.
+         
+         We can start with a fast comparision of the exponents, because we
+         require left and right to be normalized.
+         */
+        var result = left.exponent - right.exponent
+        if result == 0
+        {
+            /*
+             With exponents the same, we have no choice but to do the O(n)
+             check of the signficands.  Because the most significant digit
+             contains the sign bit we have to handle it separately from the
+             tail.
+             */
+            result =
+                Int(left.significandHeadValue) - Int(right.significandHeadValue)
+            if result == 0
+            {
+                result = compareBuffers(
+                    left.significandTail,
+                    right.significandTail).rawValue
+            }
+        }
+        
+        /*
+         The only thing left to do is to fix up for when both are negative.
+         We have to invert the result if they are.  For example 10 > 9 but
+         -10 < -9.  Since we already know the two have the same sign, we only
+         need to use one of the signs to do this.
+         */
+        result = select(if: leftSign == 1, then: -result, else: result)
+        return ComparisonResult(result)
     }
 }

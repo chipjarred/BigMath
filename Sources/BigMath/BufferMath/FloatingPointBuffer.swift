@@ -257,7 +257,7 @@ struct FloatingPointBuffer
         }
         
         let savedSign = signBit
-        leftShift(buffer: significand, by: leadingZeros)
+        BigMath.leftShift(buffer: significand, by: leadingZeros)
         signBit = savedSign
         exponent -= leadingZeros
     }
@@ -459,5 +459,284 @@ struct FloatingPointBuffer
          */
         result = select(if: leftSign == 1, then: -result, else: result)
         return ComparisonResult(result)
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    mutating func negate() {
+        self.signBit = self.signBit ^ 1
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private func rightShift(into dst: inout Self, by shift: Int)
+    {
+        assert(dst.significand.count == self.significand.count)
+        assert(shift >= 0)
+                
+        // Save the sign bit in case dst aliases self
+        let savedSignBit = self.signBit
+
+        BigMath.rightShift(
+            from: self.significand.immutable,
+            to: dst.significand,
+            by: shift
+        )
+        
+        /*
+         We just shifted the sign bit.  We need to clear that shifted sign bit,
+         and set the actual sign bit appropriately
+         */
+        let shiftedSignBitIndex =
+            dst.significand.count * UInt.bitWidth - shift - 1
+        setBit(at: shiftedSignBitIndex, in: &dst.significand, to: 0)
+        dst.signBit = savedSignBit
+
+        /*
+         Now that the shift is done, we just need to adjust the dst exponent
+         so that dst maintains its value (except that it's lost some precision
+         now).
+         */
+        dst.exponent += shift
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private func leftShift(into dst: inout Self, by shift: Int)
+    {
+        assert(dst.significand.count == self.significand.count)
+        assert(shift >= 0)
+        
+        // Save the sign bit in case dst aliases self
+        let savedSignBit = self.signBit
+                
+        BigMath.leftShift(
+            from: self.significand.immutable,
+            to: dst.significand,
+            by: shift
+        )
+        
+        // We just shifted the sign bit away, so we have to restore it.
+        dst.signBit = savedSignBit
+
+        /*
+         Now that the shift is done, we just need to adjust the dst exponent
+         so that dst maintains its value.
+         */
+        dst.exponent -= shift
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private static func add(x: Self, y: Self, into z: inout Self)
+    {
+        assert(x.isNormalized && y.isNormalized)
+        assert(x.significand.count == y.significand.count)
+        assert(x.significand.count == z.significand.count)
+        
+        /*
+         We have to align exponents, but we can't modify our inputs, so we
+         shift-copy the one with the smaller exponent into the result, and do
+         the addition there.
+         */
+        let expDiff = x.exponent - y.exponent
+        if expDiff <= 0
+        {
+            x.leftShift(into: &z, by: -expDiff)
+            z.addToSelfWithSameExponents(y)
+        }
+        else
+        {
+            y.leftShift(into: &z, by: expDiff)
+            z.addToSelfWithSameExponents(x)
+        }
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private static func subtract(x: Self, y: Self, into z: inout Self)
+    {
+        assert(x.isNormalized && y.isNormalized)
+        assert(x.significand.count == y.significand.count)
+        assert(x.significand.count == z.significand.count)
+    
+        /*
+         We have to align exponents, but we can't modify our inputs, so we
+         shift-copy the one with the smaller exponent into the result, and do
+         the subtraction there.
+         */
+        let expDiff = x.exponent - y.exponent
+        if expDiff <= 0
+        {
+            x.leftShift(into: &z, by: -expDiff)
+            z.subtractFromSelfWithSameExponents(y)
+            
+            // We've just computed z = x - y, which is what want, so we're good.
+        }
+        else
+        {
+            y.leftShift(into: &z, by: expDiff)
+            z.subtractFromSelfWithSameExponents(x)
+            
+            /*
+             We've just computed z = y - x, but we want z = x - y.  We have to
+             invert the sign bit (x - y == -(y - x))
+             */
+            z.signBit ^= 1
+        }
+    }
+
+    // -------------------------------------
+    @inline(__always)
+    private mutating func addToSelfWithSameExponents(_ y: Self)
+    {
+        var x = self
+        assert(x.significand.count == y.significand.count)
+        assert(x.exponent == y.exponent)
+        
+        if x.signBit == y.signBit
+        {
+            var carry = addReportingCarry(
+                x.significandTail.immutable,
+                y.significandTail.immutable,
+                result: x.significandTail
+            )
+            carry = x.significandHead.addToSelfReportingCarry(y.significandHead)
+            if carry != 0
+            {
+                x.rightShift(into: &x, by: 1)
+                x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
+            }
+        }
+        else
+        {
+            var borrow = subtractReportingBorrow(
+                x.significandTail.immutable,
+                y.significandTail.immutable,
+                result: x.significandTail
+            )
+            borrow = x.significandHead.subtractFromSelfReportingBorrow(
+                y.significandHead
+            )
+            if borrow != 0
+            {
+                /*
+                 If we borrow out of the high bit we need invert our sign, but
+                 the integer subtraction we just did will have put our
+                 significand in twos compliment form, and we want it in signed
+                 magnitude, so we have to convert it.
+                 */
+                let invertedSignBit = x.signBit ^ 1
+                arithmeticNegate(x.significand.immutable, to: x.significand)
+                x.signBit = invertedSignBit
+            }
+        }
+        
+        self.normalize()
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private mutating func subtractFromSelfWithSameExponents(_ y: Self)
+    {
+        var x = self
+        assert(x.significand.count == y.significand.count)
+        assert(x.exponent == y.exponent)
+        
+        if x.signBit != y.signBit
+        {
+            var carry = addReportingCarry(
+                x.significandTail.immutable,
+                y.significandTail.immutable,
+                result: x.significandTail
+            )
+            carry = x.significandHead.addToSelfReportingCarry(y.significandHead)
+            if carry != 0
+            {
+                x.rightShift(into: &x, by: 1)
+                x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
+            }
+        }
+        else
+        {
+            var borrow = subtractReportingBorrow(
+                x.significandTail.immutable,
+                y.significandTail.immutable,
+                result: x.significandTail
+            )
+            borrow = x.significandHead.subtractFromSelfReportingBorrow(
+                y.significandHead
+            )
+            if borrow != 0
+            {
+                /*
+                 If we borrow out of the high bit we need invert our sign, but
+                 the integer subtraction we just did will have put our
+                 significand in twos compliment form, and we want it in signed
+                 magnitude, so we have to convert it.
+                 */
+                let invertedSignBit = x.signBit ^ 1
+                arithmeticNegate(x.significand.immutable, to: x.significand)
+                x.signBit = invertedSignBit
+            }
+        }
+        
+        self.normalize()
+    }
+}
+
+// MARK:- Comparable conformance
+// -------------------------------------
+/*
+ Because NaNs always compare .unordered, we have to implement all comparisons.
+ */
+extension FloatingPointBuffer: Comparable
+{
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func == (left: Self, right: Self) -> Bool {
+        return (left <=> right) == .orderedSame
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func != (left: Self, right: Self) -> Bool
+    {
+        let compareResult = left <=> right
+        var result = UInt8(compareResult != .orderedSame)
+        result &= UInt8(compareResult != .unordered)
+        return result == 1
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func < (left: Self, right: Self) -> Bool {
+        return (left <=> right) == .orderedAscending
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func > (left: Self, right: Self) -> Bool {
+        return (left <=> right) == .orderedDescending
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func <= (left: Self, right: Self) -> Bool
+    {
+        let compareResult = left <=> right
+        var result = UInt8(compareResult != .orderedAscending)
+        result &= UInt8(compareResult != .unordered)
+        return result == 1
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func >= (left: Self, right: Self) -> Bool
+    {
+        let compareResult = left <=> right
+        var result = UInt8(compareResult != .orderedDescending)
+        result &= UInt8(compareResult != .unordered)
+        return result == 1
     }
 }

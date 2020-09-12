@@ -60,11 +60,25 @@ extension WideUInt: BinaryInteger
         let value = floor(source)
         guard value == source
             && source >= 0
+            && source.exponent < Self.bitWidth
             && source <= T(Self.max)
-            && !source.isNaN else
-        {
-            return nil
-        }
+            && !source.isNaN
+        else { return nil }
+        
+        self.init(_floor: value)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public init?(exactly source: Decimal)
+    {
+        let value = source.floor
+        guard value == source
+            && source >= 0
+            && source.exponent < Self.bitWidth
+            && source <= Decimal(Self.max)
+            && !source.isNaN
+        else { return nil }
         
         self.init(_floor: value)
     }
@@ -76,21 +90,48 @@ extension WideUInt: BinaryInteger
         let value = floor(source)
         
         precondition(
-            source > 0 && value <= T(Self.max) && !source.isNaN,
+            !source.isNaN && value >= 0
+                && value.exponent < Self.bitWidth
+                && value <= T(Self.max),
             "\(source) cannot be represented by \(Self.self)"
         )
         self.init(_floor: value)
     }
     
     // -------------------------------------
+    @inlinable
+    public init(_ source: Decimal)
+    {
+        let value = source.floor
+        
+        precondition(
+            !source.isNaN && value >= 0
+                && value <= Decimal(Self.max),
+            "\(source) cannot be represented by \(Self.self)"
+        )
+        self.init(_floor: value)
+    }
+
+    // -------------------------------------
     @usableFromInline @inline(__always)
     internal init<T>(_floor: T) where T: BinaryFloatingPoint
     {
-        self.init(low: select(if: _floor == 0, then: 0, else: 1))
-        self <<= _floor.exponent
-        self |= Self(_floor.significandBitPattern)
+        assert(_floor >= 0)
+        assert(_floor.exponent <= Self.bitWidth)
+        self.init()
+        withMutableBuffer { set(buffer: $0, from: _floor) }
     }
-            
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal init(_floor: Decimal)
+    {
+        assert(_floor >= 0)
+        assert(_floor.exponent <= Self.bitWidth)
+        self.init()
+        withMutableBuffer { set(buffer: $0, from: _floor) }
+    }
+
     // -------------------------------------
     @inlinable
     public init<T>(clamping source: T) where T : BinaryInteger {

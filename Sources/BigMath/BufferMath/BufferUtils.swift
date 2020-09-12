@@ -167,6 +167,85 @@ internal enum BufferRoundingMode
     case down
     case up
 }
+
+// -------------------------------------
+/// dst should already be floored
+@usableFromInline @inline(__always)
+internal func set<F: BinaryFloatingPoint>(
+    buffer dst: MutableUIntBuffer,
+    from src: F)
+{
+    assert(src == floor(src))
+    assert(src >= 0)
+    assert(src.exponent <= dst.count * UInt.bitWidth)
+    assert(dst.reduce(0) { $0 | $1 } == 0)
+    
+    let radix = F(
+        sign: .plus,
+        exponent: F.Exponent(UInt.bitWidth),
+        significand: 1
+    )
+    var f = src
+    var dst = dst
+    var i = dst.startIndex
+    
+    while f > 0
+    {
+        assert(i < dst.endIndex)
+        
+        let fDigit = fmod(f, radix)
+        f -= fDigit
+        f /= radix
+        let digit = UInt(fDigit)
+        dst[i] = digit
+        
+        i += 1
+    }
+}
+
+// -------------------------------------
+/// dst should already be floored
+@usableFromInline @inline(__always)
+internal func set(buffer dst: MutableUIntBuffer, from src: Decimal)
+{
+    assert(src >= 0)
+    assert(src == src.floor)
+    assert(src.exponent <= dst.count * UInt.bitWidth)
+    assert(dst.reduce(0) { $0 | $1 } == 0)
+    
+    let radix = Decimal(UInt.max) + 1
+    var f = src
+    var dst = dst
+    var i = dst.startIndex
+    
+    while f > 0 && i < dst.endIndex
+    {
+        let fDigit = f.fmod(radix)
+        f -= fDigit
+        f /= radix
+        let digit = fDigit.uintValue
+        dst[i] = digit
+        
+        i += 1
+    }
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func decimalValue(from src: UIntBuffer) -> Decimal
+{
+    let radix = Decimal(UInt.max) + 1
+    
+    var d: Decimal = 0
+    for digit in src.reversed()
+    {
+        d *= radix
+        d += Decimal(digit)
+    }
+    
+    return d
+}
+
 // -------------------------------------
 @usableFromInline @inline(__always)
 internal func copy(buffer src: UIntBuffer, to dst: MutableUIntBuffer)

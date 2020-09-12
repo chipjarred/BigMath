@@ -39,6 +39,16 @@ extension WideDigit
     {
         return try Swift.withUnsafeBytes(of: self) { return try body($0) }
     }
+    
+    // --------------------------------------
+    @inlinable var decimalValue: Decimal
+    {
+        return Swift.withUnsafeBytes(of: self)
+        {
+            let uintBuf = $0.bindMemory(to: UInt.self)
+            return BigMath.decimalValue(from: uintBuf[...])
+        }
+    }
 }
 
 // --------------------------------------

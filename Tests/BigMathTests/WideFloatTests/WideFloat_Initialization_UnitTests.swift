@@ -36,29 +36,6 @@ class WideFloat_Initialization_UnitTests: XCTestCase
         assert(x < Decimal(UInt64.max))
         return x
     }
-    
-    func binStr<T: FixedWidthInteger>(_ x: T) -> String
-    {
-        var s = ""
-        for i in (0..<T.bitWidth).reversed()
-        {
-            let bit = (x >> i) & 1
-            s.append(bit == 1 ? "1" : "0")
-        }
-        return s
-    }
-    
-    func binSigStr<T: BinaryFloatingPoint>(_ x: T) -> String
-    {
-        assert(x >= 0)
-        var sig = UInt64(x.significandBitPattern)
-        sig <<= sig.leadingZeroBitCount - 2
-        if x != 0 {
-            sig.setBit(at: 62, to: true)
-        }
-        
-        return binStr(sig)
-    }
 
     // -------------------------------------
     func test_WideFloat_can_recover_the_Double_value_it_was_initialized_with()

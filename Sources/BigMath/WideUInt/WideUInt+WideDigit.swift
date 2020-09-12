@@ -49,6 +49,15 @@ extension WideDigit
             return BigMath.decimalValue(from: uintBuf[...])
         }
     }
+    
+    @inlinable func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
+    {
+        return Swift.withUnsafeBytes(of: self)
+        {
+            let uintBuf = $0.bindMemory(to: UInt.self)
+            return BigMath.convert(from: uintBuf[...], to: F.self)
+        }
+    }
 }
 
 // --------------------------------------

@@ -20,14 +20,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import Foundation
+
 // -------------------------------------
 public struct WideFloat<T: WideDigit>
 {
-    public typealias Significand = T
+    public typealias RawSignificand = T
     public typealias Exponent = Int
     
     @usableFromInline var exponent: Exponent
-    @usableFromInline var significand: Significand
+    @usableFromInline var significand: RawSignificand
     
     // -------------------------------------
     @inlinable public var isNaN: Bool {
@@ -43,10 +45,20 @@ public struct WideFloat<T: WideDigit>
     @inlinable public var isInfinite: Bool {
         return withFloatBuffer { return $0.isInfinite }
     }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var isNormalized: Bool {
+        return withFloatBuffer { return $0.isNormalized }
+    }
+    
+    @inlinable public var float80Value: Float80 { convertTo(to: Float80.self) }
+    @inlinable public var doubleValue: Double { convertTo(to: Double.self) }
+    @inlinable public var floatValue: Float { convertTo(to: Float.self) }
 
     // -------------------------------------
     @inlinable
-    public init(significandBitPattern: Significand, exponent: Int)
+    public init(significandBitPattern: RawSignificand, exponent: Int)
     {
         self.significand = significandBitPattern
         self.exponent = exponent
@@ -57,7 +69,7 @@ public struct WideFloat<T: WideDigit>
     @inlinable
     public init<I: FixedWidthInteger>(_ source: I)
     {
-        let significand = Significand(source.magnitude)
+        let significand = RawSignificand(source.magnitude)
         self.init(significandBitPattern: significand, exponent: 0)
         self.negate(if: source < 0)
     }
@@ -71,12 +83,84 @@ public struct WideFloat<T: WideDigit>
             "Sorry, only support binary (radix = 2) floating point values"
         )
         
-        let dSignificand = abs(source / source.binade)
-        self.init(
-            significandBitPattern: Significand(dSignificand),
-            exponent: Exponent(source.exponent)
+        /*
+         We want to capture as many if the signficant bits of source as we can.
+         We can hold RawSignificand.bitWidth-1 bits taking into account room
+         for a sign bit. source.significandWidth + 1 gives us the number of
+         bits to hold the source's signficand, including its integral bit.  So
+         we want the minimum of those
+         */
+        let sigBitCount = min(RawSignificand.bitWidth, source.significandWidth)
+        
+        let f = F(
+            sign: .plus,
+            exponent: -source.exponent + F.Exponent(sigBitCount),
+            significand: 1
         )
+        let dSignificand = floor(abs(source) * f)
+        
+        /*
+         dSignificand now holds the significand multiplied so that all the bits
+         we can hold form an integer.  Passing that as the signficand with an
+         exponent of 0 to our bitpattern initializer will normalize it for us,
+         But the resulting exponent will be wrong.  Since it's normalized, we
+         can just set it to the orginal source's exponent afterwards.
+         */
+        self.init(
+            significandBitPattern: RawSignificand(dSignificand),
+            exponent: 0
+        )
+        assert(isNormalized)
+        exponent = Exponent(source.exponent)
         self.negate(if: source < 0)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public init(_ source: Decimal)
+    {
+        /*
+         Initializing from a Decimal is a pain, because it's not clear exactly
+         how its stored.  It supports a compact and non-compact version.
+         
+         There's almost certainly a better way than we do here, but since so
+         much of Decimal's implementation is undocumented, we do the converson
+         the slow way for now.
+         
+         We need to get its mantissa.  For ordinary floating point types we
+         divide by the value's binade, but Decimal doesn't support binade, so
+         we have to make one for ourselves.
+         */
+        let binade =
+            Decimal(sign: .plus, exponent: source.exponent, significand: 1)
+        var mantissa = source / binade
+        
+        /*
+         At this point we have Decimal's mantissa as an integer, but it's still
+         stored as Decimal.  It could be too big for native integer types,
+         and we don't want truncate the full width of a Decmial.  Since
+         WideInteger can be initialized from a Double, we convert the Decimal
+         to Double, but that looses precision.  So we have to convert the
+         Double back to Decimal and subtract from the Decimal mantissa so we
+         can get at those lost bits.  We repeat that process until the
+         Decimal's mantissa has been reduced to less than 1. (Just in case
+         there is some rounding error somewhere that causes it not to go to 0
+         exactly).
+         */
+        var significand = RawSignificand(0)
+        repeat
+        {
+            let dblSig = (mantissa as NSDecimalNumber).doubleValue
+            mantissa -= Decimal(dblSig)
+            significand += RawSignificand(dblSig)
+        } while mantissa >= 1
+        
+        // Now we can use our FixedWidthInteger initializer
+        self.init(significand)
+
+        // Then correct the sign and exponent
+        self.negate(if: source < 0)
+        self.exponent = Exponent(source.exponent)
     }
     
     // -------------------------------------
@@ -97,6 +181,11 @@ public struct WideFloat<T: WideDigit>
     internal mutating func negate(if doNegation: Bool) {
         withMutableFloatBuffer { $0.signBit ^= UInt(doNegation) }
     }
+    
+    // -------------------------------------
+    @inlinable public func convertTo<F: BinaryFloatingPoint>(to: F.Type) -> F {
+        return withFloatBuffer { return $0.convertTo(to: F.self) }
+    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -105,7 +194,7 @@ public struct WideFloat<T: WideDigit>
         return significand.withBuffer
         {
             let fBuf = FloatingPointBuffer(
-                significand: $0.mutable,
+                rawSignificand: $0.mutable,
                 exponent: exponent
             )
             
@@ -120,7 +209,8 @@ public struct WideFloat<T: WideDigit>
     {
         return significand.withMutableBuffer
         {
-            var fBuf = FloatingPointBuffer(significand: $0, exponent: exponent)
+            var fBuf =
+                FloatingPointBuffer(rawSignificand: $0, exponent: exponent)
             defer { self.exponent = fBuf.exponent }
             return body(&fBuf)
         }

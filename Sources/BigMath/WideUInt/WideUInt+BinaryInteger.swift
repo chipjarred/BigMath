@@ -89,10 +89,15 @@ extension WideUInt: BinaryInteger
     {
         let value = floor(source)
         
+        let tMax = T(
+            sign: .plus,
+            exponent: T.Exponent(Self.bitWidth),
+            significand: 1
+        )
+        
         precondition(
             !source.isNaN && value >= 0
-                && value.exponent < Self.bitWidth
-                && value <= T(Self.max),
+                && value < tMax,
             "\(source) cannot be represented by \(Self.self)"
         )
         self.init(_floor: value)

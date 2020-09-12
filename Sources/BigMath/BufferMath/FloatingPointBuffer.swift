@@ -220,7 +220,8 @@ struct FloatingPointBuffer
         }
         
         // This handles all other finite values.
-        return (significandHead >> (UInt.bitWidth - 2) & 1) == 1
+        let sigHead = significandHead
+        return (sigHead >> (UInt.bitWidth - 2) & 1) == 1
     }
     
     // -------------------------------------
@@ -230,8 +231,9 @@ struct FloatingPointBuffer
     @inline(__always)
     private var leadingSignficandZeroBitCount: Int
     {
-        var leadingZeros = significandHeadValue.leadingZeroBitCount
-        if leadingZeros == UInt8.bitWidth - 1 // head is +0 or -0
+        let sigHead = significandHeadValue
+        var leadingZeros = sigHead.leadingZeroBitCount - 1
+        if sigHead == 0 // head is +0 or -0
         {
             for digit in significandTail.reversed()
             {
@@ -275,8 +277,40 @@ struct FloatingPointBuffer
         BigMath.leftShift(buffer: significand, by: leadingZeros)
         signBit = savedSign
         exponent -= leadingZeros
+        assert(isNormalized)
     }
     
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    func convertTo<F: BinaryFloatingPoint>(to: F.Type) -> F
+    {
+        let radix = F(
+            sign: .plus,
+            exponent: F.Exponent(UInt.bitWidth),
+            significand: 1
+        )
+        var result = F(significandHead)
+        
+        for digit in significandTail.reversed()
+        {
+            result *= radix
+            result += F(digit)
+        }
+        
+        let sign = select(
+            if: isNegative,
+            then: FloatingPointSign.minus.rawValue,
+            else: FloatingPointSign.plus.rawValue
+        )
+        result *= F(
+            sign: FloatingPointSign(rawValue: sign)!,
+            exponent: F.Exponent(exponent) - result.exponent,
+            significand: 1
+        )
+        
+        return result
+    }
+
     // MARK:- Initializers
     // -------------------------------------
     @inline(__always)
@@ -295,15 +329,13 @@ struct FloatingPointBuffer
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal init(
-        significand: MutableUIntBuffer,
+        rawSignificand: MutableUIntBuffer,
         exponent: Int)
     {
         self.exponent = exponent
-        self.significand = significand
-        
-        assert(self.isNormalized)
+        self.significand = rawSignificand
     }
-    
+
     // -------------------------------------
     /**
      - Parameters:

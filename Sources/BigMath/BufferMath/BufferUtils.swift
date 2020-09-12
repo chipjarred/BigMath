@@ -248,6 +248,28 @@ internal func decimalValue(from src: UIntBuffer) -> Decimal
 
 // -------------------------------------
 @usableFromInline @inline(__always)
+internal func convert<F: BinaryFloatingPoint>(
+    from src: UIntBuffer,
+    to: F.Type) -> F
+{
+    let radix = F(
+        sign: .plus,
+        exponent: F.Exponent(UInt.bitWidth),
+        significand: 1
+    )
+    
+    var d: F = 0
+    for digit in src.reversed()
+    {
+        d *= radix
+        d += F(digit)
+    }
+    
+    return d
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
 internal func copy(buffer src: UIntBuffer, to dst: MutableUIntBuffer)
 {
     assert(src.count > 0)

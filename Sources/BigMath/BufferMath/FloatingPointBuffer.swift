@@ -65,7 +65,7 @@ struct FloatingPointBuffer
         {
             assert(newValue == 0 || newValue == 1)
             
-            significand[significand.count - 1].setBit(
+            significand[significand.endIndex - 1].setBit(
                 at: UInt.bitWidth - 1,
                 to: newValue
             )
@@ -232,6 +232,7 @@ struct FloatingPointBuffer
     private var leadingSignficandZeroBitCount: Int
     {
         let sigHead = significandHeadValue
+        assert(sigHead.leadingZeroBitCount > 0)
         var leadingZeros = sigHead.leadingZeroBitCount - 1
         if sigHead == 0 // head is +0 or -0
         {
@@ -243,7 +244,7 @@ struct FloatingPointBuffer
                     break
                 }
                 
-                leadingZeros += UInt8.bitWidth
+                leadingZeros += UInt.bitWidth
             }
         }
         
@@ -289,7 +290,7 @@ struct FloatingPointBuffer
             exponent: F.Exponent(UInt.bitWidth),
             significand: 1
         )
-        var result = F(significandHead)
+        var result = F(significandHeadValue)
         
         for digit in significandTail.reversed()
         {

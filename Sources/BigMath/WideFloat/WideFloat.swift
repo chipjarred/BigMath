@@ -83,6 +83,20 @@ public struct WideFloat<T: WideDigit>
             "Sorry, only support binary (radix = 2) floating point values"
         )
         
+        self.init(
+            significandBitPattern: Self.extractSignificandBits(from: source),
+            exponent: 0
+        )
+        assert(isNormalized)
+        exponent = Exponent(source.exponent)
+        self.negate(if: source < 0)
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    static func extractSignificandBits<F: BinaryFloatingPoint>(
+        from source: F) -> RawSignificand
+    {
         /*
          We want to capture as many if the signficant bits of source as we can.
          We can hold RawSignificand.bitWidth-1 bits taking into account room
@@ -90,29 +104,16 @@ public struct WideFloat<T: WideDigit>
          bits to hold the source's signficand, including its integral bit.  So
          we want the minimum of those
          */
-        let sigBitCount = min(RawSignificand.bitWidth, source.significandWidth)
+        let s = abs(source)
+        let sigBitCount = min(RawSignificand.bitWidth, F.significandBitCount)
         
         let f = F(
             sign: .plus,
-            exponent: -source.exponent + F.Exponent(sigBitCount),
+            exponent: -s.exponent + F.Exponent(sigBitCount),
             significand: 1
         )
-        let dSignificand = floor(abs(source) * f)
-        
-        /*
-         dSignificand now holds the significand multiplied so that all the bits
-         we can hold form an integer.  Passing that as the signficand with an
-         exponent of 0 to our bitpattern initializer will normalize it for us,
-         But the resulting exponent will be wrong.  Since it's normalized, we
-         can just set it to the orginal source's exponent afterwards.
-         */
-        self.init(
-            significandBitPattern: RawSignificand(dSignificand),
-            exponent: 0
-        )
-        assert(isNormalized)
-        exponent = Exponent(source.exponent)
-        self.negate(if: source < 0)
+        let dSignificand = floor(s * f)
+        return RawSignificand(dSignificand)
     }
     
     // -------------------------------------

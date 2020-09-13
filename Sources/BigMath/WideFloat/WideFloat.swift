@@ -52,10 +52,51 @@ public struct WideFloat<T: WideDigit>
         return withFloatBuffer { return $0.isNormalized }
     }
     
+    // -------------------------------------
+    @inlinable static public var infinity: Self
+    {
+        var result = Self()
+        result.withMutableFloatBuffer { $0.setInfinity() }
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable static public var nan: Self
+    {
+        var result = Self()
+        result.withMutableFloatBuffer { $0.setNaN() }
+        return result
+    }
+
+    // -------------------------------------
+    @inlinable static public var signalingNaN: Self
+    {
+        var result = Self()
+        result.withMutableFloatBuffer { $0.setSignalingNaN() }
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable static public var greatestFiniteMagnigude: Self
+    {
+        var significand = RawSignificand()
+        significand.invert()
+        significand.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        return Self(significandBitPattern: significand, exponent: Int.max - 1)
+    }
+    
+    // -------------------------------------
+    @inlinable static public var leastNormalMagnitude: Self
+    {
+        var significand = RawSignificand()
+        significand.setBit(at: RawSignificand.bitWidth - 2, to: 0)
+        return Self(significandBitPattern: significand, exponent: Int.min)
+    }
+
     @inlinable public var float80Value: Float80 { convert(to: Float80.self) }
     @inlinable public var doubleValue: Double { convert(to: Double.self) }
     @inlinable public var floatValue: Float { convert(to: Float.self) }
-
+    
     // -------------------------------------
     @inlinable
     public init(significandBitPattern: RawSignificand, exponent: Int)
@@ -65,6 +106,14 @@ public struct WideFloat<T: WideDigit>
         self.normalize()
     }
     
+    // -------------------------------------
+    @inlinable
+    public init()
+    {
+        self.significand = RawSignificand()
+        self.exponent = 0
+    }
+
     // -------------------------------------
     @inlinable
     public init<I: FixedWidthInteger>(_ source: I)
@@ -78,17 +127,29 @@ public struct WideFloat<T: WideDigit>
     @inlinable
     public init<F: BinaryFloatingPoint>(_ source: F)
     {
-        assert(
-            F.radix == 2,
-            "Sorry, only support binary (radix = 2) floating point values"
-        )
-        
-        self.init(
-            significandBitPattern: Self.extractSignificandBits(from: source),
-            exponent: 0
-        )
-        assert(isNormalized)
-        exponent = Exponent(source.exponent)
+        guard !source.isNaN else
+        {
+            self.init()
+            if source.isSignalingNaN {
+                withMutableFloatBuffer { $0.setSignalingNaN() }
+            }
+            else { withMutableFloatBuffer { $0.setNaN() } }
+            return
+        }
+        if source.isInfinite
+        {
+            self.init()
+            withMutableFloatBuffer { $0.setInfinity() }
+        }
+        else
+        {
+            self.init(
+                significandBitPattern:
+                    Self.extractSignificandBits(from: source),
+                exponent: 0
+            )
+            exponent = Exponent(source.exponent)
+        }
         self.negate(if: source < 0)
     }
     

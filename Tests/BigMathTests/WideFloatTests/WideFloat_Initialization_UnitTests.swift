@@ -36,6 +36,108 @@ class WideFloat_Initialization_UnitTests: XCTestCase
     }
     
     // -------------------------------------
+    func test_WideFloat_isNaN_returns_true_for_WideFloat_nan()
+    {
+        let n = FloatType.nan
+        XCTAssertTrue(n.isNaN)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isNaN_returns_true_for_WideFloat_signalingNaN()
+    {
+        let n = FloatType.signalingNaN
+        XCTAssertTrue(n.isNaN)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isNaN_returns_false_for_WideFloat_infinity()
+    {
+        var n = FloatType.infinity
+        XCTAssertFalse(n.isNaN)
+        
+        n.negate()
+        XCTAssertFalse(n.isNaN)
+    }
+
+    // -------------------------------------
+    func test_WideFloat_isNaN_returns_false_for_finiteValued_WideFloats()
+    {
+        for _ in 0..<100
+        {
+            let x = FloatType(randomDouble)
+            XCTAssertFalse(x.isNaN)
+        }
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isSignalingNaN_returns_false_for_WideFloat_nan()
+    {
+        let n = FloatType.nan
+        XCTAssertFalse(n.isSignalingNaN)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isSignalingNaN_returns_true_for_WideFloat_signalingNaN()
+    {
+        let n = FloatType.signalingNaN
+        XCTAssertTrue(n.isSignalingNaN)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isSignalingNaN_returns_false_for_WideFloat_infinity()
+    {
+        var n = FloatType.infinity
+        XCTAssertFalse(n.isSignalingNaN)
+        
+        n.negate()
+        XCTAssertFalse(n.isSignalingNaN)
+    }
+
+    // -------------------------------------
+    func test_WideFloat_isSignalingNaN_returns_false_for_finiteValued_WideFloats()
+    {
+        for _ in 0..<100
+        {
+            let x = FloatType(randomDouble)
+            XCTAssertFalse(x.isSignalingNaN)
+        }
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isInfinite_returns_false_for_WideFloat_nan()
+    {
+        let n = FloatType.nan
+        XCTAssertFalse(n.isInfinite)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isInfinite_returns_false_for_WideFloat_signalingNaN()
+    {
+        let n = FloatType.signalingNaN
+        XCTAssertFalse(n.isInfinite)
+    }
+    
+    // -------------------------------------
+    func test_WideFloat_isInfinite_returns_true_for_WideFloat_infinity()
+    {
+        var n = FloatType.infinity
+        XCTAssertTrue(n.isInfinite)
+        
+        n.negate()
+        XCTAssertTrue(n.isInfinite)
+    }
+
+    // -------------------------------------
+    func test_WideFloat_isInfinite_returns_false_for_finiteValued_WideFloats()
+    {
+        for _ in 0..<100
+        {
+            let x = FloatType(randomDouble)
+            XCTAssertFalse(x.isInfinite)
+        }
+    }
+
+    // -------------------------------------
     func test_WideFloat_can_recover_the_Double_value_it_was_initialized_with()
     {
         for _ in 0..<100

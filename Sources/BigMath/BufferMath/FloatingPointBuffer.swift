@@ -45,9 +45,25 @@ infix operator <=> : ComparisonPrecedence
  compared to the tiny numbers one can express with a negative 64-bit exponent
  before subnormals would be an issue.
 
- We do support NaN, sNaN, signed infinity and signed zeros.
+ We do support NaN, sNaN, signed infinity and signed zeros; however, since we
+ don't used offset exponents,  we can't use `-1` (all ones) to encode these as
+ IEEE 754 does.  Instead, we use `Int.max` in the  exponent.  To distinquish
+ between them, we the two least signficant bits of the significand bits.  The
+ other bits are don't care bits, except in the case of the infinity, for which
+ the sign bit applies.  In the following table X indicates that the bit is not
+ used, qNaN refers to *quiet* NaN (ordinary), and sNaN refers to signaling NaN
  
- As with IEEE 425, the significand is kept as signed magnitude rather than 2's
+                    +----------+-----------------------+
+                    | Exponent |    Significand Bits   |
+                    |   Value  | Sign  | Bit 1 | Bit 0 |
+        +-----------+----------+-------+-------+-------+
+        | +Infinity |  Int.max |   0   |   0   |   0   |
+        | -Infinity |  Int.max |   1   |   0   |   0   |
+        |   qNaN    |  Int.max |   X   |   0   |   1   |
+        |   sNaN    |  Int.max |   X   |   1   |   1   |
+        +-----------+----------+-------+-------+-------+
+
+ As with IEEE 754, the significand is kept as signed magnitude rather than 2's
  compliment.
  */
 @usableFromInline
@@ -135,21 +151,19 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isInfinite: Bool
     {
-        if exponent == Int.min {
-            return significandIsZero
+        if exponent == Int.max {
+            return significand[0] & 3 == 0
         }
         
         return false
     }
     
     // -------------------------------------
-    @inline(__always)
-    private mutating func setInfinity()
+    @usableFromInline @inline(__always)
+    internal mutating func setInfinity()
     {
-        exponent |= -1
-        significandHeadValue = 1
-        var sTail = significandTail
-        for i in sTail.indices { sTail[i] = 0  }
+        exponent = Int.max
+        significand[0] &= UInt.max << 2
     }
 
     // -------------------------------------
@@ -161,18 +175,18 @@ struct FloatingPointBuffer
     var isNaN: Bool
     {
         if exponent & Int.max == Int.max {
-            return !significandIsZero
+            return significand[0] & 1 == 1
         }
         
         return false
     }
     
     // -------------------------------------
-    @inline(__always)
-    private mutating func setNaN()
+    @usableFromInline @inline(__always)
+    internal mutating func setNaN()
     {
-        exponent |= Int.max
-        significandHeadValue = 1
+        exponent = Int.max
+        significand[0] = 1
     }
 
     // -------------------------------------
@@ -183,19 +197,19 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isSignalingNaN: Bool
     {
-        if exponent == -1 {
-            return !significandIsZero
+        if exponent == Int.max {
+            return significand[0] & 3 == 3
         }
         
         return false
     }
     
     // -------------------------------------
-    @inline(__always)
-    private mutating func setSignalingNaN(to set: Bool = true)
+    @usableFromInline @inline(__always)
+    internal mutating func setSignalingNaN(to set: Bool = true)
     {
-        exponent |= -1
-        significandHeadValue = 1
+        exponent = Int.max
+        significand[0] = 3
     }
     
     // -------------------------------------
@@ -458,27 +472,8 @@ struct FloatingPointBuffer
         let leftIsSpecialCase = left.exponent & Int.max == Int.max
         let rightIsSpecialCase = right.exponent & Int.max == Int.max
         
-        if leftIsSpecialCase || rightIsSpecialCase
-        {
-            /*
-             If either is NaN then the result is unordered.
-             */
-            if (leftIsSpecialCase && left.significandIsZero)
-                || (rightIsSpecialCase && right.significandIsZero)
-            {
-                return .unordered
-            }
-            
-            /*
-             Neither is NaN, so the special case must be infinity. The
-             correct results for those will fall out naturally from the
-             normal finite number comparisons.  However, since our "official"
-             encoding for infinity sets all exponent bits, and so far we've
-             only tested the non-sign bits. We do assert that the exponent sign
-             bit is set, because if it's not we've made a mistake somewhere.
-             */
-            assert(!leftIsSpecialCase  || left.exponent == -1)
-            assert(!rightIsSpecialCase  || right.exponent == -1)
+        if UInt8(left.isNaN) | UInt8(right.isNaN) == 1 {
+            return .unordered
         }
         
         let leftSign = left.signBit
@@ -487,7 +482,7 @@ struct FloatingPointBuffer
         guard signResult == .orderedSame else { return signResult }
         
         /*
-         With the easy case of differing significand signs being handled,
+         With the easy case of differing significand signs handled,
          We know left and right are either both positive or both negative.
          We pretend that they're both positive, and then fix up for the
          negative case at the end.

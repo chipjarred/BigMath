@@ -140,17 +140,13 @@ public struct WideFloat<T: WideDigit>
         self.significand = RawSignificand(s)
         self.exponent = exp
         
-        // Pre-compute normalization shift so we shift only once.
-        var leftShift = 0
+        // Normalize significand
         if self.significand.bit(at: RawSignificand.bitWidth - 1) {
-            leftShift = -1 // right shift to leave room for sign bit
+            self.significand >>= 1 // leave room for sign bit
         }
         else if self.significand.bit(at: RawSignificand.bitWidth - 2) {
-            leftShift = self.significand.leadingZeroBitCount - 1
+            self.significand <<= self.significand.leadingZeroBitCount - 1
         }
-        
-        if leftShift < 0 { self.significand >>= -leftShift }
-        else if leftShift > 0 { self.significand <<= leftShift }
         
         self.negate(if: source < 0)
     }

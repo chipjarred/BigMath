@@ -26,17 +26,15 @@ class WideFloat_Initialization_UnitTests: XCTestCase
     // -------------------------------------
     var randomDecimal: Decimal
     {
-        let bigLimit = Decimal(UInt64.max)
-        let bigRange = 0...bigLimit
+        let bigLimit = Decimal(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
         let littleRange = Decimal.leastNormalMagnitude...1
         var x = Decimal.random(in: bigRange)
         let f = Decimal.random(in: littleRange)
-        assert(x < Decimal(UInt64.max))
         x *= f
-        assert(x < Decimal(UInt64.max))
         return x
     }
-
+    
     // -------------------------------------
     func test_WideFloat_can_recover_the_Double_value_it_was_initialized_with()
     {
@@ -50,4 +48,62 @@ class WideFloat_Initialization_UnitTests: XCTestCase
             XCTAssertEqual(originalValue, recoveredValue)
         }
     }
+    
+    // TODO: Re-enable these once WideFloat supports Decimal conversion.
+    #if false
+    // -------------------------------------
+    func test_WideFloat_Decimal_recovered_from_initing_with_Double_is_same_as_Decimal_from_that_Double()
+    {
+        for _ in 0..<100
+        {
+            let originalValue = randomDouble
+            
+            let wideValue = FloatType(originalValue)
+            let recoveredValue = wideValue.decimalValue
+            let expected = Decimal(originalValue)
+            
+            print("------------")
+            print("recovered: \(recoveredValue)")
+            print(" expected: \(expected)")
+
+            XCTAssertEqual(recoveredValue, expected)
+        }
+        
+//        for _ in 0..<100
+//        {
+//            let originalValue = 1 / randomDouble
+//
+//            let wideValue = FloatType(originalValue)
+//            let recoveredValue = wideValue.decimalValue
+//            let expected = Decimal(originalValue)
+//
+//            XCTAssertEqual(recoveredValue, expected)
+//        }
+    }
+
+    // -------------------------------------
+    func test_WideFloat_can_recover_the_Decimal_value_it_was_initialized_with()
+    {
+        for _ in 0..<100
+        {
+            let originalValue = randomDecimal
+            let originalDoubleValue = originalValue.doubleValue
+                        
+            let wideValue = WideFloat<UInt128>(originalValue)
+            let wideDoubleValue = wideValue.doubleValue
+            let recoveredValue = wideValue.decimalValue
+            
+            print("------")
+            print("original exp    = \(originalValue.exponent)")
+            print("recovered exp   = \(recoveredValue.exponent)")
+            print("           orig = \(originalValue)")
+            print(" recoveredValue = \(recoveredValue)")
+            print("wideDoubleValue = \(wideDoubleValue)")
+            print("origDoubleValue = \(originalDoubleValue)")
+
+            XCTAssertEqual(wideDoubleValue, originalDoubleValue)
+            XCTAssertEqual(originalValue, recoveredValue)
+        }
+    }
+    #endif
 }

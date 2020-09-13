@@ -28,7 +28,7 @@ import Foundation
  in giving Decimal any love lately
  */
 internal extension Decimal
-{
+{    
     // -------------------------------------
     @usableFromInline var floor: Decimal
     {

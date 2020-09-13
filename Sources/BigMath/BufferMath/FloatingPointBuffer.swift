@@ -214,14 +214,15 @@ struct FloatingPointBuffer
         // This handles NaN, sNaN, and +/- Infinity
         if exponent & Int.max == Int.max { return true }
         
-        // This handles +/-0
-        if exponent == 0 {
-            return significandIsZero
-        }
+        // If the significand is zero, the exponent must be zero
+        if significandIsZero { return exponent == 0 }
         
-        // This handles all other finite values.
+        /*
+         Otherwise the 2nd most significant bit, that is the integral bit, must
+         be one.
+         */
         let sigHead = significandHead
-        return (sigHead >> (UInt.bitWidth - 2) & 1) == 1
+        return ((sigHead >> (UInt.bitWidth - 2)) & 1) == 1
     }
     
     // -------------------------------------
@@ -282,8 +283,8 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    @usableFromInline @inline(__always)
-    func convertTo<F: BinaryFloatingPoint>(to: F.Type) -> F
+    @usableFromInline
+    func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
         let radix = F(
             sign: .plus,
@@ -311,6 +312,7 @@ struct FloatingPointBuffer
         
         return result
     }
+    
 
     // MARK:- Initializers
     // -------------------------------------

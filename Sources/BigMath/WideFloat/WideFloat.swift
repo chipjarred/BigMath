@@ -52,9 +52,9 @@ public struct WideFloat<T: WideDigit>
         return withFloatBuffer { return $0.isNormalized }
     }
     
-    @inlinable public var float80Value: Float80 { convertTo(to: Float80.self) }
-    @inlinable public var doubleValue: Double { convertTo(to: Double.self) }
-    @inlinable public var floatValue: Float { convertTo(to: Float.self) }
+    @inlinable public var float80Value: Float80 { convert(to: Float80.self) }
+    @inlinable public var doubleValue: Double { convert(to: Double.self) }
+    @inlinable public var floatValue: Float { convert(to: Float.self) }
 
     // -------------------------------------
     @inlinable
@@ -117,54 +117,6 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
-    @inlinable
-    public init(_ source: Decimal)
-    {
-        /*
-         Initializing from a Decimal is a pain, because it's not clear exactly
-         how its stored.  It supports a compact and non-compact version.
-         
-         There's almost certainly a better way than we do here, but since so
-         much of Decimal's implementation is undocumented, we do the converson
-         the slow way for now.
-         
-         We need to get its mantissa.  For ordinary floating point types we
-         divide by the value's binade, but Decimal doesn't support binade, so
-         we have to make one for ourselves.
-         */
-        let binade =
-            Decimal(sign: .plus, exponent: source.exponent, significand: 1)
-        var mantissa = source / binade
-        
-        /*
-         At this point we have Decimal's mantissa as an integer, but it's still
-         stored as Decimal.  It could be too big for native integer types,
-         and we don't want truncate the full width of a Decmial.  Since
-         WideInteger can be initialized from a Double, we convert the Decimal
-         to Double, but that looses precision.  So we have to convert the
-         Double back to Decimal and subtract from the Decimal mantissa so we
-         can get at those lost bits.  We repeat that process until the
-         Decimal's mantissa has been reduced to less than 1. (Just in case
-         there is some rounding error somewhere that causes it not to go to 0
-         exactly).
-         */
-        var significand = RawSignificand(0)
-        repeat
-        {
-            let dblSig = (mantissa as NSDecimalNumber).doubleValue
-            mantissa -= Decimal(dblSig)
-            significand += RawSignificand(dblSig)
-        } while mantissa >= 1
-        
-        // Now we can use our FixedWidthInteger initializer
-        self.init(significand)
-
-        // Then correct the sign and exponent
-        self.negate(if: source < 0)
-        self.exponent = Exponent(source.exponent)
-    }
-    
-    // -------------------------------------
     @usableFromInline @inline(__always)
     internal mutating func normalize() {
         withMutableFloatBuffer { $0.normalize() }
@@ -184,8 +136,8 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
-    @inlinable public func convertTo<F: BinaryFloatingPoint>(to: F.Type) -> F {
-        return withFloatBuffer { return $0.convertTo(to: F.self) }
+    @inlinable public func convert<F: BinaryFloatingPoint>(to: F.Type) -> F {
+        return withFloatBuffer { return $0.convert(to: F.self) }
     }
 
     // -------------------------------------

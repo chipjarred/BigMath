@@ -102,34 +102,10 @@ extension WideUInt: BinaryInteger
         )
         self.init(_floor: value)
     }
-    
-    // -------------------------------------
-    @inlinable
-    public init(_ source: Decimal)
-    {
-        let value = source.floor
-        
-        precondition(
-            !source.isNaN && value >= 0
-                && value <= Decimal(Self.max),
-            "\(source) cannot be represented by \(Self.self)"
-        )
-        self.init(_floor: value)
-    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal init<T>(_floor: T) where T: BinaryFloatingPoint
-    {
-        assert(_floor >= 0)
-        assert(_floor.exponent <= Self.bitWidth)
-        self.init()
-        withMutableBuffer { set(buffer: $0, from: _floor) }
-    }
-    
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    internal init(_floor: Decimal)
     {
         assert(_floor >= 0)
         assert(_floor.exponent <= Self.bitWidth)

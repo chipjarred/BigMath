@@ -58,6 +58,31 @@ extension WideDigit
             return BigMath.convert(from: uintBuf[...], to: F.self)
         }
     }
+    
+    // -------------------------------------
+    @inlinable
+    public init(_ source: Decimal)
+    {
+        let value = source.floor
+        
+        precondition(
+            !source.isNaN && value >= 0
+                && value <= Decimal(Self.max),
+            "\(source) cannot be represented by \(Self.self)"
+        )
+        self.init(_floor: value)
+    }
+
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal init(_floor: Decimal)
+    {
+        assert(_floor >= 0)
+        assert(_floor.exponent <= Self.bitWidth)
+        self.init()
+        withMutableBuffer { set(buffer: $0, from: _floor) }
+    }
+
 }
 
 // --------------------------------------

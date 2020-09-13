@@ -118,8 +118,40 @@ public struct WideFloat<T: WideDigit>
     @inlinable
     public init<I: FixedWidthInteger>(_ source: I)
     {
-        let significand = RawSignificand(source.magnitude)
-        self.init(significandBitPattern: significand, exponent: 0)
+        var s = source.magnitude
+        let exp = I.bitWidth - s.leadingZeroBitCount - 1
+        
+        /*
+         When source is bigger than our significand, we need to shift it down so
+         we keep the most significant bits.
+         
+         Since MemoryLayouts are known at compile time this should be optimized
+         away when it doesn't apply
+         */
+        if MemoryLayout<I.Magnitude>.size > MemoryLayout<RawSignificand>.size
+        {
+            let sBitCount = I.Magnitude.bitWidth - s.leadingZeroBitCount
+            let sigWidth = RawSignificand.bitWidth - 1
+            if sBitCount > sigWidth {
+                s >>= sBitCount - sigWidth
+            }
+        }
+        
+        self.significand = RawSignificand(s)
+        self.exponent = exp
+        
+        // Pre-compute normalization shift so we shift only once.
+        var leftShift = 0
+        if self.significand.bit(at: RawSignificand.bitWidth - 1) {
+            leftShift = -1 // right shift to leave room for sign bit
+        }
+        else if self.significand.bit(at: RawSignificand.bitWidth - 2) {
+            leftShift = self.significand.leadingZeroBitCount - 1
+        }
+        
+        if leftShift < 0 { self.significand >>= -leftShift }
+        else if leftShift > 0 { self.significand <<= leftShift }
+        
         self.negate(if: source < 0)
     }
     

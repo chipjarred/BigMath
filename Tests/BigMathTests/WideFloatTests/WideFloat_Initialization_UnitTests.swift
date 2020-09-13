@@ -36,6 +36,12 @@ class WideFloat_Initialization_UnitTests: XCTestCase
     }
     
     // -------------------------------------
+    var urandom64: UInt64 { return UInt64.random(in: 0...UInt64.max) }
+    
+    // -------------------------------------
+    var random64: Int64 { return Int64.random(in: Int64.min...Int64.max) }
+
+    // -------------------------------------
     func test_WideFloat_isNaN_returns_true_for_WideFloat_nan()
     {
         let n = FloatType.nan
@@ -151,6 +157,36 @@ class WideFloat_Initialization_UnitTests: XCTestCase
         }
     }
     
+    // -------------------------------------
+    func test_Double_value_from_WideFloat_initialized_with_unsigned_integer_is_same_as_Double_initialized_with_that_unsigned_integer()
+    {
+        for _ in 0..<100
+        {
+            let intValue = urandom64
+            let wFloat = FloatType(intValue)
+            
+            let actual = wFloat.doubleValue
+            let expected = Double(intValue)
+            
+            XCTAssertEqual(actual, expected)
+        }
+    }
+    
+    // -------------------------------------
+    func test_Double_value_from_WideFloat_initialized_with_signed_integer_is_same_as_Double_initialized_with_that_signed_integer()
+    {
+        for _ in 0..<100
+        {
+            let intValue = urandom64
+            let wFloat = FloatType(intValue)
+            
+            let actual = wFloat.doubleValue
+            let expected = Double(intValue)
+            
+            XCTAssertEqual(actual, expected)
+        }
+    }
+
     // TODO: Re-enable these once WideFloat supports Decimal conversion.
     #if false
     // -------------------------------------

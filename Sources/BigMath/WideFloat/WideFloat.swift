@@ -97,6 +97,19 @@ public struct WideFloat<T: WideDigit>
         significand.setBit(at: RawSignificand.bitWidth - 2, to: 0)
         return Self(significandBitPattern: significand, exponent: Int.min)
     }
+    
+    // -------------------------------------
+    @inlinable static public var leastNonzeroMagnitude: Self {
+        return leastNormalMagnitude
+    }
+    
+    // -------------------------------------
+    @inlinable public var magnitude: Self
+    {
+        var result = self
+        result.negate(if: isNegative)
+        return result
+    }
 
     @inlinable public var float80Value: Float80 { convert(to: Float80.self) }
     @inlinable public var doubleValue: Double { convert(to: Double.self) }
@@ -286,7 +299,32 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
-    @inlinable public func convert<F: BinaryFloatingPoint>(to: F.Type) -> F {
+    @inlinable public func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
+    {
+        if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
+        if isInfinite { return isNegative ? -F.infinity : F.infinity }
+        
+        if exponent >= F.greatestFiniteMagnitude.exponent
+        {
+            if exponent > F.greatestFiniteMagnitude.exponent
+                || Self(F.greatestFiniteMagnitude) < self.magnitude
+            {
+                return isNegative ? -F.infinity : F.infinity
+            }
+        }
+        else if exponent <= F.leastNonzeroMagnitude.exponent
+        {
+            if exponent < F.leastNonzeroMagnitude.exponent
+                || Self(F.leastNonzeroMagnitude) < self.magnitude
+            {
+                return F(
+                    sign: isNegative ? .minus : .plus,
+                    exponent: 0,
+                    significand: 0
+                )
+            }
+        }
+        
         return withFloatBuffer { return $0.convert(to: F.self) }
     }
     

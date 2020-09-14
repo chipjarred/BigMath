@@ -109,19 +109,6 @@ extension WideDigit
     
     // -------------------------------------
     /**
-    Branchlessly set or clear the bit at a bit index.
-    */
-    @inlinable
-    public mutating func setBit<T: BinaryInteger>(at bitIndex: Int, to value: T)
-    {
-        assert(value & ~1 == 0, "Not 1 or 0")
-        assert((0..<Self.bitWidth).contains(bitIndex))
-        
-        setBit(at: bitIndex, to: UInt(value))
-    }
-    
-    // -------------------------------------
-    /**
      Get the value of a bit at a bit index as a boolean
      */
     @inlinable

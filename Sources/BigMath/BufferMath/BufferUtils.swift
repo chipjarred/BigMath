@@ -423,6 +423,22 @@ internal func setBit(
 
 // -------------------------------------
 /**
+ Toggle the bit at a bit index relative to a buffer.
+ */
+@usableFromInline @inline(__always)
+internal func toggleBit(
+    at bitIndex: Int,
+    in buff: inout MutableUIntBuffer)
+{
+    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
+    
+    assert(buff.indices.contains(digitIndex))
+    
+    buff[digitIndex].toggleBit(at: bitIndex)
+}
+
+// -------------------------------------
+/**
 Retrieve the value of a bit at a bit index relative to a buffer.
 */
 @usableFromInline @inline(__always)

@@ -107,7 +107,7 @@ extension FixedWidthInteger
     
     // -------------------------------------
     /**
-    Branchlessly set or clear the bit at a bit index relative to a buffer.
+    Branchlessly set or clear the bit at a bit index.
     */
     @inlinable
     public mutating func setBit(at bitIndex: Int, to value: Bool) {
@@ -116,7 +116,7 @@ extension FixedWidthInteger
     
     // -------------------------------------
     /**
-    Branchlessly set or clear the bit at a bit index relative to a buffer.
+    Branchlessly set or clear the bit at a bit index.
     */
     @inlinable
     public mutating func setBit(at bitIndex: Int, to value: Self)
@@ -139,6 +139,13 @@ extension FixedWidthInteger
         // redundancy.
         self = (self & ~mask) | ((~value &+ 1) & mask)
         #endif
+    }
+    
+    // -------------------------------------
+    /// Branchlessly toggle the bit at `bitIndex`
+    @inlinable
+    public mutating func toggleBit(at bitIndex: Int) {
+        setBit(at: bitIndex, to: getBit(at: bitIndex) ^ 1)
     }
     
     // -------------------------------------

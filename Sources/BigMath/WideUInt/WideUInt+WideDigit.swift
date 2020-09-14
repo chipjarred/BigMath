@@ -27,6 +27,30 @@ public protocol WideDigit: FixedWidthInteger, UnsignedInteger, Codable
 {
     var signBit: Bool { get }
     mutating func invert()
+
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    mutating func setBit(at bitIndex: Int, to value: Bool)
+    
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    mutating func setBit(at bitIndex: Int, to value: Self)
+    
+    // -------------------------------------
+    /**
+    Branchlessly toggle the bit at a bit index.
+    */
+    mutating func toggleBit(at bitIndex: Int)
+    
+    // -------------------------------------
+    /**
+     Get the value of a bit at a bit index
+     */
+    func getBit(at bitIndex: Int) -> Self
 }
 
 // --------------------------------------
@@ -82,7 +106,28 @@ extension WideDigit
         self.init()
         withMutableBuffer { set(buffer: $0, from: _floor) }
     }
-
+    
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    @inlinable
+    public mutating func setBit<T: BinaryInteger>(at bitIndex: Int, to value: T)
+    {
+        assert(value & ~1 == 0, "Not 1 or 0")
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        
+        setBit(at: bitIndex, to: UInt(value))
+    }
+    
+    // -------------------------------------
+    /**
+     Get the value of a bit at a bit index as a boolean
+     */
+    @inlinable
+    public func bit(at bitIndex: Int) -> Bool {
+        return getBit(at: bitIndex) != 0
+    }
 }
 
 // --------------------------------------
@@ -90,6 +135,72 @@ extension WideUInt: WideDigit
 {
     @inlinable
     public var signBit: Bool { return high.signBit }
+        
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: Bool)
+    {
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        setBit(at: bitIndex, to: UInt(value))
+    }
+
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: UInt)
+    {
+        assert(value & ~1 == 0, "Not 1 or 0")
+        assert((0..<Self.bitWidth).contains(bitIndex))
+
+        withMutableBuffer
+        {
+            var buf = $0
+            BigMath.setBit(at: bitIndex, in: &buf, to: value)
+        }
+    }
+    
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: Self)
+    {
+        assert(value & ~1 == 0, "Not 1 or 0")
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        setBit(at: bitIndex, to: UInt(value))
+    }
+    
+    // -------------------------------------
+    /**
+    Branchlessly toggle the bit at a bit index.
+    */
+    @inlinable
+    public mutating func toggleBit(at bitIndex: Int)
+    {
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        
+        withMutableBuffer
+        {
+            var buf = $0
+            BigMath.toggleBit(at: bitIndex, in: &buf)
+        }
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func getBit(at bitIndex: Int) -> Self
+    {
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        return withBuffer {
+            return Self(BigMath.getBit(at: bitIndex, from: $0))
+        }
+    }
 }
 
 // --------------------------------------

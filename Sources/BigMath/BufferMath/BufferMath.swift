@@ -32,11 +32,8 @@ internal func compareBuffers(
     _ left: UIntBuffer,
     _ right: UIntBuffer) -> ComparisonResult
 {
-    assert(left.count > 0)
-    assert(right.count > 0)
-    
-    let left = signficantDigits(of: left)
-    let right = signficantDigits(of: right)
+    let left = left.count == 0 ? left : signficantDigits(of: left)
+    let right = right.count == 0 ? right : signficantDigits(of: right)
     
     guard left.count == right.count else
     {
@@ -48,6 +45,8 @@ internal func compareBuffers(
             )
         )!
     }
+    
+    if left.count == 0 { return .orderedSame }
     
     let lStart = left.baseAddress!
     var lPtr = lStart + (left.count - 1)

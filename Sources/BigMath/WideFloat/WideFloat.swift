@@ -292,6 +292,15 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
+    @inlinable
+    public var negated: Self
+    {
+        var r = self
+        r.negate()
+        return r
+    }
+    
+    // -------------------------------------
     /// Branchless conditional negation
     @usableFromInline @inline(__always)
     internal mutating func negate(if doNegation: Bool) {

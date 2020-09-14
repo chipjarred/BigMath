@@ -348,7 +348,7 @@ internal func indexOfMostSignificantUInt(of x: UIntBuffer) -> Int
         if x[i] != 0 { return i }
     }
     
-    return 0
+    return x.startIndex
 }
 
 // -------------------------------------

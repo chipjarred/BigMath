@@ -565,9 +565,26 @@ struct FloatingPointBuffer
             return .unordered
         }
         
-        let leftSign = left.signBit
-        let rightSign = right.signBit
-        let signResult = ComparisonResult(rawValue: Int(leftSign &- rightSign))!
+        let leftSign = Int(left.signBit)
+        let rightSign = Int(right.signBit)
+        
+        if left.isInfinite
+        {
+            if right.isInfinite {
+                return ComparisonResult(rawValue: rightSign &- leftSign)!
+            }
+            return ComparisonResult(
+                select(if: left.isNegative, then: -1, else: 1)
+            )
+        }
+        else if right.isInfinite
+        {
+            return ComparisonResult(
+                select(if: right.isNegative, then: 1, else: -1)
+            )
+        }
+        
+        let signResult = ComparisonResult(rawValue: leftSign &- rightSign)!
         guard signResult == .orderedSame else { return signResult }
         
         /*

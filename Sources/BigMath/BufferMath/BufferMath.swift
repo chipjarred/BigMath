@@ -142,7 +142,7 @@ internal func leftShift(
         var srcDigit = srcBase + (src.count - d - 1)
         var prevDigit = srcDigit - 1
         
-        while prevDigit >= srcBase
+        while UInt8(prevDigit >= srcBase) & UInt8(dstDigit >= dstBase) == 1
         {
             dstDigit.pointee =
                 (srcDigit.pointee << lShift) | (prevDigit.pointee >> rShift)

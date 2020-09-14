@@ -47,6 +47,11 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
+    @inlinable public var isNegative: Bool {
+        return withFloatBuffer { return $0.isNegative }
+    }
+    
+    // -------------------------------------
     @usableFromInline @inline(__always)
     internal var isNormalized: Bool {
         return withFloatBuffer { return $0.isNormalized }
@@ -97,6 +102,18 @@ public struct WideFloat<T: WideDigit>
     @inlinable public var doubleValue: Double { convert(to: Double.self) }
     @inlinable public var floatValue: Float { convert(to: Float.self) }
     
+    @inlinable public var uintValue: UInt { convert(to: UInt.self) }
+    @inlinable public var uint64Value: UInt64 { convert(to: UInt64.self) }
+    @inlinable public var uint32Value: UInt32 { convert(to: UInt32.self) }
+    @inlinable public var uint16Value: UInt16 { convert(to: UInt16.self) }
+    @inlinable public var uint8Value: UInt8 { convert(to: UInt8.self) }
+    
+    @inlinable public var intValue: Int { convert(to: Int.self) }
+    @inlinable public var int64Value: Int64 { convert(to: Int64.self) }
+    @inlinable public var int32Value: Int32 { convert(to: Int32.self) }
+    @inlinable public var int16Value: Int16 { convert(to: Int16.self) }
+    @inlinable public var int8Value: Int8 { convert(to: Int8.self) }
+
     // -------------------------------------
     @inlinable
     public init(significandBitPattern: RawSignificand, exponent: Int)
@@ -119,21 +136,65 @@ public struct WideFloat<T: WideDigit>
     public init<I: FixedWidthInteger>(_ source: I)
     {
         var s = source.magnitude
-        let exp = I.bitWidth - s.leadingZeroBitCount - 1
+        var exp = I.bitWidth - s.leadingZeroBitCount - 1
         
         /*
-         When source is bigger than our significand, we need to shift it down so
-         we keep the most significant bits.
+         When source's Magnitude is bigger than our significand - 1 (for sign
+         bit), we need to shift it down so we keep the most significant bits,
+         but we need to handle rounding of the truncated part.
          
          Since MemoryLayouts are known at compile time this should be optimized
          away when it doesn't apply
          */
-        if MemoryLayout<I.Magnitude>.size > MemoryLayout<RawSignificand>.size
+        if MemoryLayout<I.Magnitude>.size >= MemoryLayout<RawSignificand>.size
         {
             let sBitCount = I.Magnitude.bitWidth - s.leadingZeroBitCount
             let sigWidth = RawSignificand.bitWidth - 1
-            if sBitCount > sigWidth {
-                s >>= sBitCount - sigWidth
+            var shift = sBitCount - sigWidth
+            if shift > 0
+            {
+                /*
+                 For rounding, we do "bankers'" rounding because that's what
+                 the Swift standard library does.
+                 
+                 In this case, adding "half" means adding half of the least
+                 signficant bit we will not truncate, which is adding 1 to the
+                 bit immediately to the right of it.
+                 
+                 If we get a carry out of the add, then we have rippled all
+                 the way up to a new most signficant bit, which means we need to
+                 increase the exponent.
+                 */
+                var halfBit: I.Magnitude = 0
+                var mask = halfBit
+                halfBit.setBit(at: shift - 1, to: 1)
+                mask = (halfBit << 1) - 1
+                let fract = s & mask
+                var carry: I.Magnitude = 0
+                if fract > halfBit || fract == halfBit && s.bit(at: shift) {
+                    carry = s.addToSelfReportingCarry(halfBit)
+                }
+                let iCarry = Int(carry)
+                shift &+= iCarry
+                s >>= shift
+                let highBitIndex = I.Magnitude.bitWidth - shift
+                let existingHighBit = s.getBit(at: highBitIndex)
+                s.setBit(at: highBitIndex, to: existingHighBit | carry)
+                exp &+= iCarry
+
+                /*
+                 Technically, given a large enough integer, we could overflow
+                 the exponent into "infinity", but even on systems where our
+                 exponent is only 32-bits, an integer large enough to overflow
+                 our exponent would have a significand so large as to overflow
+                 the run-time stack just by creating it in the first place,
+                 crashing the program, so this scenario is only theoretical.
+                 
+                 We did think about it, so the following line is left commented
+                 out as purely informational.
+                 
+                 if exp == UInt.max { s = 0 } // Setting infinity
+                 */
             }
         }
         
@@ -144,7 +205,7 @@ public struct WideFloat<T: WideDigit>
         if self.significand.bit(at: RawSignificand.bitWidth - 1) {
             self.significand >>= 1 // leave room for sign bit
         }
-        else if self.significand.bit(at: RawSignificand.bitWidth - 2) {
+        else if !self.significand.bit(at: RawSignificand.bitWidth - 2) {
             self.significand <<= self.significand.leadingZeroBitCount - 1
         }
         
@@ -227,6 +288,58 @@ public struct WideFloat<T: WideDigit>
     // -------------------------------------
     @inlinable public func convert<F: BinaryFloatingPoint>(to: F.Type) -> F {
         return withFloatBuffer { return $0.convert(to: F.self) }
+    }
+    
+    // -------------------------------------
+    @inlinable public func convert<I: FixedWidthInteger>(to: I.Type) -> I
+    {
+        let maxRepresentableExponent = I.bitWidth - Int(I.isSigned)
+        
+        /*
+         All of these tests are fast O(1) tests, so we use bitwise ops instead
+         of booleans to avoid the hidden conditional branches in boolean
+         short-circuit evaluation
+         */
+        var canBeRepresented = UInt8(!isNaN)
+            & UInt8(!isInfinite)
+            & (UInt8(I.isSigned) | UInt8(!self.isNegative))
+            & UInt8(exponent <= maxRepresentableExponent)
+        
+        if canBeRepresented & UInt8(exponent == maxRepresentableExponent) == 1
+        {
+            if significandIsOne
+            {
+                /*
+                 Strictly speaking, our value can't be represented by I, but
+                 when initializing a WideFloat from the maximum magnitude of I,
+                 we would round it up to our currrent value, so we allow
+                 conversion back to that maximum magnitude.
+                 */
+                return UInt8(I.isSigned) & UInt8(isNegative) == 1
+                    ? I.min
+                    : I.max
+            }
+            canBeRepresented = 0
+        }
+        
+        precondition(
+            canBeRepresented == 1,
+            "\(self) cannot be represented by \(I.self)"
+        )
+        
+        return withFloatBuffer { return $0.convert(to: I.self) }
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var significandIsZero: Bool {
+        return withFloatBuffer { $0.significandIsZero }
+    }
+
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var significandIsOne: Bool {
+        return withFloatBuffer { $0.significandIsOne }
     }
 
     // -------------------------------------

@@ -89,6 +89,7 @@ struct FloatingPointBuffer
     }
 
     // -------------------------------------
+    @usableFromInline @inline(__always)
     var isNegative: Bool { return signBit == 1 }
     
     // -------------------------------------
@@ -138,9 +139,22 @@ struct FloatingPointBuffer
      `true` if all bits of the signficand except the sign bit, are `0`;
      otherwise, `false`.
      */
-    @inline(__always)
-    private var significandIsZero: Bool {
+    @usableFromInline @inline(__always)
+    internal var significandIsZero: Bool {
         return significandTail.reduce(significandHeadValue) { $0 | $1 } == 0
+    }
+    
+    // -------------------------------------
+    /**
+     `true` if the most significant non-sign bit of the sigificand is `1` and
+     all lower bits are `0`; otherwise `false`
+     */
+    @usableFromInline @inline(__always)
+    internal var significandIsOne: Bool
+    {
+        let mask: UInt = 1 << (UInt.bitWidth - Int(2))
+        return significandHeadValue & mask == mask
+            && significandTail.reduce(0) { $0 | $1 } == 0
     }
     
     // -------------------------------------
@@ -297,8 +311,86 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
+    /**
+     - Important: This method will simply copy/shift the bits of the
+     significand into the result.  Assuming the result is large enough to hold
+     the shifted signficant bits, which will result in the proper integer value,
+     but *it will truncate high bits of integers that don't fit into the result
+     type*.  If that's not OK, the calling code
+     should check **before** calling this method.
+     
+     The same is true for checking if the floating point is negative, and the
+     result type is unsigned.
+     
+     NaNs and Infinity should also be handled before calling this method.
+     */
+    @usableFromInline
+    func convert<I: FixedWidthInteger>(to: I.Type) -> I
+    {
+        assert(!isNaN && !isInfinite)
+        guard exponent >= 0 else { return I() }
+
+        var result = I.Magnitude()
+        
+        result.withMutableBuffer
+        {
+            var resultBuf = $0
+            let commonLen = min(significand.count, resultBuf.count)
+            let s = significand[..<(significand.startIndex + commonLen)]
+            
+            BigMath.leftShift(
+                s.immutable,
+                by: exponent - I.Magnitude.bitWidth + 2,
+                into: &resultBuf
+            )
+            
+            if isNegative && (exponent + 1) < I.Magnitude.bitWidth
+            {
+                // Convert from signed magnitude to twos complement
+                BigMath.setBit(at: exponent + 1, in: &resultBuf, to: 0)
+                BigMath.arithmeticNegate(resultBuf.immutable, to: resultBuf)
+            }
+        }
+        
+        return unsafeBitCast(result, to: I.self)
+    }
+    
+    // -------------------------------------
     @usableFromInline
     func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
+    {
+        let radix = F(
+            sign: .plus,
+            exponent: F.Exponent(UInt.bitWidth),
+            significand: 1
+        )
+        
+        var result: F = 0
+        for digit in significandTail
+        {
+            result /= radix
+            result += F(digit)
+        }
+        
+        result += F(significandHeadValue)
+
+        let sign = select(
+            if: isNegative,
+            then: FloatingPointSign.minus.rawValue,
+            else: FloatingPointSign.plus.rawValue
+        )
+        result *= F(
+            sign: FloatingPointSign(rawValue: sign)!,
+            exponent: F.Exponent(exponent) - result.exponent,
+            significand: 1
+        )
+        
+        return result
+    }
+    
+    // -------------------------------------
+    @usableFromInline
+    func convert_saved<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
         let radix = F(
             sign: .plus,
@@ -468,9 +560,6 @@ struct FloatingPointBuffer
     {
         assert(left.isNormalized && right.isNormalized)
         assert(left.significand.count == right.significand.count)
-        
-        let leftIsSpecialCase = left.exponent & Int.max == Int.max
-        let rightIsSpecialCase = right.exponent & Int.max == Int.max
         
         if UInt8(left.isNaN) | UInt8(right.isNaN) == 1 {
             return .unordered

@@ -585,7 +585,14 @@ struct FloatingPointBuffer
         }
         
         let signResult = ComparisonResult(rawValue: leftSign &- rightSign)!
-        guard signResult == .orderedSame else { return signResult }
+        guard signResult == .orderedSame else
+        {
+            // IEEE 754 says signed +0 and -0 compare as equal
+            if left.significandIsZero && right.significandIsZero {
+                return .orderedSame
+            }
+            return signResult
+        }
         
         /*
          With the easy case of differing significand signs handled,
@@ -613,6 +620,7 @@ struct FloatingPointBuffer
                     left.significandTail,
                     right.significandTail).rawValue
             }
+            
         }
         
         /*

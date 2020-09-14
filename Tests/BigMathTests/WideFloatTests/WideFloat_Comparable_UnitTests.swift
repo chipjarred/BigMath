@@ -256,4 +256,18 @@ class WideFloat_Comparable_UnitTests: XCTestCase
             XCTAssertLessThan(FloatType.infinity.negated, other)
         }
     }
+    
+    
+    // -------------------------------------
+    func test_minus0_and_plus0_compare_as_equal()
+    {
+        /*
+         IEEE 754, which we mostly follow, says that +0 == -0 for comparison
+         purposes.
+         */
+        XCTAssertEqual(FloatType(), FloatType())
+        XCTAssertEqual(FloatType().negated, FloatType().negated)
+        XCTAssertEqual(FloatType(), FloatType().negated)
+        XCTAssertEqual(FloatType().negated, FloatType())
+    }
 }

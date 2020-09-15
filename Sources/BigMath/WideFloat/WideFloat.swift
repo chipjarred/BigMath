@@ -52,6 +52,11 @@ public struct WideFloat<T: WideDigit>
     }
     
     // -------------------------------------
+    @inlinable public var isZero: Bool {
+        return withFloatBuffer { return $0.isZero }
+    }
+    
+    // -------------------------------------
     @usableFromInline @inline(__always)
     internal var isNormalized: Bool {
         return withFloatBuffer { return $0.isNormalized }
@@ -388,6 +393,24 @@ public struct WideFloat<T: WideDigit>
     internal var significandIsOne: Bool {
         return withFloatBuffer { $0.significandIsOne }
     }
+    
+    // -------------------------------------
+    /**
+     We don't currently do anything with sNaNs other than treat them as NaN,
+     but this mechanism is in place for adding that support later.
+     
+     - Parameters:
+        - possibleSignalingNaNs: Values, at least one of which should be a signaling NaN.
+            Operations that call this method detect that one of its parameters is a signaling NaN, but in an
+            effort to avoid conditional branching don't bother to sort out which one it is.  It's up to this
+            handler to determine which are signaling NaNs and which aren't, and do the right thing with
+            them.
+     
+     - Note: While at least one of the values should be a signaling NaN, the other values are not
+        necessarily NaNs.  It's up to this routine to sort that out, if anything needs to be done at all.
+     */
+    internal static func handleSignalingNaN(_ possibleSignalingNaNs: Self...) {
+    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -411,10 +434,13 @@ public struct WideFloat<T: WideDigit>
     {
         return significand.withMutableBuffer
         {
-            var fBuf =
-                FloatingPointBuffer(rawSignificand: $0, exponent: exponent)
-            defer { self.exponent = fBuf.exponent }
-            return body(&fBuf)
+            var fBuf = FloatingPointBuffer(
+                rawSignificand: $0,
+                exponent: exponent
+            )
+            let result = body(&fBuf)
+            self.exponent = fBuf.exponent
+            return result
         }
     }
 }

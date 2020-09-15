@@ -125,14 +125,6 @@ struct FloatingPointBuffer
             significandHead = newValue | (significandHead & ~(UInt.max >> 1))
         }
     }
-
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    internal subscript(index: Int) -> UInt
-    {
-        get { significand[significand.startIndex + index] }
-        set { significand[significand.startIndex + index] = newValue }
-    }
     
     // -------------------------------------
     /**
@@ -156,7 +148,7 @@ struct FloatingPointBuffer
     var isZero: Bool
     {
         assert(isNormalized, "Must be normalized for this test to work")
-        return exponent == 0 && significandHeadValue == 0
+        return (UInt(bitPattern: exponent) | significandHeadValue) == 0
     }
 
     // -------------------------------------
@@ -296,6 +288,24 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
+    /*
+     Ignores sign bit when counting non-zero bits.
+     */
+    @inline(__always)
+    private var nonZeroSignificandBitCount: Int
+    {
+        let sigHead = significandHeadValue
+
+        var leadingZeros = sigHead.nonzeroBitCount
+        
+        for digit in significandTail.reversed() {
+            leadingZeros += digit.nonzeroBitCount
+        }
+
+        return leadingZeros
+    }
+
+    // -------------------------------------
     @usableFromInline @inline(__always)
     mutating func normalize()
     {
@@ -318,10 +328,12 @@ struct FloatingPointBuffer
             return
         }
         
-        let savedSign = signBit
-        BigMath.leftShift(buffer: significand, by: leadingZeros)
-        signBit = savedSign
-        exponent -= leadingZeros
+        #warning("REMOVE ME")
+        let debugOneCount = nonZeroSignificandBitCount
+        
+        self.leftShift(into: &self, by: leadingZeros)
+        
+        assert(nonZeroSignificandBitCount == debugOneCount)
         assert(isNormalized)
     }
     
@@ -659,7 +671,13 @@ struct FloatingPointBuffer
         assert(shift >= 0)
                 
         // Save the sign bit in case dst aliases self
-        let savedSignBit = self.signBit
+        let savedSignBit = dst.signBit
+        
+        /*
+         Zeroing the sign bit unconditionally then restoring it makes the logic
+         simpler.
+         */
+        dst.signBit = 0
 
         BigMath.rightShift(
             from: self.significand.immutable,
@@ -667,13 +685,6 @@ struct FloatingPointBuffer
             by: shift
         )
         
-        /*
-         We just shifted the sign bit.  We need to clear that shifted sign bit,
-         and set the actual sign bit appropriately
-         */
-        let shiftedSignBitIndex =
-            dst.significand.count * UInt.bitWidth - shift - 1
-        setBit(at: shiftedSignBitIndex, in: &dst.significand, to: 0)
         dst.signBit = savedSignBit
 
         /*
@@ -681,9 +692,56 @@ struct FloatingPointBuffer
          so that dst maintains its value (except that it's lost some precision
          now).
          */
-        dst.exponent += shift
+        dst.exponent = self.exponent + shift
     }
     
+    // -------------------------------------
+    /*
+     Special case of right shifting meant for use in adding and subtracting.
+     Needs to handle rounding of the bit that will be the least significant
+     shift after shifting.  The problem is that can result in a carry out of
+     the most significant bit, which means right shifting again.
+     
+     The "normal" right shift doesn't bother with rounding.  It just truncates.
+     */
+    @inline(__always)
+    private mutating func rightShiftForAddOrSubtract(by shift: Int)
+    {
+        assert(shift >= 0)
+        
+        var shift = shift
+        while true
+        {
+            let rBit = roundingBit(forRightShift: shift)
+            
+            if exponent >= Int.max - shift
+            {
+                setInfinity()
+                break
+            }
+            
+            BigMath.rightShift(
+                from: self.significand.immutable,
+                to: self.significand,
+                by: shift
+            )
+            exponent += shift
+            
+            // Now we do the rounding
+            if rBit != 0
+            {
+                _ = addReportingCarry(
+                    self.significand.immutable,
+                    1,
+                    result: self.significand
+                )
+                
+                if self.signBit == 0 { break }
+                shift = 1
+            } else { break }
+        }
+    }
+
     // -------------------------------------
     @inline(__always)
     private func leftShift(into dst: inout Self, by shift: Int)
@@ -707,39 +765,45 @@ struct FloatingPointBuffer
          Now that the shift is done, we just need to adjust the dst exponent
          so that dst maintains its value.
          */
-        dst.exponent -= shift
+        dst.exponent = self.exponent - shift
     }
     
     // -------------------------------------
-    @inline(__always)
-    private static func add(x: Self, y: Self, into z: inout Self)
+    @usableFromInline @inline(__always)
+    internal static func add(_ x: Self, _ y: Self, into z: inout Self)
     {
+        assert(!x.isNaN && !y.isNaN)
+        assert(!x.isInfinite && !y.isInfinite)
         assert(x.isNormalized && y.isNormalized)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
+        
+        addUnalignedMagnitudes(x, y, result: &z)
         
         /*
          We have to align exponents, but we can't modify our inputs, so we
          shift-copy the one with the smaller exponent into the result, and do
          the addition there.
          */
-        let expDiff = x.exponent - y.exponent
-        if expDiff <= 0
-        {
-            x.leftShift(into: &z, by: -expDiff)
-            z.addToSelfWithSameExponents(y)
-        }
-        else
-        {
-            y.leftShift(into: &z, by: expDiff)
-            z.addToSelfWithSameExponents(x)
-        }
+//        let expDiff = x.exponent - y.exponent
+//        if expDiff <= 0
+//        {
+//            x.rightShift(into: &z, by: -expDiff)
+//            z.addToSelfWithSameExponents(y)
+//        }
+//        else
+//        {
+//            y.rightShift(into: &z, by: expDiff)
+//            z.addToSelfWithSameExponents(x)
+//        }
     }
     
     // -------------------------------------
     @inline(__always)
-    private static func subtract(x: Self, y: Self, into z: inout Self)
+    private static func subtract(_ x: Self, _ y: Self, into z: inout Self)
     {
+        assert(!x.isNaN && !y.isNaN)
+        assert(!x.isInfinite && !y.isInfinite)
         assert(x.isNormalized && y.isNormalized)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
@@ -752,14 +816,14 @@ struct FloatingPointBuffer
         let expDiff = x.exponent - y.exponent
         if expDiff <= 0
         {
-            x.leftShift(into: &z, by: -expDiff)
+            x.rightShift(into: &z, by: -expDiff)
             z.subtractFromSelfWithSameExponents(y)
             
             // We've just computed z = x - y, which is what want, so we're good.
         }
         else
         {
-            y.leftShift(into: &z, by: expDiff)
+            y.rightShift(into: &z, by: expDiff)
             z.subtractFromSelfWithSameExponents(x)
             
             /*
@@ -768,6 +832,28 @@ struct FloatingPointBuffer
              */
             z.signBit ^= 1
         }
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private mutating func addToSigHeadReportingCarry(_ x: UInt) -> UInt
+    {
+        var head = significandHead
+        _ = head.addToSelfReportingCarry(x)
+        let carry = head >> (UInt.bitWidth - 1)
+        significandHead = head & (UInt.max >> 1)
+        return carry
+    }
+
+    // -------------------------------------
+    @inline(__always)
+    private mutating func subtractFromSigHeadReportingBorrow(_ x: UInt) -> UInt
+    {
+        var head = significandHead
+        _ = head.subtractFromSelfReportingBorrow(x)
+        let borrow = head >> (UInt.bitWidth - 1)
+        significandHead = head & (UInt.max >> 1)
+        return borrow
     }
 
     // -------------------------------------
@@ -778,29 +864,44 @@ struct FloatingPointBuffer
         assert(x.significand.count == y.significand.count)
         assert(x.exponent == y.exponent)
         
-        if x.signBit == y.signBit
+        let xIsNegative = x.isNegative
+        let yIsNegative = y.isNegative
+        
+        if xIsNegative == yIsNegative
         {
-            var carry = addReportingCarry(
-                x.significandTail.immutable,
-                y.significandTail.immutable,
-                result: x.significandTail
-            )
-            carry = x.significandHead.addToSelfReportingCarry(y.significandHead)
+            var carry = x.significand.count > 1
+                ? addReportingCarry(
+                    x.significandTail.immutable,
+                    y.significandTail.immutable,
+                    result: x.significandTail )
+                : 0
+            carry = x.addToSigHeadReportingCarry(y.significandHeadValue)
+            
             if carry != 0
             {
-                x.rightShift(into: &x, by: 1)
-                x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
+                let xNegative = UInt8(xIsNegative)
+                let becameInfinite =
+                    ((xNegative ^ 1) & UInt8(exponent == Int.max - 1))
+                    | (xNegative & UInt8(exponent == Int.min))
+                
+                if becameInfinite == 1 { x.setInfinity() }
+                else
+                {
+                    x.rightShift(into: &x, by: 1)
+                    x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
+                }
             }
         }
         else
         {
-            var borrow = subtractReportingBorrow(
-                x.significandTail.immutable,
-                y.significandTail.immutable,
-                result: x.significandTail
-            )
-            borrow = x.significandHead.subtractFromSelfReportingBorrow(
-                y.significandHead
+            var borrow = x.significand.count > 1
+                ? subtractReportingBorrow(
+                    x.significandTail.immutable,
+                    y.significandTail.immutable,
+                    result: x.significandTail)
+                : 0
+            borrow = x.subtractFromSigHeadReportingBorrow(
+                y.significandHeadValue
             )
             if borrow != 0
             {
@@ -829,12 +930,13 @@ struct FloatingPointBuffer
         
         if x.signBit != y.signBit
         {
-            var carry = addReportingCarry(
-                x.significandTail.immutable,
-                y.significandTail.immutable,
-                result: x.significandTail
-            )
-            carry = x.significandHead.addToSelfReportingCarry(y.significandHead)
+            var carry = x.significand.count > 1
+                ? addReportingCarry(
+                    x.significandTail.immutable,
+                    y.significandTail.immutable,
+                    result: x.significandTail )
+                : 0
+            carry = x.addToSigHeadReportingCarry(y.significandHeadValue)
             if carry != 0
             {
                 x.rightShift(into: &x, by: 1)
@@ -843,13 +945,14 @@ struct FloatingPointBuffer
         }
         else
         {
-            var borrow = subtractReportingBorrow(
-                x.significandTail.immutable,
-                y.significandTail.immutable,
-                result: x.significandTail
-            )
-            borrow = x.significandHead.subtractFromSelfReportingBorrow(
-                y.significandHead
+            var borrow = x.significand.count > 1
+                ? subtractReportingBorrow(
+                    x.significandTail.immutable,
+                    y.significandTail.immutable,
+                    result: x.significandTail)
+                : 0
+            borrow = x.subtractFromSigHeadReportingBorrow(
+                y.significandHeadValue
             )
             if borrow != 0
             {
@@ -866,6 +969,224 @@ struct FloatingPointBuffer
         }
         
         self.normalize()
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private func getDigit(at digitIndex: Int) -> UInt
+    {
+        if significand.indices.contains(digitIndex)
+        {
+            if digitIndex == significand.endIndex - 1 {
+                return significandHeadValue
+            }
+            return significand[digitIndex]
+        }
+        return 0
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private func getDigit(at digitIndex: Int, rightShiftedBy shift: Int) -> UInt
+    {
+        var digit = getDigit(at: digitIndex) >> shift
+        digit |= getDigit(at: digitIndex + 1) << (UInt.bitWidth - shift)
+        return digit
+    }
+    
+    // -------------------------------------
+    private func digitAndShift(forRightShift shift: Int)
+        -> (digitIndex: Int, bitShift: Int)
+    {
+        let digitIndexShift: Int =
+            MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size
+            ? 6
+            : 5
+
+        return (
+            digitIndex: shift >> digitIndexShift,
+            bitShift: shift & (UInt.bitWidth - 1)
+        )
+    }
+    
+    // -------------------------------------
+    /*
+     Computes the bit that must be added to the least signficant non-truncated
+     bit of this `FloatingPointBuffer` after it is right-shifted by `shift`
+     bits.
+     */
+    @inline(__always)
+    private func roundingBit(forRightShift shift: Int) -> UInt
+    {
+        assert(shift >= 0)
+        
+        let (digitIndex, bitShift) = digitAndShift(forRightShift: shift)
+        
+        /*
+         IEEE 754 seems to do "bankers" rounding, which is kind of unfortunate,
+         because that requires more work that will slow us down, but we must do
+         it.
+         
+         The banker's rounding rule works like this: If the truncated portion
+         is more than half of the value of the value of a 1 in the least
+         non-truncated position, then you round up.  If it's less than half,
+         you round down.  If it's exactly half then the rounding direction
+         depends on the least non-truncated bit value.  If it's even, you round
+         down, and if it's odd you round up.
+         
+         We return 0 for rounding down, and 1 for rounding up, so the rounding
+         can be done by unconditionally adding our return value.
+         
+         If the bit immediately to the right of our least significant
+         non-truncated bit is 0, then we already know truncated bits are less
+         than half of a 1 in the least non-truncated bit position, which means
+         round down.
+         
+         If that bit is 1, however, we *might* need to round up. We already
+         know that it's at least half.  We have to check if it's exactly
+         half, rounding up if it is more than half, and if it is exactly half,
+         round up or down according to the even/odd value of the least
+         non-truncated bit.
+         
+         But checking if the lower bits are more than half means iterating
+         through the lower digits of y, which is O(n).  We can avoid that half
+         of the time by realizing that if the least non-truncated bit is
+         odd (1), we're going to round up regardless. We only need to
+         iterate through the lower digits of y if the least non-truncated bit
+         is even (0).
+         
+         We can make testing the lower bits more efficient by realizing that we
+         don't need to actually compute their value.  If there are any more 1
+         bits to right of the one we already tested, then it's more than half.
+         We can do that most efficiently with a bitwise OR accumuluation which
+         will be 0 when the truncated portion is exactly half, and non-zero
+         when its more than half.
+         */
+        
+        /*
+         Get a UInt containing the least non-truncated bit and the bit
+         immediately to its right as the lowest 2 bits.
+         */
+        let digit = getDigit(at: digitIndex, rightShiftedBy: bitShift - 1)
+
+        /*
+         Do the truncated bits form at least half of the least non-truncated bit
+         position?
+         */
+        if digit & 1 == 1
+        {   // truncated bits form at least half.  We might have to round up
+            if digit & 2 == 2
+            {   // least non-truncated bit is odd - round up regardless
+                return 1
+            }
+            else
+            { // least non-truncated bit is even - we have to test lower bits.
+                var accumulatedBits: UInt = 0
+                var i = digitIndex - 1
+                while i >= 0
+                {
+                    /*
+                     TODO: This can be done more efficiently.  getDigit
+                     basically does two buffer accesses and 2 shifts. Fix once
+                     this is verified as working as-is.
+                     */
+                    accumulatedBits |=
+                        getDigit(at: i, rightShiftedBy: bitShift - 1)
+                    i -= 1
+                }
+                
+                // round up if there were lower 1 bits; otherwise, round down
+                return UInt(accumulatedBits != 0)
+            }
+        }
+        
+        // round down
+        return 0
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private static func addUnalignedMagnitudes(
+        _ x: Self,
+        _ y: Self,
+        result z: inout Self)
+    {
+        assert(!x.isNaN && !y.isNaN)
+        assert(!y.isInfinite && !y.isInfinite)
+        assert(x.significand.startIndex == 0)
+        assert(y.significand.startIndex == 0)
+        assert(x.significand.count == y.significand.count)
+        assert(x.significand.count == z.significand.count)
+        assert(x.signBit == y.signBit)
+        
+        // We want x to have the larger exponent, so if it's not, we exploit
+        // commutativity by just wapping them.
+        var x = x
+        var y = y
+        if x.exponent < y.exponent { swap(&x, &y) }
+        
+        let exponentDelta = x.exponent - y.exponent
+        z.exponent = x.exponent
+        
+        /*
+         If y's exponent puts it's most significant bit more than one bit to
+         the right of x's least signficant bit, then it has no effect on the
+         sum, even with rounding.  z's exponent is already set, so just copy
+         x's significand into z, and we're done.
+         */
+        if exponentDelta > x.significand.count * UInt.bitWidth + 1
+        {
+            BigMath.copy(buffer: x.significand.immutable, to: z.significand)
+            z.signBit = x.signBit
+            return
+        }
+        
+        var carry = y.roundingBit(forRightShift: exponentDelta)
+        
+        let yShift: Int
+        var yDigitIndex: Int
+        (yDigitIndex, yShift) = y.digitAndShift(forRightShift: exponentDelta)
+        
+        for i in 0..<(x.significand.count - 1)
+        {
+            let xDigit = x.significand[i]
+            let yDigit = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+            var zDigit: UInt
+            (zDigit, carry) = xDigit.addingReportingCarry(carry)
+            carry &+= zDigit.addToSelfReportingCarry(yDigit)
+            z.significand[i] = zDigit
+            yDigitIndex += 1
+        }
+        
+        let xHead = x.significandHeadValue
+        let yHead = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+        var zHead: UInt = 0
+        (zHead, _) = xHead.addingReportingCarry(carry)
+        _ = zHead.addToSelfReportingCarry(yHead)
+        z.significandHead = zHead
+
+        /*
+         zHead has room for sign bit, and any carry would have propagated to
+         it.  We intentially preset the zHead to 0, so we could just test the
+         sign bit.  Since we haven't set the sign yet, if it's 1, then we need
+         to right shift z by 1.
+         
+         rightShiftForAddOrSubtract takes care of possible additional
+         shift/rounding that might occur as a result of rounding carries
+         propagating all the way up the sign bit.  It also handles setting
+         infinity if the exponent will be set to Int.max
+         */
+        if zHead & ~(UInt.max >> 1) != 0 {
+            z.rightShiftForAddOrSubtract(by: 1)
+        }
+        
+        /*
+         Now we set the sign bit.  For adding this method should only be called
+         when x and y have the same sign, so addition can only produce a sum
+         that is more in the same direction x already is.
+         */
+        z.signBit = x.signBit
+        z.normalize()
     }
 }
 

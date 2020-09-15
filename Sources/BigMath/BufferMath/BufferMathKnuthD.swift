@@ -338,7 +338,7 @@ func -= <T>(left: inout (high: T, low: T), right: T)
  integer, `y`, obtaining both the quotient and remainder.
  
  Implements Alogorithm D, from Donald Knuth's, *The Art of Computer Programming*
- , Volume 2,*Semi-numerical Algorithms*, Chapter 4.3.1.
+ , Volume 2,*Semi-numerical Algorithms*, Chapter 4.3.3.
  
  - Parameters:
     - dividend: The dividend stored as an unsigned multiprecision integer with

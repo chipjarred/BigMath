@@ -146,6 +146,21 @@ struct FloatingPointBuffer
     
     // -------------------------------------
     /**
+     `true` if the value is` +0` or` -0`; otherwise `false`
+     
+     It does an O(1) check by exploiting that we keep the significand
+     normalized.  If the exponent is` 0`, and the significand head value is `0`,
+     then the value is `0`.
+     */
+    @usableFromInline @inline(__always)
+    var isZero: Bool
+    {
+        assert(isNormalized, "Must be normalized for this test to work")
+        return exponent == 0 && significandHeadValue == 0
+    }
+
+    // -------------------------------------
+    /**
      `true` if the most significant non-sign bit of the sigificand is `1` and
      all lower bits are `0`; otherwise `false`
      */
@@ -588,7 +603,7 @@ struct FloatingPointBuffer
         guard signResult == .orderedSame else
         {
             // IEEE 754 says signed +0 and -0 compare as equal
-            if left.significandIsZero && right.significandIsZero {
+            if left.isZero && right.isZero {
                 return .orderedSame
             }
             return signResult

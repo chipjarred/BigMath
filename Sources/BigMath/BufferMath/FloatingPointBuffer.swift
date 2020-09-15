@@ -599,15 +599,12 @@ struct FloatingPointBuffer
             )
         }
         
+        // Testing for zero is now fast, so we just do it all the time.
+        // IEEE 754 says signed +0 and -0 compare as equal
+        if UInt8(left.isZero) & UInt8(right.isZero) == 1 { return .orderedSame }
+        
         let signResult = ComparisonResult(rawValue: rightSign &- leftSign)!
-        guard signResult == .orderedSame else
-        {
-            // IEEE 754 says signed +0 and -0 compare as equal
-            if left.isZero && right.isZero {
-                return .orderedSame
-            }
-            return signResult
-        }
+        guard signResult == .orderedSame else { return signResult }
         
         /*
          With the easy case of differing significand signs handled,

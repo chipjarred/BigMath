@@ -270,4 +270,202 @@ class WideFloat_Comparable_UnitTests: XCTestCase
         XCTAssertEqual(FloatType(), FloatType().negated)
         XCTAssertEqual(FloatType().negated, FloatType())
     }
+    
+    // -------------------------------------
+    func test_finite_WideFloat_values_test_with_same_comparable_results_as_the_Double_values_they_are_created_from()
+    {
+        typealias TestCase = (x: Double, y: Double)
+        let testCases =
+        [
+            (x: -6.632804489126267e+18, y: 186509121110083e+17),
+        ]
+        
+        for (x, y) in testCases
+        {
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+        
+        for (x0, y0) in testCases
+        {
+            let x = 1 / x0
+            let y = 1 / y0
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+
+        for _ in 0..<100
+        {
+            let x = randomDouble
+            let y = randomDouble
+            
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+
+        for _ in 0..<100
+        {
+            let x = 1 / randomDouble
+            let y = 1 / randomDouble
+            
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+    }
+    
+    // -------------------------------------
+    func test_finite_WideFloat_values_test_with_same_comparable_results_as_the_UInt64_values_they_are_created_from()
+    {
+        typealias TestCase = (x: UInt64, y: UInt64)
+        let testCases: [TestCase] = [ ]
+        
+        for (x, y) in testCases
+        {
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+        
+        for _ in 0..<100
+        {
+            let x = urandom64
+            let y = urandom64
+            
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+    }
+    
+    // -------------------------------------
+    func test_finite_WideFloat_values_test_with_same_comparable_results_as_the_Int64_values_they_are_created_from()
+    {
+        typealias TestCase = (x: Int64, y: Int64)
+        let testCases: [TestCase] = [ ]
+        
+        for (x, y) in testCases
+        {
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+        
+        for _ in 0..<100
+        {
+            let x = random64
+            let y = random64
+            
+            let wX = FloatType(x)
+            let wY = FloatType(y)
+            
+            if x < y && !(wX < wY)
+            {
+                print("\n-------- Failing case")
+                print("    x: \(x)")
+                print("    y: \(y)")
+            }
+            
+            XCTAssertEqual(x < y, wX < wY)
+            XCTAssertEqual(x <= y, wX <= wY)
+            XCTAssertEqual(x == y, wX == wY)
+            XCTAssertEqual(x != y, wX != wY)
+            XCTAssertEqual(x >= y, wX >= wY)
+            XCTAssertEqual(x > y, wX > wY)
+        }
+    }
 }

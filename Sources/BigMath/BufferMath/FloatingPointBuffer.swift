@@ -584,7 +584,7 @@ struct FloatingPointBuffer
             )
         }
         
-        let signResult = ComparisonResult(rawValue: leftSign &- rightSign)!
+        let signResult = ComparisonResult(rawValue: rightSign &- leftSign)!
         guard signResult == .orderedSame else
         {
             // IEEE 754 says signed +0 and -0 compare as equal

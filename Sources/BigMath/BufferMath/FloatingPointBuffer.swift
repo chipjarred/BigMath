@@ -328,9 +328,6 @@ struct FloatingPointBuffer
             return
         }
         
-        #warning("REMOVE ME")
-        let debugOneCount = nonZeroSignificandBitCount
-        
         self.leftShift(into: &self, by: leadingZeros)
         
         assert(nonZeroSignificandBitCount == debugOneCount)
@@ -778,24 +775,10 @@ struct FloatingPointBuffer
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
         
-        addUnalignedMagnitudes(x, y, result: &z)
-        
-        /*
-         We have to align exponents, but we can't modify our inputs, so we
-         shift-copy the one with the smaller exponent into the result, and do
-         the addition there.
-         */
-//        let expDiff = x.exponent - y.exponent
-//        if expDiff <= 0
-//        {
-//            x.rightShift(into: &z, by: -expDiff)
-//            z.addToSelfWithSameExponents(y)
-//        }
-//        else
-//        {
-//            y.rightShift(into: &z, by: expDiff)
-//            z.addToSelfWithSameExponents(x)
-//        }
+        if x.signBit == y.signBit {
+            addUnalignedMagnitudes(x, y, result: &z)
+        }
+        else { subtractUnalignedMagnitudes(x, y, result: &z) }
     }
     
     // -------------------------------------
@@ -1117,8 +1100,8 @@ struct FloatingPointBuffer
         assert(y.significand.startIndex == 0)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
-        assert(x.signBit == y.signBit)
-        
+        assert(x.isNormalized && y.isNormalized)
+
         // We want x to have the larger exponent, so if it's not, we exploit
         // commutativity by just wapping them.
         var x = x
@@ -1167,7 +1150,7 @@ struct FloatingPointBuffer
 
         /*
          zHead has room for sign bit, and any carry would have propagated to
-         it.  We intentially preset the zHead to 0, so we could just test the
+         it.  We intentionally preset the zHead to 0, so we could just test the
          sign bit.  Since we haven't set the sign yet, if it's 1, then we need
          to right shift z by 1.
          
@@ -1180,12 +1163,98 @@ struct FloatingPointBuffer
             z.rightShiftForAddOrSubtract(by: 1)
         }
         
-        /*
-         Now we set the sign bit.  For adding this method should only be called
-         when x and y have the same sign, so addition can only produce a sum
-         that is more in the same direction x already is.
-         */
+        // Now we set the sign bit and normalize
         z.signBit = x.signBit
+        z.normalize()
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private static func subtractUnalignedMagnitudes(
+        _ x: Self,
+        _ y: Self,
+        result z: inout Self)
+    {
+        assert(!x.isNaN && !y.isNaN)
+        assert(!y.isInfinite && !y.isInfinite)
+        assert(x.significand.startIndex == 0)
+        assert(y.significand.startIndex == 0)
+        assert(x.significand.count == y.significand.count)
+        assert(x.significand.count == z.significand.count)
+        assert(x.signBit != y.signBit)
+        assert(x.isNormalized && y.isNormalized)
+        
+        /*
+         We want x to have the larger exponent, so if it's not, we swap them,
+         but that means we need to invert the sign bit from the natural result
+         at the end.
+         */
+        var x = x
+        var y = y
+        var resultSign = x.signBit
+        if x.exponent < y.exponent
+        {
+            swap(&x, &y)
+            resultSign ^= 1
+        }
+        
+        let exponentDelta = x.exponent - y.exponent
+        z.exponent = x.exponent
+        
+        /*
+         If y's exponent puts it's most significant bit more than one bit to
+         the right of x's least signficant bit, then it has no effect on the
+         sum, even with rounding.  z's exponent is already set, so just copy
+         x's significand into z, and we're done.
+         */
+        if exponentDelta > x.significand.count * UInt.bitWidth + 1
+        {
+            BigMath.copy(buffer: x.significand.immutable, to: z.significand)
+            z.signBit = x.signBit
+            return
+        }
+        
+        var borrow = y.roundingBit(forRightShift: exponentDelta)
+        
+        let yShift: Int
+        var yDigitIndex: Int
+        (yDigitIndex, yShift) = y.digitAndShift(forRightShift: exponentDelta)
+        
+        for i in 0..<(x.significand.count - 1)
+        {
+            let xDigit = x.significand[i]
+            let yDigit = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+            var zDigit: UInt
+            (zDigit, borrow) = xDigit.subtractingReportingBorrow(borrow)
+            borrow &+= zDigit.subtractFromSelfReportingBorrow(yDigit)
+            z.significand[i] = zDigit
+            yDigitIndex += 1
+        }
+        
+        let xHead = x.significandHeadValue
+        let yHead = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+        var zHead: UInt = 0
+        (zHead, _) = xHead.subtractingReportingBorrow(borrow)
+        _ = zHead.subtractFromSelfReportingBorrow(yHead)
+        z.significandHead = zHead
+
+        /*
+         zHead has room for sign bit, and any borrow would have propagated to
+         it.  We intentionally preset the zHead to 0, so we could just test the
+         sign bit.  Since we haven't set the sign yet, if it's 1, then
+         subtracting y from x gives the opposite sign of x, so we need to
+         invert resultSign, and our result is now in 2's complement form, which
+         means we need to arithmetically negate it to put it back into signed
+         magnitude form.
+         */
+        if zHead & ~(UInt.max >> 1) != 0
+        {
+            resultSign ^= 1
+            BigMath.arithmeticNegate(z.significand.immutable, to: z.significand)
+        }
+        
+        // Now we set the sign bit and normalize
+        z.signBit = resultSign
         z.normalize()
     }
 }

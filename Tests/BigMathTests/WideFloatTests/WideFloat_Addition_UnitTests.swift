@@ -428,4 +428,24 @@ class WideFloat_Addition_UnitTests: XCTestCase
             XCTAssertEqual(sum.doubleValue, expected)
         }
     }
+    
+    // -------------------------------------
+    func test_sum_of_finite_numbers_with_opposite_signs()
+    {
+        typealias FloatType = WideFloat<UInt64>
+        for _ in 0..<100
+        {
+            let x0 = -abs(randomDouble)
+            let y0 = abs(randomDouble)
+            let expected = x0 + y0
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var sum = x + y
+            XCTAssertEqual(sum.doubleValue, expected)
+            
+            sum = y + x
+            XCTAssertEqual(sum.doubleValue, expected)
+        }
+    }
 }

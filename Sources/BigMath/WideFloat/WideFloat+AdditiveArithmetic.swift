@@ -122,7 +122,7 @@ extension WideFloat: AdditiveArithmetic
                     ? left.magnitude
                     : left
             }
-            return right
+            return right.negated
         }
         if right.isZero { return left }
         

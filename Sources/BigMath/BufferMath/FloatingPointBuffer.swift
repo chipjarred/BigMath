@@ -790,8 +790,10 @@ struct FloatingPointBuffer
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
         
-        if x.signBit != y.signBit {
+        if x.signBit != y.signBit
+        {
             addUnalignedMagnitudes(x, y, result: &z)
+            if z.signBit != x.signBit { z.negate() }
         }
         else { subtractUnalignedMagnitudes(x, y, result: &z) }
     }
@@ -1023,7 +1025,6 @@ struct FloatingPointBuffer
         assert(y.significand.startIndex == 0)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
-        assert(x.signBit != y.signBit)
         assert(x.isNormalized && y.isNormalized)
         
         /*

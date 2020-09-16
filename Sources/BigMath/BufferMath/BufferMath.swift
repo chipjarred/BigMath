@@ -210,6 +210,167 @@ internal func rightShift(
     }
 }
 
+
+// -------------------------------------
+/*
+ Computes the bit that must be added to the least signficant non-truncated
+ bit of this `UIntBufer` after it is right-shifted by `shift`
+ bits.
+ */
+@usableFromInline @inline(__always)
+internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
+{
+    assert(x.startIndex == 0)
+    assert(shift >= 0)
+    
+    // -------------------------------------
+    @inline(__always)
+    func getDigit(from x: UIntBuffer, at digitIndex: Int) -> UInt
+    {
+        assert(x.startIndex == 0)
+        if x.indices.contains(digitIndex) { return x[digitIndex] }
+        return 0
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    func getDigit(
+        from x: UIntBuffer,
+        at digitIndex: Int,
+        rightShiftedBy shift: Int) -> UInt
+    {
+        assert(x.startIndex == 0)
+        var digit = getDigit(from: x, at: digitIndex) >> shift
+        digit |=
+            getDigit(from: x, at: digitIndex + 1) << (UInt.bitWidth - shift)
+        return digit
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    func digitAndShift(in x: UIntBuffer, forRightShift shift: Int)
+        -> (digitIndex: Int, bitShift: Int)
+    {
+        assert(x.startIndex == 0)
+        let digitIndexShift: Int =
+            MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size
+            ? 6
+            : 5
+
+        return (
+            digitIndex: shift >> digitIndexShift,
+            bitShift: shift & (UInt.bitWidth - 1)
+        )
+    }
+    
+    let (digitIndex, bitShift) = digitAndShift(in: x, forRightShift: shift - 1)
+    
+    /*
+     IEEE 754 seems to do "bankers" rounding, which is kind of unfortunate,
+     because that requires more work that will slow us down, but we must do
+     it.
+     
+     The banker's rounding rule works like this: If the truncated portion
+     is more than half of the value of the value of a 1 in the least
+     non-truncated position, then you round up.  If it's less than half,
+     you round down.  If it's exactly half then the rounding direction
+     depends on the least non-truncated bit value.  If it's even, you round
+     down, and if it's odd you round up.
+     
+     We return 0 for rounding down, and 1 for rounding up, so the rounding
+     can be done by unconditionally adding our return value.
+     
+     If the bit immediately to the right of our least significant
+     non-truncated bit is 0, then we already know truncated bits are less
+     than half of a 1 in the least non-truncated bit position, which means
+     round down.
+     
+     If that bit is 1, however, we *might* need to round up. We already
+     know that it's at least half.  We have to check if it's exactly
+     half, rounding up if it is more than half, and if it is exactly half,
+     round up or down according to the even/odd value of the least
+     non-truncated bit.
+     
+     But checking if the lower bits are more than half means iterating
+     through the lower digits of y, which is O(n).  We can avoid that half
+     of the time by realizing that if the least non-truncated bit is
+     odd (1), we're going to round up regardless. We only need to
+     iterate through the lower digits of y if the least non-truncated bit
+     is even (0).
+     
+     We can make testing the lower bits more efficient by realizing that we
+     don't need to actually compute their value.  If there are any more 1
+     bits to right of the one we already tested, then it's more than half.
+     We can do that most efficiently with a bitwise OR accumuluation which
+     will be 0 when the truncated portion is exactly half, and non-zero
+     when its more than half.
+     */
+    
+    /*
+     Get a UInt containing the least non-truncated bit and the bit
+     immediately to its right as the lowest 2 bits.
+     */
+    var digit = getDigit(from: x, at: digitIndex, rightShiftedBy: bitShift)
+
+    /*
+     Do the truncated bits form at least half of the least non-truncated bit
+     position?
+     */
+    if digit & 1 == 1
+    {   // truncated bits form at least half.  We might have to round up
+        if digit & 2 == 2
+        {   // least non-truncated bit is odd - round up regardless
+            return 1
+        }
+        else
+        { // least non-truncated bit is even - we have to test lower bits.
+            var accumulatedBits: UInt = 0
+            var i = digitIndex - 1
+            while i >= -1
+            {
+                /*
+                 TODO: This can be done more efficiently.  getDigit
+                 basically does two buffer accesses and 2 shifts. Fix once
+                 this is verified as working as-is.
+                 */
+                digit = getDigit(from: x, at: i, rightShiftedBy: bitShift)
+                accumulatedBits |= digit
+                i -= 1
+            }
+            
+            // round up if there were lower 1 bits; otherwise, round down
+            return UInt(accumulatedBits != 0)
+        }
+    }
+    
+    // round down
+    return 0
+}
+
+// -------------------------------------
+/**
+ Performs right shift, but rounds the non-truncated bits based on the
+ shifted-out bits using "bankers'" rounding.  The ordinary right-shift simply
+ shifts out the truncated bits.
+ */
+@usableFromInline @inline(__always)
+internal func roundingRightShift(
+    from x: UIntBuffer,
+    to y: MutableUIntBuffer,
+    by shift: Int)
+{
+    assert(x.startIndex == 0)
+    assert(y.startIndex == 0)
+    assert(shift >= 0)
+    
+    let rBit = roundingBit(forRightShift: shift, of: x)
+    
+    rightShift(from: x, to: y,  by: shift)
+    
+    // Now we do the rounding
+    if rBit != 0 { _ = addReportingCarry(x, 1, result: y) }
+}
+
 // -------------------------------------
 @usableFromInline
 internal func bitwiseAnd(

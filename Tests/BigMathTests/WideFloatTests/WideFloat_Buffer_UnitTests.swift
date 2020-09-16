@@ -21,7 +21,10 @@ class WideFloat_Buffer_UnitTests: XCTestCase
                 rawSignificand: $0[...],
                 exponent: 0
             )
-            return buff.roundingBit(forRightShift: shift)
+            return roundingBit(
+                forRightShift: shift,
+                of: buff.significand.immutable
+            )
         }
     }
     

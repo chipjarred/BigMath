@@ -372,7 +372,7 @@ internal func roundingRightShift(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func bitwiseAnd(
     _ x: UIntBuffer,
     _ y: UIntBuffer,
@@ -397,7 +397,7 @@ internal func bitwiseAnd(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func bitwiseOr(
     _ x: UIntBuffer,
     _ y: UIntBuffer,
@@ -422,7 +422,7 @@ internal func bitwiseOr(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func bitwiseXOr(
     _ x: UIntBuffer,
     _ y: UIntBuffer,
@@ -447,7 +447,7 @@ internal func bitwiseXOr(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func bitwiseComplement(
     _ x: UIntBuffer,
     to y: MutableUIntBuffer)
@@ -470,7 +470,7 @@ internal func bitwiseComplement(
 // MARK:- Arithmetic operations
 // -------------------------------------
 /// Two's complement arithmetic negation
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func arithmeticNegate(
     _ x: UIntBuffer,
     to y: MutableUIntBuffer)
@@ -493,7 +493,7 @@ internal func arithmeticNegate(
 
 // MARK:- Addition
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func addReportingCarry(
     _ x: UIntBuffer,
     _ y: UIntBuffer,
@@ -563,7 +563,7 @@ internal func addReportingCarry(
 
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func addReportingCarry(
     _ x: UIntBuffer,
     _ y: UInt,
@@ -590,7 +590,7 @@ internal func addReportingCarry(
 
 // MARK:- Subtraction
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func subtractReportingBorrow(
     _ x: UIntBuffer,
     _ y: UIntBuffer,
@@ -659,7 +659,7 @@ internal func subtractReportingBorrow(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline @inline(__always)
 internal func subtractReportingBorrow(
     _ x: UIntBuffer,
     _ y: UInt,

@@ -180,7 +180,7 @@ internal func rightShift(
     let signBits = select(if: signExtend, then: UInt.max, else: 0)
 
     var dstDigit = dst.baseAddress!
-    let dstEnd = dstDigit + d
+    let dstEnd = dstDigit + dst.count
     
     if d < src.count
     {

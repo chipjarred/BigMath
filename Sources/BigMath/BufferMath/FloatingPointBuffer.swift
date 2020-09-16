@@ -330,7 +330,6 @@ struct FloatingPointBuffer
         
         self.leftShift(into: &self, by: leadingZeros)
         
-        assert(nonZeroSignificandBitCount == debugOneCount)
         assert(isNormalized)
     }
     
@@ -790,170 +789,13 @@ struct FloatingPointBuffer
         assert(x.isNormalized && y.isNormalized)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
-    
-        /*
-         We have to align exponents, but we can't modify our inputs, so we
-         shift-copy the one with the smaller exponent into the result, and do
-         the subtraction there.
-         */
-        let expDiff = x.exponent - y.exponent
-        if expDiff <= 0
-        {
-            x.rightShift(into: &z, by: -expDiff)
-            z.subtractFromSelfWithSameExponents(y)
-            
-            // We've just computed z = x - y, which is what want, so we're good.
+        
+        if x.signBit != y.signBit {
+            addUnalignedMagnitudes(x, y, result: &z)
         }
-        else
-        {
-            y.rightShift(into: &z, by: expDiff)
-            z.subtractFromSelfWithSameExponents(x)
-            
-            /*
-             We've just computed z = y - x, but we want z = x - y.  We have to
-             invert the sign bit (x - y == -(y - x))
-             */
-            z.signBit ^= 1
-        }
-    }
-    
-    // -------------------------------------
-    @inline(__always)
-    private mutating func addToSigHeadReportingCarry(_ x: UInt) -> UInt
-    {
-        var head = significandHead
-        _ = head.addToSelfReportingCarry(x)
-        let carry = head >> (UInt.bitWidth - 1)
-        significandHead = head & (UInt.max >> 1)
-        return carry
+        else { subtractUnalignedMagnitudes(x, y, result: &z) }
     }
 
-    // -------------------------------------
-    @inline(__always)
-    private mutating func subtractFromSigHeadReportingBorrow(_ x: UInt) -> UInt
-    {
-        var head = significandHead
-        _ = head.subtractFromSelfReportingBorrow(x)
-        let borrow = head >> (UInt.bitWidth - 1)
-        significandHead = head & (UInt.max >> 1)
-        return borrow
-    }
-
-    // -------------------------------------
-    @inline(__always)
-    private mutating func addToSelfWithSameExponents(_ y: Self)
-    {
-        var x = self
-        assert(x.significand.count == y.significand.count)
-        assert(x.exponent == y.exponent)
-        
-        let xIsNegative = x.isNegative
-        let yIsNegative = y.isNegative
-        
-        if xIsNegative == yIsNegative
-        {
-            var carry = x.significand.count > 1
-                ? addReportingCarry(
-                    x.significandTail.immutable,
-                    y.significandTail.immutable,
-                    result: x.significandTail )
-                : 0
-            carry = x.addToSigHeadReportingCarry(y.significandHeadValue)
-            
-            if carry != 0
-            {
-                let xNegative = UInt8(xIsNegative)
-                let becameInfinite =
-                    ((xNegative ^ 1) & UInt8(exponent == Int.max - 1))
-                    | (xNegative & UInt8(exponent == Int.min))
-                
-                if becameInfinite == 1 { x.setInfinity() }
-                else
-                {
-                    x.rightShift(into: &x, by: 1)
-                    x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
-                }
-            }
-        }
-        else
-        {
-            var borrow = x.significand.count > 1
-                ? subtractReportingBorrow(
-                    x.significandTail.immutable,
-                    y.significandTail.immutable,
-                    result: x.significandTail)
-                : 0
-            borrow = x.subtractFromSigHeadReportingBorrow(
-                y.significandHeadValue
-            )
-            if borrow != 0
-            {
-                /*
-                 If we borrow out of the high bit we need invert our sign, but
-                 the integer subtraction we just did will have put our
-                 significand in twos compliment form, and we want it in signed
-                 magnitude, so we have to convert it.
-                 */
-                let invertedSignBit = x.signBit ^ 1
-                arithmeticNegate(x.significand.immutable, to: x.significand)
-                x.signBit = invertedSignBit
-            }
-        }
-        
-        self.normalize()
-    }
-    
-    // -------------------------------------
-    @inline(__always)
-    private mutating func subtractFromSelfWithSameExponents(_ y: Self)
-    {
-        var x = self
-        assert(x.significand.count == y.significand.count)
-        assert(x.exponent == y.exponent)
-        
-        if x.signBit != y.signBit
-        {
-            var carry = x.significand.count > 1
-                ? addReportingCarry(
-                    x.significandTail.immutable,
-                    y.significandTail.immutable,
-                    result: x.significandTail )
-                : 0
-            carry = x.addToSigHeadReportingCarry(y.significandHeadValue)
-            if carry != 0
-            {
-                x.rightShift(into: &x, by: 1)
-                x.significandHead.setBit(at: UInt.bitWidth - 2, to: 1)
-            }
-        }
-        else
-        {
-            var borrow = x.significand.count > 1
-                ? subtractReportingBorrow(
-                    x.significandTail.immutable,
-                    y.significandTail.immutable,
-                    result: x.significandTail)
-                : 0
-            borrow = x.subtractFromSigHeadReportingBorrow(
-                y.significandHeadValue
-            )
-            if borrow != 0
-            {
-                /*
-                 If we borrow out of the high bit we need invert our sign, but
-                 the integer subtraction we just did will have put our
-                 significand in twos compliment form, and we want it in signed
-                 magnitude, so we have to convert it.
-                 */
-                let invertedSignBit = x.signBit ^ 1
-                arithmeticNegate(x.significand.immutable, to: x.significand)
-                x.signBit = invertedSignBit
-            }
-        }
-        
-        self.normalize()
-    }
-    
     // -------------------------------------
     @inline(__always)
     private func getDigit(at digitIndex: Int) -> UInt

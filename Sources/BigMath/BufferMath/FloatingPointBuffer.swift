@@ -842,12 +842,12 @@ struct FloatingPointBuffer
      bit of this `FloatingPointBuffer` after it is right-shifted by `shift`
      bits.
      */
-    @inline(__always)
-    private func roundingBit(forRightShift shift: Int) -> UInt
+    @usableFromInline @inline(__always)
+    internal func roundingBit(forRightShift shift: Int) -> UInt
     {
         assert(shift >= 0)
         
-        let (digitIndex, bitShift) = digitAndShift(forRightShift: shift)
+        let (digitIndex, bitShift) = digitAndShift(forRightShift: shift - 1)
         
         /*
          IEEE 754 seems to do "bankers" rounding, which is kind of unfortunate,
@@ -894,7 +894,7 @@ struct FloatingPointBuffer
          Get a UInt containing the least non-truncated bit and the bit
          immediately to its right as the lowest 2 bits.
          */
-        let digit = getDigit(at: digitIndex, rightShiftedBy: bitShift - 1)
+        var digit = getDigit(at: digitIndex, rightShiftedBy: bitShift)
 
         /*
          Do the truncated bits form at least half of the least non-truncated bit
@@ -910,15 +910,15 @@ struct FloatingPointBuffer
             { // least non-truncated bit is even - we have to test lower bits.
                 var accumulatedBits: UInt = 0
                 var i = digitIndex - 1
-                while i >= 0
+                while i >= -1
                 {
                     /*
                      TODO: This can be done more efficiently.  getDigit
                      basically does two buffer accesses and 2 shifts. Fix once
                      this is verified as working as-is.
                      */
-                    accumulatedBits |=
-                        getDigit(at: i, rightShiftedBy: bitShift - 1)
+                    digit = getDigit(at: i, rightShiftedBy: bitShift)
+                    accumulatedBits |= digit
                     i -= 1
                 }
                 

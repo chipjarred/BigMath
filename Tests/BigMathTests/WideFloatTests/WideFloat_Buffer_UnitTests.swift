@@ -27,6 +27,10 @@ class WideFloat_Buffer_UnitTests: XCTestCase
     
     // -------------------------------------
     #if arch(x86_64) || arch(arm64)
+    /*
+     This test uses 64-bit binary integer literals that won't compile on 32-bit
+     systems.
+     */
     func test_func_roundingBit_method_calculates_correct_bit_to_add_for_bankers_rounding()
     {
         typealias TestCase = (x: [UInt], shift: Int, expected: UInt)

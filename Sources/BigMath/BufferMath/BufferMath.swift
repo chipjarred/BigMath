@@ -212,7 +212,7 @@ internal func rightShift(
 
 
 // -------------------------------------
-/*
+/**
  Computes the bit that must be added to the least signficant non-truncated
  bit of this `UIntBufer` after it is right-shifted by `shift`
  bits.

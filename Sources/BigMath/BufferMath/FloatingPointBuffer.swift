@@ -692,7 +692,7 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    /*
+    /**
      Special case of right shifting meant for use in adding and subtracting.
      Needs to handle rounding of the bit that will be the least significant
      shift after shifting.

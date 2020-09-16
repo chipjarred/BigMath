@@ -705,36 +705,29 @@ struct FloatingPointBuffer
     {
         assert(shift >= 0)
         
-        var shift = shift
-        while true
+        let rBit = roundingBit(forRightShift: shift)
+        
+        guard exponent < Int.max - shift else
         {
-            let rBit = roundingBit(forRightShift: shift)
-            
-            if exponent >= Int.max - shift
-            {
-                setInfinity()
-                break
-            }
-            
-            BigMath.rightShift(
-                from: self.significand.immutable,
-                to: self.significand,
-                by: shift
+            setInfinity()
+            return
+        }
+        
+        BigMath.rightShift(
+            from: self.significand.immutable,
+            to: self.significand,
+            by: shift
+        )
+        exponent += shift
+        
+        // Now we do the rounding
+        if rBit != 0
+        {
+            _ = addReportingCarry(
+                self.significand.immutable,
+                1,
+                result: self.significand
             )
-            exponent += shift
-            
-            // Now we do the rounding
-            if rBit != 0
-            {
-                _ = addReportingCarry(
-                    self.significand.immutable,
-                    1,
-                    result: self.significand
-                )
-                
-                if self.signBit == 0 { break }
-                shift = 1
-            } else { break }
         }
     }
 

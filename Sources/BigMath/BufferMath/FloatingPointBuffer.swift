@@ -781,8 +781,8 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    @inline(__always)
-    private static func subtract(_ x: Self, _ y: Self, into z: inout Self)
+    @usableFromInline @inline(__always)
+    internal static func subtract(_ x: Self, _ y: Self, into z: inout Self)
     {
         assert(!x.isNaN && !y.isNaN)
         assert(!x.isInfinite && !y.isInfinite)

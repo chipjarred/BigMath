@@ -26,6 +26,7 @@ class WideFloat_Buffer_UnitTests: XCTestCase
     }
     
     // -------------------------------------
+    #if arch(x86_64) || arch(arm64)
     func test_func_roundingBit_method_calculates_correct_bit_to_add_for_bankers_rounding()
     {
         typealias TestCase = (x: [UInt], shift: Int, expected: UInt)
@@ -901,4 +902,8 @@ class WideFloat_Buffer_UnitTests: XCTestCase
             XCTAssertEqual(roundingBit, expected)
         }
     }
+    #else
+    // If you're on a 64-bit platform not listed in the #if, add it to the #if
+    #warning("Omitted 64-bit test for 32-bit platform: test_func_roundingBit_method_calculates_correct_bit_to_add_for_bankers_rounding")
+    #endif
 }

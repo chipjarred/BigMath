@@ -700,8 +700,8 @@ struct FloatingPointBuffer
      
      The "normal" right shift doesn't bother with rounding.  It just truncates.
      */
-    @inline(__always)
-    private mutating func rightShiftForAddOrSubtract(by shift: Int)
+    @usableFromInline @inline(__always)
+    internal mutating func rightShiftForAddOrSubtract(by shift: Int)
     {
         assert(shift >= 0)
         

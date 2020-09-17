@@ -56,7 +56,7 @@ public struct WideFloat<T: WideDigit>
     // -------------------------------------
     public var sign: FloatingPointSign
     {
-        // These assertions are just in case the Swift team decided to change
+        // These assertions are just in case the Swift team decides to change
         // their implementation of FloatingPointSign - they shouldn't but...
         assert(FloatingPointSign.plus.rawValue == 0)
         assert(FloatingPointSign.minus.rawValue == 1)

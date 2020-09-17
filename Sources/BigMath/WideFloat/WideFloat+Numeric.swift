@@ -21,7 +21,7 @@ SOFTWARE.
 */
 
 // -------------------------------------
-extension WideFloat
+extension WideFloat: Numeric
 {
     // -------------------------------------
     @inlinable
@@ -138,5 +138,11 @@ extension WideFloat
         )
         result.negate(if: left.isNegative != right.isNegative)
         return result
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func *= (left: inout Self, right: Self) {
+        left = left * right
     }
 }

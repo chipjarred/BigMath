@@ -414,15 +414,8 @@ class WideFloat_Addition_UnitTests: XCTestCase
             
             let x = FloatType(x0)
             let y = FloatType(y0)
+            
             var sum = x + y
-            
-            if sum.doubleValue != expected
-            {
-                print("\n -------- Failing case")
-                print("    x: \(x0)")
-                print("    y: \(y0)")
-            }
-            
             XCTAssertEqual(sum.doubleValue, expected)
             
             sum = y + x
@@ -439,13 +432,11 @@ class WideFloat_Addition_UnitTests: XCTestCase
             let y = FloatType(y0)
             var sum = x + y
 
-            #warning("REMOVE ME")
             if sum.doubleValue != expected
             {
                 print("\n -------- Failing case")
                 print("    x: \(x0)")
                 print("    y: \(y0)")
-                let testSum = x + y
             }
 
             XCTAssertEqual(sum.doubleValue, expected)

@@ -704,17 +704,22 @@ struct FloatingPointBuffer
     {
         assert(shift >= 0)
         
-        guard exponent < Int.max - shift else
+        guard exponent <= Int.max - shift else
         {
             setInfinity()
             return
         }
+        
+        let savedSign = self.signBit
+        signBit = 0
         
         BigMath.roundingRightShift(
             from: self.significand.immutable,
             to: self.significand,
             by: shift
         )
+        
+        self.signBit = savedSign
         
         exponent += shift
     }

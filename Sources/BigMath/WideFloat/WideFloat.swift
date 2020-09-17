@@ -23,7 +23,7 @@ SOFTWARE.
 import Foundation
 
 // -------------------------------------
-public struct WideFloat<T: WideDigit>
+public struct WideFloat<T: WideDigit> where T.Magnitude == T
 {
     public typealias RawSignificand = T
     public typealias Exponent = Int
@@ -144,7 +144,7 @@ public struct WideFloat<T: WideDigit>
     @inlinable static public var leastNormalMagnitude: Self
     {
         var significand = RawSignificand()
-        significand.setBit(at: RawSignificand.bitWidth - 2, to: 0)
+        significand.setBit(at: RawSignificand.bitWidth - 2, to: 1)
         return Self(significandBitPattern: significand, exponent: Int.min)
     }
     
@@ -426,7 +426,19 @@ public struct WideFloat<T: WideDigit>
      - Note: While at least one of the values should be a signaling NaN, the other values are not
         necessarily NaNs.  It's up to this routine to sort that out, if anything needs to be done at all.
      */
+    @usableFromInline
     internal static func handleSignalingNaN(_ possibleSignalingNaNs: Self...) {
+    }
+    
+    @usableFromInline @inline(__always)
+    internal mutating func roundingRightShift(by shift: Int)
+    {
+        exponent = withMutableFloatBuffer
+        {
+            var buf = $0
+            buf.rightShiftForAddOrSubtract(by: shift)
+            return  buf.exponent
+        }
     }
 
     // -------------------------------------

@@ -23,16 +23,19 @@ SOFTWARE.
 import Foundation
 
 // -------------------------------------
-public struct WideFloat<T: WideDigit> where T.Magnitude == T
+public struct WideFloat<T: WideDigit>:  Hashable
+    where T.Magnitude == T
 {
     public typealias RawSignificand = T
     public typealias Exponent = Int
     
-    @usableFromInline var exponent: Exponent
+    @usableFromInline var _exponent: Exponent
     @usableFromInline var _significand: RawSignificand
     
+    @inlinable public var exponent: Exponent { return _exponent }
+    
     // -------------------------------------
-    public var significand: Self {
+    @inlinable public var significand: Self {
         return Self(significandBitPattern: _significand, exponent: 1)
     }
     
@@ -44,8 +47,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
      integral bit of the significand, even though `WideFloat` stores it
      explicitly, nor does it include the sign bit.
      */
-    @inlinable
-    public var significandBitPattern: RawSignificand
+    @inlinable public var significandBitPattern: RawSignificand
     {
         var result = _significand
         result &= (RawSignificand.max >> 2)
@@ -54,7 +56,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
     }
     
     // -------------------------------------
-    public var sign: FloatingPointSign
+    @inlinable public var sign: FloatingPointSign
     {
         // These assertions are just in case the Swift team decides to change
         // their implementation of FloatingPointSign - they shouldn't but...
@@ -71,8 +73,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
      integral bit of the significand, even though `WideFloat` stores it
      explicitly, nor does it include the sign bit.
      */
-    @inlinable
-    public static var significandBitCount: Int {
+    @inlinable public static var significandBitCount: Int {
         return RawSignificand.bitWidth - 2
     }
     
@@ -182,7 +183,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
     public init(significandBitPattern: RawSignificand, exponent: Int)
     {
         self._significand = significandBitPattern
-        self.exponent = exponent
+        self._exponent = exponent
         self.normalize()
     }
     
@@ -191,7 +192,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
     public init()
     {
         self._significand = RawSignificand()
-        self.exponent = 0
+        self._exponent = 0
     }
 
     // -------------------------------------
@@ -234,7 +235,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         }
         
         self._significand = RawSignificand(s)
-        self.exponent = exp
+        self._exponent = exp
         
         // Normalize significand
         if self._significand.bit(at: RawSignificand.bitWidth - 1) {
@@ -272,7 +273,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
                     Self.extractSignificandBits(from: source),
                 exponent: 0
             )
-            exponent = Exponent(source.exponent)
+            _exponent = Exponent(source.exponent)
         }
         self.negate(if: source < 0)
     }
@@ -335,17 +336,17 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
         if isInfinite { return isNegative ? -F.infinity : F.infinity }
         
-        if exponent >= F.greatestFiniteMagnitude.exponent
+        if _exponent >= F.greatestFiniteMagnitude.exponent
         {
-            if exponent > F.greatestFiniteMagnitude.exponent
+            if _exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
                 return isNegative ? -F.infinity : F.infinity
             }
         }
-        else if exponent <= F.leastNonzeroMagnitude.exponent
+        else if _exponent <= F.leastNonzeroMagnitude.exponent
         {
-            if exponent < F.leastNonzeroMagnitude.exponent
+            if _exponent < F.leastNonzeroMagnitude.exponent
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
@@ -372,9 +373,9 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         var canBeRepresented = UInt8(!isNaN)
             & UInt8(!isInfinite)
             & (UInt8(I.isSigned) | UInt8(!self.isNegative))
-            & UInt8(exponent <= maxRepresentableExponent)
+            & UInt8(_exponent <= maxRepresentableExponent)
         
-        if canBeRepresented & UInt8(exponent == maxRepresentableExponent) == 1
+        if canBeRepresented & UInt8(_exponent == maxRepresentableExponent) == 1
         {
             if significandIsOne
             {
@@ -433,7 +434,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
     @usableFromInline @inline(__always)
     internal mutating func roundingRightShift(by shift: Int)
     {
-        exponent = withMutableFloatBuffer
+        _exponent = withMutableFloatBuffer
         {
             var buf = $0
             let saveSign = buf.signBit
@@ -454,7 +455,7 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         {
             let fBuf = FloatingPointBuffer(
                 rawSignificand: $0.mutable,
-                exponent: exponent
+                exponent: _exponent
             )
             
             return body(fBuf)
@@ -470,10 +471,10 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         {
             var fBuf = FloatingPointBuffer(
                 rawSignificand: $0,
-                exponent: exponent
+                exponent: _exponent
             )
             let result = body(&fBuf)
-            self.exponent = fBuf.exponent
+            self._exponent = fBuf.exponent
             return result
         }
     }

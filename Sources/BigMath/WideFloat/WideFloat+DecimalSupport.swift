@@ -36,11 +36,11 @@ extension WideFloat
     {
         self.init(
             significandBitPattern: Self.extractSignificandBits(from: source),
-            exponent: 0
+            _exponent: 0
         )
         assert(isNormalized)
         let n = source.binaryFloatExponent
-        exponent =  Exponent(n)
+        _exponent =  Exponent(n)
         self.negate(if: source < 0)
     }
 

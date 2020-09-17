@@ -49,7 +49,7 @@ extension WideFloat: Numeric
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left.exponent == Int.max) | UInt8(right.exponent == Int.max)
+            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
         if hasSpecialValue == 1
         {
             if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
@@ -89,19 +89,19 @@ extension WideFloat: Numeric
         }
         
         // Handle underflow and overflow
-        let leftExponentLessThan0 = left.exponent < 0
-        if leftExponentLessThan0 == (right.exponent < 0)
+        let leftExponentLessThan0 = left._exponent < 0
+        if leftExponentLessThan0 == (right._exponent < 0)
         {
             if leftExponentLessThan0
             {
-                if Int.min - left.exponent > right.exponent
+                if Int.min - left._exponent > right._exponent
                 {
                     var result = Self.zero
                     result.negate(if: left.isNegative != right.isNegative)
                     return result
                 }
             }
-            else if Int.max - left.exponent <= right.exponent
+            else if Int.max - left._exponent <= right._exponent
             {
                 var result = Self.infinity
                 result.negate(if: left.isNegative != right.isNegative)
@@ -122,8 +122,8 @@ extension WideFloat: Numeric
             by: UInt.bitWidth
                 + wideProduct._significand.high.leadingZeroBitCount - 1
         )
-        var productExponent = left.exponent + right.exponent
-        let expUpdate = wideProduct.exponent - UInt.bitWidth + 2
+        var productExponent = left._exponent + right._exponent
+        let expUpdate = wideProduct._exponent - UInt.bitWidth + 2
         if Int.max - expUpdate <= productExponent
         {
             var result = Self.infinity

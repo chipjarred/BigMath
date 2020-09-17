@@ -40,7 +40,7 @@ extension WideFloat: AdditiveArithmetic
          IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left.exponent == Int.max) | UInt8(right.exponent == Int.max)
+            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
         if hasSpecialValue == 1
         {
             if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
@@ -104,7 +104,7 @@ extension WideFloat: AdditiveArithmetic
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left.exponent == Int.max) | UInt8(right.exponent == Int.max)
+            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
         if hasSpecialValue == 1
         {
             if UInt8(left.isNaN) | UInt8(right.isNaN) == 1

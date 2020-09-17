@@ -354,8 +354,8 @@ class WideFloat_Initialization_UnitTests: XCTestCase
             let recoveredValue = wideValue.decimalValue
             
             print("------")
-            print("original exp    = \(originalValue.exponent)")
-            print("recovered exp   = \(recoveredValue.exponent)")
+            print("original exp    = \(originalValue._exponent)")
+            print("recovered exp   = \(recoveredValue._exponent)")
             print("           orig = \(originalValue)")
             print(" recoveredValue = \(recoveredValue)")
             print("wideDoubleValue = \(wideDoubleValue)")

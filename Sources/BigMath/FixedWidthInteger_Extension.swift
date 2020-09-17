@@ -63,6 +63,15 @@ extension FixedWidthInteger
         return borrow
     }
     
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal mutating func roundingRightShift(by shift: Int)
+    {
+        self.withMutableBuffer {
+            BigMath.roundingRightShift(from: $0.immutable, to: $0, by: shift)
+        }
+    }
+    
     @usableFromInline
     internal typealias UIntBuffer = UnsafeBufferPointer<UInt>.SubSequence
     

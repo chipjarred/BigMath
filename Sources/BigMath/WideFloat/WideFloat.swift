@@ -171,48 +171,21 @@ public struct WideFloat<T: WideDigit>
             var shift = sBitCount - sigWidth
             if shift > 0
             {
-                /*
-                 For rounding, we do "bankers'" rounding because that's what
-                 the Swift standard library does.
-                 
-                 In this case, adding "half" means adding half of the least
-                 signficant bit we will not truncate, which is adding 1 to the
-                 bit immediately to the right of it.
-                 
-                 If we get a carry out of the add, then we have rippled all
-                 the way up to a new most signficant bit, which means we need to
-                 increase the exponent.
-                 */
-                var halfBit: I.Magnitude = 0
-                var mask = halfBit
-                halfBit.setBit(at: shift - 1, to: 1)
-                mask = (halfBit << 1) - 1
-                let fract = s & mask
-                var carry: I.Magnitude = 0
-                if fract > halfBit || fract == halfBit && s.bit(at: shift) {
-                    carry = s.addToSelfReportingCarry(halfBit)
+                s.roundingRightShift(by: shift)
+                shift = 1
+                
+                // There is a possibility that rounding might carry all the way
+                // to the most signficant bit, so we have to test and maybe
+                // shift again.
+                let highBitMask = ~((I.Magnitude.max) >> 1)
+                if s & highBitMask != 0
+                {
+                    // The only way the high bit would have been set is if s
+                    // were all 1s.  In that case, the rounding made all the
+                    // low bits 0, so we can just do a simple shift.
+                    s >>= 1
+                    exp += 1
                 }
-                let iCarry = Int(carry)
-                shift &+= iCarry
-                s >>= shift
-                let highBitIndex = I.Magnitude.bitWidth - shift
-                let existingHighBit = s.getBit(at: highBitIndex)
-                s.setBit(at: highBitIndex, to: existingHighBit | carry)
-                exp &+= iCarry
-
-                /*
-                 Technically, given a large enough integer, we could overflow
-                 the exponent into "infinity", but even on systems where our
-                 exponent is only 32-bits, an integer large enough to overflow
-                 our exponent would have a significand so large as to overflow
-                 the run-time stack just by creating it in the first place,
-                 crashing the program, so this scenario is only theoretical.
-                 
-                 We did think about it, so the following line is left commented
-                 out as purely informational.
-                 
-                 if exp == UInt.max { s = 0 } // Setting infinity
-                 */
             }
         }
         

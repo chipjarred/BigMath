@@ -37,24 +37,30 @@ extension WideFloat: AdditiveArithmetic
          infinities should be unusual.  However, adding 0 is more common and
          IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+        let hasSpecialValue =
+            UInt8(left.exponent == Int.max) | UInt8(right.exponent == Int.max)
+        if hasSpecialValue == 1
         {
-            if UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN) == 1 {
-                handleSignalingNaN(left, right)
-            }
-            
-            // sNaNs are converted to qNaNs after being handled per IEEE 754
-            return Self.nan
-        }
-        if left.isInfinite
-        {
-            let differentSigns = left.isNegative != right.isNegative
-            if UInt8(right.isInfinite) & UInt8(differentSigns) == 1 {
+            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            {
+                let hasSignalingNaN =
+                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                
+                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
+                
+                // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            return left
+            if left.isInfinite
+            {
+                let differentSigns = left.isNegative != right.isNegative
+                if UInt8(right.isInfinite) & UInt8(differentSigns) == 1 {
+                    return Self.nan
+                }
+                return left
+            }
+            else if right.isInfinite { return right }
         }
-        else if right.isInfinite { return right }
         
         if left.isZero
         {
@@ -94,24 +100,30 @@ extension WideFloat: AdditiveArithmetic
          infinities should be unusual.  However, subtracting 0 is more common
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+        let hasSpecialValue =
+            UInt8(left.exponent == Int.max) | UInt8(right.exponent == Int.max)
+        if hasSpecialValue == 1
         {
-            if UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN) == 1 {
-                handleSignalingNaN(left, right)
-            }
-            
-            // sNaNs are converted to qNaNs after being handled per IEEE 754
-            return Self.nan
-        }
-        if left.isInfinite
-        {
-            let sameSigns = left.isNegative == right.isNegative
-            if UInt8(right.isInfinite) & UInt8(sameSigns) == 1 {
+            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            {
+                let hasSignalingNaN =
+                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                
+                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
+                
+                // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            return left
+            if left.isInfinite
+            {
+                let sameSigns = left.isNegative == right.isNegative
+                if UInt8(right.isInfinite) & UInt8(sameSigns) == 1 {
+                    return Self.nan
+                }
+                return left
+            }
+            else if right.isInfinite { return right.negated }
         }
-        else if right.isInfinite { return right.negated }
         
         if left.isZero
         {

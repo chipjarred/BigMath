@@ -58,7 +58,7 @@ extension WideFloat
          */
         
         let s = abs(source)
-        var mantissa = s.significand
+        var mantissa = s._significand
         while mantissa - mantissa.floor != 0 {
             mantissa *= 10
         }

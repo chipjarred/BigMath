@@ -207,7 +207,7 @@ class WideFloat_Initialization_UnitTests: XCTestCase
                 print("      actual value: \(actual)")
                 print("   intValue binary: \(binary: intValue)")
                 print("     actual binary: \(binary: actual)")
-                print(" wFloat Sig binary: \(binary: wFloat.significand)")
+                print(" wFloat Sig binary: \(binary: wFloat._significand)")
             }
 
             XCTAssertLessThanOrEqual(actualDelta, 1)
@@ -228,7 +228,7 @@ class WideFloat_Initialization_UnitTests: XCTestCase
                 print("      actual value: \(actual)")
                 print("   intValue binary: \(binary: intValue)")
                 print("     actual binary: \(binary: actual)")
-                print(" wFloat Sig binary: \(binary: wFloat.significand)")
+                print(" wFloat Sig binary: \(binary: wFloat._significand)")
             }
 
             XCTAssertLessThanOrEqual(actualDelta, 1)
@@ -252,7 +252,7 @@ class WideFloat_Initialization_UnitTests: XCTestCase
                 print("      actual value: \(actual)")
                 print("   intValue binary: \(binary: intValue)")
                 print("     actual binary: \(binary: actual)")
-                print(" wFloat Sig binary: \(binary: wFloat.significand)")
+                print(" wFloat Sig binary: \(binary: wFloat._significand)")
             }
 
             XCTAssertEqual(actual, intValue)
@@ -271,76 +271,12 @@ class WideFloat_Initialization_UnitTests: XCTestCase
                 print("      actual value: \(actual)")
                 print("   intValue binary: \(binary: intValue)")
                 print("     actual binary: \(binary: actual)")
-                print(" wFloat Sig binary: \(binary: wFloat.significand)")
+                print(" wFloat Sig binary: \(binary: wFloat._significand)")
             }
 
             XCTAssertEqual(actual, intValue)
         }
     }
-
-    /*
-     TODO: We're not doing equivalent rounding of the low bits so we get
-     different results.  This needs to be fixed.  Disabling this test for now.
-     The signed integer version works though.
-     */
-    // -------------------------------------
-//    func test_Double_value_from_WideFloat_initialized_with_unsigned_integer_is_same_as_Double_initialized_with_that_unsigned_integer()
-//    {
-//        let specificCases: [UInt64] =
-//        [
-//            17871182804272940033, 9291187523362059265, 13048704065388569601,
-//            17799382659944555521, 11536022651085169665, 14564240196804064257,
-//            9728877293306455041, 12321310007454557185, 10458446715928531969,
-//            11492726620785812481, 14087785612018623489, 14666318631217525761,
-//            16985780926527751169, 15049745135151916033, 16218358710991188993,
-//            13178469215745127425, 14993775423123121153, 11593723618950734849,
-//            9674979217308963841, 16145887796025537537, 14733926704856732673,
-//            18288734576837403649, 16408533808159929345, 11098042140158985217,
-//            16601343413799529471, 16537284071973891071, 18418422684684643327,
-//            13585473927408114687, 14345753644382481407, 11341195357271129087
-//        ]
-//
-//        for intValue in specificCases
-//        {
-//            let wFloat = FloatType(intValue)
-//
-//            let actual = wFloat.doubleValue
-//            let expected = Double(intValue)
-//
-//            let actualDelta = computeDelta(intValue, UInt64(actual))
-//            let expectedDelta = computeDelta(intValue, UInt64(expected))
-//
-//            if actualDelta > expectedDelta
-//            {
-//                print("\n  -- Failing value:  \(intValue)")
-//                print("      actual value: \(actual)")
-//                print("    expected value: \(expected)")
-//                print("       actual UInt: \(UInt(actual))")
-//                print("     expected UInt: \(UInt(expected))")
-//            }
-//
-//            XCTAssertLessThanOrEqual(actualDelta, expectedDelta)
-//        }
-//
-//        for _ in 0..<100000
-//        {
-//            let intValue = urandom64
-//            let wFloat = FloatType(intValue)
-//
-//            let actual = wFloat.doubleValue
-//            let expected = Double(intValue)
-//
-//            let actualDelta = computeDelta(intValue, UInt64(actual))
-//            let expectedDelta = computeDelta(intValue, UInt64(expected))
-//
-//            // We print failing cases so we can add them to specific cases above
-//            if actualDelta > expectedDelta {
-//                print("\n  -- Failing Value: \(intValue)\n")
-//            }
-//
-//            XCTAssertLessThanOrEqual(actualDelta, expectedDelta)
-//        }
-//    }
     
     // -------------------------------------
     func test_Double_value_from_WideFloat_initialized_with_signed_integer_is_same_as_Double_initialized_with_that_signed_integer()

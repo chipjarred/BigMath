@@ -29,7 +29,52 @@ public struct WideFloat<T: WideDigit>
     public typealias Exponent = Int
     
     @usableFromInline var exponent: Exponent
-    @usableFromInline var significand: RawSignificand
+    @usableFromInline var _significand: RawSignificand
+    
+    // -------------------------------------
+    public var significand: Self {
+        return Self(significandBitPattern: _significand, exponent: 1)
+    }
+    
+    // -------------------------------------
+    /**
+     The raw encoding of the value's significand field.
+     
+     The `significandBitPattern` property does not include the leading
+     integral bit of the significand, even though `WideFloat` stores it
+     explicitly, nor does it include the sign bit.
+     */
+    @inlinable
+    public var significandBitPattern: RawSignificand
+    {
+        var result = _significand
+        result &= (RawSignificand.max >> 2)
+        result <<= 1
+        return result
+    }
+    
+    // -------------------------------------
+    public var sign: FloatingPointSign
+    {
+        // These assertions are just in case the Swift team decided to change
+        // their implementation of FloatingPointSign - they shouldn't but...
+        assert(FloatingPointSign.plus.rawValue == 0)
+        assert(FloatingPointSign.minus.rawValue == 1)
+        return FloatingPointSign(rawValue: Int(isNegative))!
+    }
+    
+    // -------------------------------------
+    /**
+     The raw encoding of the value's significand field.
+     
+     The `significandBitCount` property does not include the leading
+     integral bit of the significand, even though `WideFloat` stores it
+     explicitly, nor does it include the sign bit.
+     */
+    @inlinable
+    public static var significandBitCount: Int {
+        return RawSignificand.bitWidth - 2
+    }
     
     // -------------------------------------
     @inlinable public var isNaN: Bool {
@@ -136,7 +181,7 @@ public struct WideFloat<T: WideDigit>
     @inlinable
     public init(significandBitPattern: RawSignificand, exponent: Int)
     {
-        self.significand = significandBitPattern
+        self._significand = significandBitPattern
         self.exponent = exponent
         self.normalize()
     }
@@ -145,7 +190,7 @@ public struct WideFloat<T: WideDigit>
     @inlinable
     public init()
     {
-        self.significand = RawSignificand()
+        self._significand = RawSignificand()
         self.exponent = 0
     }
 
@@ -168,11 +213,10 @@ public struct WideFloat<T: WideDigit>
         {
             let sBitCount = I.Magnitude.bitWidth - s.leadingZeroBitCount
             let sigWidth = RawSignificand.bitWidth - 1
-            var shift = sBitCount - sigWidth
+            let shift = sBitCount - sigWidth
             if shift > 0
             {
                 s.roundingRightShift(by: shift)
-                shift = 1
                 
                 // There is a possibility that rounding might carry all the way
                 // to the most signficant bit, so we have to test and maybe
@@ -189,15 +233,15 @@ public struct WideFloat<T: WideDigit>
             }
         }
         
-        self.significand = RawSignificand(s)
+        self._significand = RawSignificand(s)
         self.exponent = exp
         
         // Normalize significand
-        if self.significand.bit(at: RawSignificand.bitWidth - 1) {
-            self.significand >>= 1 // leave room for sign bit
+        if self._significand.bit(at: RawSignificand.bitWidth - 1) {
+            self._significand >>= 1 // leave room for sign bit
         }
-        else if !self.significand.bit(at: RawSignificand.bitWidth - 2) {
-            self.significand <<= self.significand.leadingZeroBitCount - 1
+        else if !self._significand.bit(at: RawSignificand.bitWidth - 2) {
+            self._significand <<= self._significand.leadingZeroBitCount - 1
         }
         
         self.negate(if: source < 0)
@@ -389,7 +433,7 @@ public struct WideFloat<T: WideDigit>
     @usableFromInline @inline(__always)
     internal func withFloatBuffer<R>(body: (FloatingPointBuffer) -> R) -> R
     {
-        return significand.withBuffer
+        return _significand.withBuffer
         {
             let fBuf = FloatingPointBuffer(
                 rawSignificand: $0.mutable,
@@ -405,7 +449,7 @@ public struct WideFloat<T: WideDigit>
     internal mutating func withMutableFloatBuffer<R>(
         body: (inout FloatingPointBuffer) -> R) -> R
     {
-        return significand.withMutableBuffer
+        return _significand.withMutableBuffer
         {
             var fBuf = FloatingPointBuffer(
                 rawSignificand: $0,

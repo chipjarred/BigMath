@@ -710,16 +710,11 @@ struct FloatingPointBuffer
             return
         }
         
-        let savedSign = self.signBit
-        signBit = 0
-        
         BigMath.roundingRightShift(
             from: self.significand.immutable,
             to: self.significand,
             by: shift
         )
-        
-        self.signBit = savedSign
         
         exponent += shift
     }
@@ -898,8 +893,9 @@ struct FloatingPointBuffer
          propagating all the way up the sign bit.  It also handles setting
          infinity if the exponent will be set to Int.max
          */
-        if zHead & ~(UInt.max >> 1) != 0 {
+        while zHead & ~(UInt.max >> 1) != 0 {
             z.rightShiftForAddOrSubtract(by: 1)
+            zHead = z.significandHead
         }
         
         // Now we set the sign bit and normalize

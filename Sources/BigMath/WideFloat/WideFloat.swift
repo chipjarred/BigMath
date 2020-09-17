@@ -436,7 +436,12 @@ public struct WideFloat<T: WideDigit> where T.Magnitude == T
         exponent = withMutableFloatBuffer
         {
             var buf = $0
+            let saveSign = buf.signBit
+            buf.signBit = 0
+            
             buf.rightShiftForAddOrSubtract(by: shift)
+            
+            buf.signBit = saveSign
             return  buf.exponent
         }
     }

@@ -57,11 +57,11 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         
         for other in otherValues
         {
-            var product = FloatType.nan + other
+            var product = FloatType.nan * other
             XCTAssertTrue(product.isNaN)
             XCTAssertFalse(product.isSignalingNaN)
             
-            product = other + FloatType.nan
+            product = other * FloatType.nan
             XCTAssertTrue(product.isNaN)
             XCTAssertFalse(product.isSignalingNaN)
         }

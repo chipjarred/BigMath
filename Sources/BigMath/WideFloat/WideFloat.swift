@@ -301,7 +301,9 @@ public struct WideFloat<T: WideDigit>:  Hashable
             significand: 1
         )
         let dSignificand = floor(s * f)
-        return RawSignificand(dSignificand)
+        var sig = RawSignificand(dSignificand)
+        if sig.signBit { sig.roundingRightShift(by: 1) }
+        return sig
     }
     
     // -------------------------------------

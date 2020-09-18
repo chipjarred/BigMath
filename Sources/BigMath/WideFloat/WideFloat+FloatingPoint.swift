@@ -20,6 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+import Foundation
+
 // -------------------------------------
 extension WideFloat: FloatingPoint
 {
@@ -213,15 +215,142 @@ extension WideFloat: FloatingPoint
     // -------------------------------------
     public static func / (left: Self, right: Self) -> Self
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        /*
+         Ugh - all this conditional branching sucks.  Most of the conditions
+         should be fairly predictable, though, as ideally dividing NaNs and
+         infinities should be unusual.  However, dividing 0 is more common
+         and IEEE 754 has special rules for signed 0s that we have to handle.
+         */
+        let hasSpecialValue =
+            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
+        if hasSpecialValue == 1
+        {
+            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            {
+                let hasSignalingNaN =
+                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                
+                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
+                
+                // sNaNs are converted to qNaNs after being handled per IEEE 754
+                return Self.nan
+            }
+            
+            if left.isInfinite
+            {
+                if right.isInfinite { return self.nan }
+                
+                if right.isZero
+                {
+                    var result = Self.infinity
+                    result.negate(if: left.isNegative != right.isNegative)
+                    return result
+                }
+                
+                var result = Self.zero
+                result.negate(if: left.isNegative != right.isNegative)
+                return result
+            }
+            else if right.isInfinite
+            {
+                if left.isZero
+                {
+                    var result = Self.zero
+                    result.negate(if: left.isNegative != right.isNegative)
+                    return result
+                }
+                
+                var result = Self.zero
+                result.negate(if: left.isNegative != right.isNegative)
+                return result
+            }
+        }
+        
+        if left.isZero
+        {
+            if right.isZero { return Self.nan }
+            
+            var result = Self.zero
+            result.negate(if: left.isNegative != right.isNegative)
+            return result
+        }
+        else if right.isZero
+        {
+            var result = Self.infinity
+            result.negate(if: left.isNegative != right.isNegative)
+            return result
+        }
+        
+        // Handle underflow to 0, and overflow to infinity
+        if right.exponent > 0
+        {
+            if Int.min + right.exponent > left.exponent
+            {
+                var result = Self.zero
+                result.negate(if: left.isNegative != right.isNegative)
+                return result
+            }
+        }
+        else if Int.max + right.exponent <= left.exponent
+        {
+            var result = Self.infinity
+            result.negate(if: left.isNegative != right.isNegative)
+            return result
+        }
+        
+        let rightInv = right.multiplicativeInverse
+        return left * rightInv
     }
     
     // -------------------------------------
-    public static func /= (left: inout Self, right: Self)
+    @inlinable
+    public var multiplicativeInverse: Self
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        if _exponent == Int.max
+        {
+            if isNaN { return Self.nan }
+            if isInfinite
+            {
+                var result = Self.zero
+                result.negate(if: isNegative)
+                return result
+            }
+        }
+        
+        if isZero || _exponent <= Int.min + 1
+        {
+            var result = Self.infinity
+            result.negate(if: isNegative)
+            return result
+        }
+        
+        /*
+         Using Newton's method to find the multiplicative inverse.  Given a good
+         starting point, it doubles the number of good bits each iteration.  A
+         good starting point is key.  We leverage Float80 to quickly calculate
+         an initial estimate for 1/self.  That will give 64 good bits.  Then we
+         iteration log2(n) times, where n is the number UInt digits in our
+         significand.
+         */
+        let f80Seed = 1 / significand.float80Value
+        var x = Self(f80Seed)
+        x._exponent = -self._exponent
+        let sigSize = MemoryLayout<RawSignificand>.size
+        let uintSize = MemoryLayout<UInt>.size
+        let iterations = Int(log2(Double(sigSize / uintSize)))
+        
+        for _ in 0..<iterations {
+            x =  x + x * (1 - self * x)
+        }
+        
+        assert(x * self == 1)
+        return x
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func /= (left: inout Self, right: Self) {
+        left = left / right
     }
     
     // -------------------------------------

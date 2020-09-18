@@ -57,49 +57,49 @@ class WideFloat_Division_UnitTests: XCTestCase
         
         for other in otherValues
         {
-            var product = FloatType.nan / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.nan / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.nan
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.nan
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(randomDouble)
-            var product = FloatType.nan / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.nan / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.nan
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.nan
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(urandom64)
-            var product = FloatType.nan / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.nan / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.nan
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.nan
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(random64)
-            var product = FloatType.nan / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.nan / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.nan
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.nan
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
     }
     
@@ -124,49 +124,49 @@ class WideFloat_Division_UnitTests: XCTestCase
         
         for other in otherValues
         {
-            var product = FloatType.signalingNaN / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.signalingNaN / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.signalingNaN
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.signalingNaN
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(randomDouble)
-            var product = FloatType.signalingNaN / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.signalingNaN / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.signalingNaN
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.signalingNaN
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(urandom64)
-            var product = FloatType.signalingNaN / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.signalingNaN / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.signalingNaN
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.signalingNaN
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
         
         for _ in 0..<100
         {
             let other = FloatType(random64)
-            var product = FloatType.signalingNaN / other
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            var quotient = FloatType.signalingNaN / other
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
             
-            product = other / FloatType.signalingNaN
-            XCTAssertTrue(product.isNaN)
-            XCTAssertFalse(product.isSignalingNaN)
+            quotient = other / FloatType.signalingNaN
+            XCTAssertTrue(quotient.isNaN)
+            XCTAssertFalse(quotient.isSignalingNaN)
         }
     }
     
@@ -400,6 +400,33 @@ class WideFloat_Division_UnitTests: XCTestCase
             quotient = x / -1
             
             XCTAssertEqual(quotient, -x)
+        }
+    }
+    
+    // -------------------------------------
+    func test_division_of_nonzero_finite_numbers()
+    {
+        for _ in 0..<100
+        {
+            let x0 = abs(randomDouble)
+            let y0 = abs(randomDouble)
+            let expected = x0 / y0
+
+            // We allow a tolerance because WideFloat has more precision than
+            // Double
+            let tolerance = Double(
+                sign: .plus,
+                exponent: expected.exponent - 52,
+                significand: 1)
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            
+            let quotient = x / y
+            
+            XCTAssertLessThanOrEqual(
+                abs(quotient.doubleValue - expected), tolerance
+            )
         }
     }
 }

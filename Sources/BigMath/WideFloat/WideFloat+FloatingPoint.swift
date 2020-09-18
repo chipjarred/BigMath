@@ -329,21 +329,24 @@ extension WideFloat: FloatingPoint
          starting point, it doubles the number of good bits each iteration.  A
          good starting point is key.  We leverage Float80 to quickly calculate
          an initial estimate for 1/self.  That will give 64 good bits.  Then we
-         iteration log2(n) times, where n is the number UInt digits in our
+         iterate log2(n) times, where n is the number UInt digits in our
          significand.
          */
-        let f80Seed = 1 / significand.float80Value
+        let s = significand.magnitude
+        let f80Seed = 1 / s.float80Value
         var x = Self(f80Seed)
-        x._exponent = -self._exponent
+        let deltaExp = x._exponent + s._exponent
+        
         let sigSize = MemoryLayout<RawSignificand>.size
         let uintSize = MemoryLayout<UInt>.size
-        let iterations = Int(log2(Double(sigSize / uintSize)))
+        let iterations = Int(log2(Double(sigSize / uintSize))) + 1
         
         for _ in 0..<iterations {
-            x =  x + x * (1 - self * x)
+            x =  x * (2 - s * x)
         }
         
-        assert(x * self == 1)
+        x._exponent = -self._exponent + deltaExp
+        x.negate(if: isNegative)
         return x
     }
     

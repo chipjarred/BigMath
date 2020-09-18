@@ -65,13 +65,28 @@ class WideFloat_Misc_UnitTests: XCTestCase
             ),
             (
                 x: 1,
-                ulp: FloatType(sign: .plus, exponent: -62, significand: 1)
+                ulp: FloatType(
+                    sign: .plus,
+                    exponent: -(UInt64.bitWidth - 2),
+                    significand: 1
+                )
             ),
             (
-                x: FloatType(sign: .plus, exponent: -62, significand: 1),
-                ulp: FloatType(sign: .plus, exponent: -124, significand: 1)
+                x: FloatType(
+                    sign: .plus,
+                    exponent: -UInt64.bitWidth,
+                    significand: 1
+                ),
+                ulp: FloatType(
+                    sign: .plus,
+                    exponent: -UInt64.bitWidth - (UInt64.bitWidth - 2),
+                    significand: 1
+                )
             )
         ]
+        
+        let x = FloatType(1.01)
+        XCTAssertNotEqual(x - x.ulp, x)
         
         for (x, expected) in testCases
         {
@@ -91,6 +106,56 @@ class WideFloat_Misc_UnitTests: XCTestCase
             }
             
             XCTAssertEqual(ulpX, expected)
+        }
+    }
+    
+    
+    // -------------------------------------
+    func test_nextUp()
+    {
+        typealias TestCase = (x: FloatType, nextUp: FloatType)
+        let testCases: [TestCase] =
+        [
+            (x: FloatType(0),            nextUp: .leastNonzeroMagnitude),
+            (x: FloatType(0).negated,    nextUp: .leastNonzeroMagnitude),
+            (
+                x: -FloatType.leastNonzeroMagnitude,
+                nextUp: FloatType(0).negated
+            ),
+            (x: .infinity,               nextUp: .infinity),
+            (x: -.infinity,              nextUp: -.greatestFiniteMagnitude),
+            (x: .greatestFiniteMagnitude,nextUp: .infinity),
+            (
+                x: 1,
+                nextUp: 1 + FloatType(1).ulp
+            ),
+        ]
+        
+        for (x, expected) in testCases
+        {
+            let xNextUp = x.nextUp
+            
+            if expected.isNaN
+            {
+                XCTAssertTrue(xNextUp.isNaN)
+                continue
+            }
+            
+            if expected.isInfinite
+            {
+                XCTAssertTrue(xNextUp.isInfinite)
+                XCTAssertEqual(xNextUp.sign, expected.sign)
+                continue
+            }
+            
+            if expected.isZero
+            {
+                XCTAssertTrue(xNextUp.isZero)
+                XCTAssertEqual(xNextUp.sign, expected.sign)
+                continue
+            }
+            
+            XCTAssertEqual(xNextUp, expected)
         }
     }
 }

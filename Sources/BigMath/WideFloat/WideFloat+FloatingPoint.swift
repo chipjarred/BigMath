@@ -175,19 +175,7 @@ extension WideFloat: FloatingPoint
             return Self.infinity
         }
         
-        let exp = self.exponent
-        let savedSign = self._significand.signBit
-        var s = self._significand &+ 1
-        s &+= 1
-        if s.signBit != savedSign
-        {
-            var result = Self(1)
-            result._exponent = exp + 1
-            result.negate(if: self.isNegative)
-            return result
-        }
-        
-        return Self(significandBitPattern: s, exponent: exp)
+        return self + self.ulp
     }
     
     // -------------------------------------

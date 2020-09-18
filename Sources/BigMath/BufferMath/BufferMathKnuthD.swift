@@ -43,22 +43,23 @@ func subtractReportingBorrowKnuth(
 {
     assert(x.count + 1 <= y.count)
     
-    var i = x.startIndex
-    var j = y.startIndex
+    var xPtr = x.baseAddress!
+    let xEnd = xPtr + x.count
+    var yPtr = y.baseAddress!
 
     var borrow: UInt = 0
-    while i < x.endIndex
+    while xPtr < xEnd
     {
-        borrow = y[j].subtractFromSelfReportingBorrow(borrow)
-        let (pHi, pLo) = k.multipliedFullWidth(by: x[i])
+        borrow = yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
+        let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
         borrow &+= pHi
-        borrow &+= y[j].subtractFromSelfReportingBorrow(pLo)
+        borrow &+= yPtr.pointee.subtractFromSelfReportingBorrow(pLo)
         
-        i &+= 1
-        j &+= 1
+        xPtr += 1
+        yPtr += 1
     }
     
-    return 0 != y[j].subtractFromSelfReportingBorrow(borrow)
+    return 0 != yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
 }
 
 // -------------------------------------
@@ -78,18 +79,20 @@ func += (left: inout MutableUIntBuffer, right: MutableUIntBuffer )
     assert(right.count + 1 == left.count)
     var carry: UInt = 0
     
-    var i = right.startIndex
-    var j = left.startIndex
-    while i < right.endIndex
+    var xPtr = right.baseAddress!
+    let xEnd = xPtr + right.count
+    var yPtr = left.baseAddress!
+    
+    while xPtr < xEnd
     {
-        carry = left[j].addToSelfReportingCarry(carry)
-        carry &+= left[j].addToSelfReportingCarry(right[i])
+        carry = yPtr.pointee.addToSelfReportingCarry(carry)
+        carry &+= yPtr.pointee.addToSelfReportingCarry(xPtr.pointee)
         
-        i &+= 1
-        j &+= 1
+        xPtr += 1
+        yPtr += 1
     }
     
-    left[j] &+= carry
+    yPtr.pointee &+= carry
 }
 
 // -------------------------------------

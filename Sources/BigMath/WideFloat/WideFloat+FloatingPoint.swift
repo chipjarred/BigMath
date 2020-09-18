@@ -298,8 +298,30 @@ extension WideFloat: FloatingPoint
             return result
         }
         
+        #if false
         let rightInv = right.multiplicativeInverse
         return left * rightInv
+        #else
+        let dividend = left.magnitude._significand
+        let divisor = right.magnitude._significand
+        let zero = RawSignificand.zero
+        var qHigh, qLow, r: RawSignificand
+        (qHigh, r) = dividend.quotientAndRemainder(dividingBy: divisor)
+        (qLow, r) = divisor.dividingFullWidth((r, zero))
+        let shift = qHigh.leadingZeroBitCount - 1
+        qHigh <<= shift
+        qHigh |= qLow >> (RawSignificand.bitWidth - shift)
+        let qExpDelta = (
+            left.significand.floatValue / right.significand.floatValue
+        ).exponent
+        
+        var result = Self(
+            significandBitPattern: qHigh,
+            exponent: left.exponent - right.exponent + qExpDelta
+        )
+        result.negate(if: left.isNegative != right.isNegative)
+        return result
+        #endif
     }
     
     // -------------------------------------
@@ -354,6 +376,45 @@ extension WideFloat: FloatingPoint
         return x
     }
     
+    // -------------------------------------
+    @inlinable
+    public var multiplicativeInverse2: Self
+    {
+        if _exponent == Int.max
+        {
+            if isNaN { return Self.nan }
+            if isInfinite
+            {
+                var result = Self.zero
+                result.negate(if: isNegative)
+                return result
+            }
+        }
+        
+        if isZero || _exponent <= Int.min + 1
+        {
+            var result = Self.infinity
+            result.negate(if: isNegative)
+            return result
+        }
+        
+        /*
+         Using Newton's method to find the multiplicative inverse.  Given a good
+         starting point, it doubles the number of good bits each iteration.
+         */
+        let s = significand.magnitude
+        var x = s.multiplicativeInverse20
+        let deltaExp = x._exponent + s._exponent
+        
+        x._exponent = -self._exponent + deltaExp
+        
+        assert(x.isNormalized)
+        
+        x.negate(if: isNegative)
+        return x
+    }
+
+    // -------------------------------------
     @usableFromInline @inline(__always)
     internal var multiplicativeInverse0: Self
     {
@@ -380,6 +441,42 @@ extension WideFloat: FloatingPoint
         assert(result.isNormalized)
         return result
     }
+    
+    
+    // -------------------------------------
+    @inlinable
+    internal var multiplicativeInverse20: Self
+    {
+        assert(!isNaN)
+        assert(!isZero)
+        assert(!isInfinite)
+        assert(!isNegative)
+        
+        let s = self._significand
+        let one = Self(1)
+        var q = WideUInt<RawSignificand>()
+        var q2 = WideUInt<RawSignificand>()
+        var r: RawSignificand
+        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: s)
+        (q.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
+//        (q2.high, r) = s.dividingFullWidth((r, RawSignificand.zero))
+//        (q2.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
+
+        let shift = q.leadingZeroBitCount - 1
+        q <<= shift
+        q |= q2 >> (RawSignificand.bitWidth * 2 - shift)
+        
+        q.roundingRightShift(by: RawSignificand.bitWidth)
+        
+        let result = Self(
+            significandBitPattern: q.low,
+            exponent: (1 / self.significand.doubleValue).exponent
+        )
+        assert(!result.isNegative)
+        assert(result.isNormalized)
+        return result
+    }
+
     
     // -------------------------------------
     @inlinable

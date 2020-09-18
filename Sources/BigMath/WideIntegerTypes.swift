@@ -22,6 +22,13 @@ SOFTWARE.
 
 import Foundation
 
+public typealias WUInt128 = WideUInt<UInt64>
+public typealias WUInt256 = WideUInt<UInt128>
+public typealias WUInt512 = WideUInt<UInt256>
+public typealias WUInt1024 = WideUInt<UInt512>
+public typealias WUInt2048 = WideUInt<UInt1024>
+public typealias WUInt4096 = WideUInt<UInt2048>
+
 // MARK:- Unsigned Integers
 // -------------------------------------
 public struct UInt128: WideUnsignedInteger
@@ -41,7 +48,7 @@ public struct UInt128: WideUnsignedInteger
 // -------------------------------------
 public struct UInt256: WideUnsignedInteger
 {
-    public typealias Digit = UInt128
+    public typealias Digit = WUInt128
     
     public var wrapped: Wrapped
 
@@ -56,7 +63,7 @@ public struct UInt256: WideUnsignedInteger
 // -------------------------------------
 public struct UInt512: WideUnsignedInteger
 {
-    public typealias Digit = UInt256
+    public typealias Digit = WUInt256
     
     public var wrapped: Wrapped
 
@@ -71,7 +78,7 @@ public struct UInt512: WideUnsignedInteger
 // -------------------------------------
 public struct UInt1024: WideUnsignedInteger
 {
-    public typealias Digit = UInt512
+    public typealias Digit = WUInt512
     
     public var wrapped: Wrapped
 
@@ -86,7 +93,7 @@ public struct UInt1024: WideUnsignedInteger
 // -------------------------------------
 public struct UInt2048: WideUnsignedInteger
 {
-    public typealias Digit = UInt1024
+    public typealias Digit = WUInt1024
     
     public var wrapped: Wrapped
 
@@ -101,7 +108,7 @@ public struct UInt2048: WideUnsignedInteger
 // -------------------------------------
 public struct UInt4096: WideUnsignedInteger
 {
-    public typealias Digit = UInt2048
+    public typealias Digit = WUInt2048
     
     public var wrapped: Wrapped
 
@@ -193,7 +200,7 @@ public struct Int128: WideSignedInteger
 // -------------------------------------
 public struct Int256: WideSignedInteger
 {
-    public typealias Digit = UInt128
+    public typealias Digit = WUInt128
     public typealias Magnitude = UInt256
     
     public var wrapped: Wrapped
@@ -209,7 +216,7 @@ public struct Int256: WideSignedInteger
 // -------------------------------------
 public struct Int512: WideSignedInteger
 {
-    public typealias Digit = UInt256
+    public typealias Digit = WUInt256
     public typealias Magnitude = UInt512
     
     public var wrapped: Wrapped
@@ -225,7 +232,7 @@ public struct Int512: WideSignedInteger
 // -------------------------------------
 public struct Int1024: WideSignedInteger
 {
-    public typealias Digit = UInt512
+    public typealias Digit = WUInt512
     public typealias Magnitude = UInt1024
     
     public var wrapped: Wrapped
@@ -241,7 +248,7 @@ public struct Int1024: WideSignedInteger
 // -------------------------------------
 public struct Int2048: WideSignedInteger
 {
-    public typealias Digit = UInt1024
+    public typealias Digit = WUInt1024
     public typealias Magnitude = UInt2048
     
     public var wrapped: Wrapped
@@ -257,7 +264,7 @@ public struct Int2048: WideSignedInteger
 // -------------------------------------
 public struct Int4096: WideSignedInteger
 {
-    public typealias Digit = UInt2048
+    public typealias Digit = WUInt2048
     public typealias Magnitude = UInt4096
     
     public var wrapped: Wrapped

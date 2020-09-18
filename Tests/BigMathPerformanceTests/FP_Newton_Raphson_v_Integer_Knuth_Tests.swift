@@ -106,12 +106,20 @@ class FP_Newton_Raphson_v_Integer_Knuth_Tests: XCTestCase
             let _ = dividend / divisor
         }
         let newtonRaphson = Date().timeIntervalSince(start)
+        
+        start = Date()
+        for (dividend, divisor) in fpTestCases {
+            let divInv = divisor.multiplicativeInverse2
+            let _ = dividend * divInv
+        }
+        let multInverse2 = Date().timeIntervalSince(start)
 
         
         print("\n")
         print("Results for \(T.self): \(iterations) iterations")
         print("           Knuth D = \(knuthTime) seconds")
         print("    Newton-Raphson = \(newtonRaphson) seconds")
+        print("     mult inverse2 = \(multInverse2) seconds")
     }
     
     // -------------------------------------

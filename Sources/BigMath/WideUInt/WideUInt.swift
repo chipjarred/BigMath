@@ -259,10 +259,14 @@ extension WideUInt
 
         if delta == 1 { return range.lowerBound }
         
-        var result = Self(
-            low: Digit.random(in: Digit.min...Digit.max),
-            high: Digit.random(in: Digit.min...Digit.max)
-        )
+        var result = Self()
+        result.withMutableBuffer
+        {
+            var buf = $0
+            for i in buf.indices {
+                buf[i] = UInt.random(in: 0...UInt.max)
+            }
+        }
         if delta == 0 { return result }
         
         result %= delta
@@ -275,17 +279,8 @@ extension WideUInt
     public static func random(in range: Range<Self>) -> Self
     {
         assert(range.lowerBound < range.upperBound)
-        
-        var delta = range.upperBound
-        delta &-= range.lowerBound
-        
-        var result = Self(
-            low: Digit.random(in: Digit.min...Digit.max),
-            high: Digit.random(in: Digit.min...Digit.max)
-        )
-        result %= delta
-        result &+= range.lowerBound
-        return result
+
+        return random(in: range.lowerBound...(range.upperBound - 1))
     }
     
     // -------------------------------------

@@ -36,7 +36,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     
     // -------------------------------------
     @inlinable public var significand: Self {
-        return Self(significandBitPattern: _significand, exponent: 1)
+        return Self(significandBitPattern: _significand, exponent: 0)
     }
     
     // -------------------------------------

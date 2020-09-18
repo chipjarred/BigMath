@@ -326,28 +326,59 @@ extension WideFloat: FloatingPoint
         
         /*
          Using Newton's method to find the multiplicative inverse.  Given a good
-         starting point, it doubles the number of good bits each iteration.  A
-         good starting point is key.  We leverage Float80 to quickly calculate
-         an initial estimate for 1/self.  That will give 64 good bits.  Then we
-         iterate log2(n) times, where n is the number UInt digits in our
-         significand.
+         starting point, it doubles the number of good bits each iteration.
          */
         let s = significand.magnitude
-        let f80Seed = 1 / s.float80Value
-        var x = Self(f80Seed)
+        var x = s.multiplicativeInverse0
         let deltaExp = x._exponent + s._exponent
         
         let sigSize = MemoryLayout<RawSignificand>.size
         let uintSize = MemoryLayout<UInt>.size
-        let iterations = Int(log2(Double(sigSize / uintSize))) + 1
+        let iterations = Int(log2(Double(sigSize / uintSize)))
         
-        for _ in 0..<iterations {
-            x =  x * (2 - s * x)
+        for _ in 0..<iterations
+        {
+            let sx = s * x
+            let oneMinusSX = 1 - sx
+            if oneMinusSX.isZero { break }
+            let xOneMinusSX = x * oneMinusSX
+
+            x =  x + xOneMinusSX
         }
         
         x._exponent = -self._exponent + deltaExp
+        
+        assert(x.isNormalized)
+        
         x.negate(if: isNegative)
         return x
+    }
+    
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse0: Self
+    {
+        assert(!isNaN)
+        assert(!isZero)
+        assert(!isInfinite)
+        assert(!isNegative)
+        
+        let s = self._significand
+        let one = Self(1)
+        var q = WideUInt<RawSignificand>()
+        var r: RawSignificand
+        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: s)
+        (q.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
+        
+        let shift = RawSignificand.bitWidth - q.leadingZeroBitCount + 1
+        q.roundingRightShift(by: shift)
+        
+        let result = Self(
+            significandBitPattern: q.low,
+            exponent: (1 / self.significand.doubleValue).exponent
+        )
+        assert(!result.isNegative)
+        assert(result.isNormalized)
+        return result
     }
     
     // -------------------------------------

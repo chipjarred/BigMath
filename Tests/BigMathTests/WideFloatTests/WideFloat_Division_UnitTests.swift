@@ -382,6 +382,8 @@ class WideFloat_Division_UnitTests: XCTestCase
         for x in testCases
         {
             var quotient = x / 1
+            let one: FloatType = 1
+            XCTAssertEqual(one.exponent, 0)
             
             XCTAssertEqual(quotient, x)
             
@@ -427,6 +429,25 @@ class WideFloat_Division_UnitTests: XCTestCase
             XCTAssertLessThanOrEqual(
                 abs(quotient.doubleValue - expected), tolerance
             )
+        }
+    }
+    
+    // -------------------------------------
+    func test_multidigit_multiplicative_inverse()
+    {
+        typealias FloatType = WideFloat<UInt256>
+        
+        for _ in 0..<100
+        {
+            let x = FloatType(
+                significandBitPattern: UInt256.random(in: ...),
+                exponent: Int.random(in: Int.min..<Int.max)
+            )
+            assert(x.isNormalized)
+            let xInv = x.multiplicativeInverse
+            
+            let product = x * xInv
+            XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
         }
     }
 }

@@ -109,17 +109,20 @@ extension WideFloat: Numeric
             }
         }
         
-        var wideProduct = WideFloat<WideUInt<RawSignificand>>()
+        typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
+        var wideProduct = WideProduct()
         
         (wideProduct._significand.high, wideProduct._significand.low) =
             left.magnitude._significand.multipliedFullWidth(
                 by: right.magnitude._significand
         )
         
+        let halfWidth = WideProduct.RawSignificand.bitWidth / 2
+        
         wideProduct.normalize()
         
         wideProduct.roundingRightShift(
-            by: UInt.bitWidth
+            by: halfWidth
                 + wideProduct._significand.high.leadingZeroBitCount - 1
         )
         
@@ -128,13 +131,23 @@ extension WideFloat: Numeric
         }
         
         var productExponent = left._exponent + right._exponent
-        let expUpdate = wideProduct._exponent - UInt.bitWidth + 2
-        if Int.max - expUpdate <= productExponent
+        let expUpdate = wideProduct._exponent - halfWidth + 2
+        if expUpdate > 0
         {
-            var result = Self.infinity
+            if Int.max - expUpdate <= productExponent
+            {
+                var result = Self.infinity
+                result.negate(if: left.isNegative != right.isNegative)
+                return result
+            }
+        }
+        else if Int.min - expUpdate > productExponent
+        {
+            var result = Self.zero
             result.negate(if: left.isNegative != right.isNegative)
             return result
         }
+        
         productExponent += expUpdate
 
         var result = Self(

@@ -48,7 +48,7 @@ extension WideUInt: BinaryInteger
     @inlinable
     public var trailingZeroBitCount: Int
     {
-        return low == 0
+        return low.isZero
             ? high.trailingZeroBitCount + Digit.bitWidth
             : low.trailingZeroBitCount
     }
@@ -124,6 +124,7 @@ extension WideUInt: BinaryInteger
     }
     
     // -------------------------------------
+    @inlinable
     public init<T>(_ source: T) where T : BinaryInteger
     {
         assert(
@@ -143,14 +144,19 @@ extension WideUInt: BinaryInteger
     }
     
     // -------------------------------------
-    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger {
-        self.init(_truncatingBits: source)
+    @inlinable
+    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
     }
     
     // -------------------------------------
     @inlinable
-    public init<S>(_truncatingBits source: S) where S : BinaryInteger  {
-        self.init(withBytesOf: source)
+    public init<S>(_truncatingBits source: S) where S : BinaryInteger
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
     }
     
     // -------------------------------------

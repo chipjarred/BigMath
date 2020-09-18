@@ -26,7 +26,9 @@ extension WideUInt: ExpressibleByIntegerLiteral
     public typealias IntegerLiteralType = UInt
     
     // -------------------------------------
-    @inlinable public init(integerLiteral value: UInt) {
-        self.init(value)
+    @inlinable public init(integerLiteral value: UInt)
+    {
+        self.init()
+        copyBytes(of: value, into: &self)
     }
 }

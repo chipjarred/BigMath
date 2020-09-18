@@ -55,16 +55,26 @@ public struct WideUInt<T: WideDigit>: Hashable where T.Magnitude == T
     
     // -------------------------------------
     @inlinable
-    public init(high: Digit) { self.init(low: 0, high: high) }
+    public init(high: Digit)
+    {
+        self.low = 0
+        self.high = high
+    }
     
     // -------------------------------------
     @inlinable
-    public init() { self.init(low: 0, high: 0) }
+    public init()
+    {
+        self.low = 0
+        self.high = 0
+    }
 
     // -------------------------------------
     @inlinable
-    public init(_ source: (high: Digit, low: Digit)) {
-        self.init(low: source.low, high: source.high)
+    public init(_ source: (high: Digit, low: Digit))
+    {
+        self.low = source.low
+        self.high = source.high
     }
     
     // -------------------------------------
@@ -85,7 +95,7 @@ public struct WideUInt<T: WideDigit>: Hashable where T.Magnitude == T
                                      Yours truly,
                                      A programmer trying to write fast code.
          */
-        self.init(low: 0, high: 0)
+        self.init()
         copyBytes(of: source, into: &self)
     }
 
@@ -161,14 +171,30 @@ extension WideUInt
     }
 
     // -------------------------------------
-    @inlinable public init(_ source: UInt) { self.init(UInt64(source)) }
-    @inlinable public init(_ source: UInt8) { self.init(UInt64(source)) }
-    @inlinable public init(_ source: UInt16) { self.init(UInt64(source)) }
-    @inlinable public init(_ source: UInt32) {
-        self.init(_truncatingBits: source)
+    @inlinable public init(_ source: UInt)
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
     }
-    @inlinable public init(_ source: UInt64) {
-        self.init(_truncatingBits: source)
+    @inlinable public init(_ source: UInt8)
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
+    }
+    @inlinable public init(_ source: UInt16)
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
+    }
+    @inlinable public init(_ source: UInt32)
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
+    }
+    @inlinable public init(_ source: UInt64)
+    {
+        self.init()
+        copyBytes(of: source, into: &self)
     }
 
     // -------------------------------------
@@ -226,6 +252,28 @@ extension WideUInt
         if x > y { return .orderedDescending }
         return .orderedSame
     }
+    
+    
+    // -------------------------------------
+    @inlinable
+    var isZero: Bool
+    {
+        return withBuffer
+        {
+            var ptr = $0.baseAddress!
+            let endPtr = ptr + $0.count
+            
+            var accumulatedBits: UInt = 0
+            while ptr < endPtr
+            {
+                accumulatedBits |= ptr.pointee
+                ptr += 1
+            }
+            
+            return accumulatedBits == 0
+        }
+    }
+
 }
 
 // -------------------------------------
@@ -267,7 +315,7 @@ extension WideUInt
                 buf[i] = UInt.random(in: 0...UInt.max)
             }
         }
-        if delta == 0 { return result }
+        if delta.isZero { return result }
         
         result %= delta
         result &+= range.lowerBound

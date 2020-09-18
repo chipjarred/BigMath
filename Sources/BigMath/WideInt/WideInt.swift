@@ -90,7 +90,7 @@ extension WideInt
         var delta = range.upperBound
         delta &-= range.lowerBound
         
-        if delta == 0 { return range.lowerBound }
+        if delta.isZero { return range.lowerBound }
 
         var result = Self(bitPattern: Magnitude.random(in: 0...delta.bitPattern))
         result &+= range.lowerBound
@@ -129,5 +129,25 @@ extension WideInt
     @inlinable
     public static func random(in range: UnboundedRange) -> Self {
         return random(in: Self.min...Self.max)
+    }
+    
+    // -------------------------------------
+    @inlinable
+    var isZero: Bool
+    {
+        return withBuffer
+        {
+            var ptr = $0.baseAddress!
+            let endPtr = ptr + $0.count
+            
+            var accumulatedBits: UInt = 0
+            while ptr < endPtr
+            {
+                accumulatedBits |= ptr.pointee
+                ptr += 1
+            }
+            
+            return accumulatedBits == 0
+        }
     }
 }

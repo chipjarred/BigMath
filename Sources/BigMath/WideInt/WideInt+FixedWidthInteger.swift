@@ -45,7 +45,7 @@ extension WideInt: FixedWidthInteger
     public func dividedReportingOverflow(by rhs: Self)
         -> (partialValue: Self, overflow: Bool)
     {
-        if rhs == 0 { return (self, true) }
+        if rhs.isZero { return (self, true) }
         
         // Dividing a number by the same bitwidth non-zero number can't overflow
         return (quotientAndRemainder(dividingBy: rhs).quotient, false)
@@ -56,7 +56,7 @@ extension WideInt: FixedWidthInteger
     public func remainderReportingOverflow(dividingBy rhs: Self)
         -> (partialValue: Self, overflow: Bool)
     {
-        if rhs == 0 { return (self, true) }
+        if rhs.isZero { return (self, true) }
         
         // Dividing a number by the same bitwidth non-zero number can't overflow
         return (quotientAndRemainder(dividingBy: rhs).remainder, false)

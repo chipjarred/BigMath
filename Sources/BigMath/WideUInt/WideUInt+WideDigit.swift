@@ -115,6 +115,26 @@ extension WideDigit
     public func bit(at bitIndex: Int) -> Bool {
         return getBit(at: bitIndex) != 0
     }
+    
+    // -------------------------------------
+    @inlinable
+    var isZero: Bool
+    {
+        return withBuffer
+        {
+            var ptr = $0.baseAddress!
+            let endPtr = ptr + $0.count
+            
+            var accumulatedBits: UInt = 0
+            while ptr < endPtr
+            {
+                accumulatedBits |= ptr.pointee
+                ptr += 1
+            }
+            
+            return accumulatedBits == 0
+        }
+    }
 }
 
 // --------------------------------------

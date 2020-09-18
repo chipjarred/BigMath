@@ -464,11 +464,11 @@ internal func copyBytes<T, U>(of src: T, into dst: inout U)
         {
             $0.bindMemory(to: T.self).baseAddress!.pointee = src
             
-            // TODO: Implement a faster zero-fill.
-            var unusedBytes = $0[MemoryLayout<T>.size...]
-            for i in unusedBytes.indices {
-                unusedBytes[i] = 0
-            }
+            memset(
+                $0.baseAddress!.advanced(by: MemoryLayout<T>.size),
+                0,
+                $0.count - MemoryLayout<T>.size
+            )
         }
     }
     #else

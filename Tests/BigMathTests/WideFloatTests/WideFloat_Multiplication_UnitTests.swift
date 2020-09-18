@@ -876,4 +876,33 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             )
         }
     }
+    
+    // -------------------------------------
+    func test_some_specific_troublesome_cases()
+    {
+        typealias TestCase = (
+            xSig: UInt64, xExp: Int,
+            ySig: UInt64, yExp: Int,
+            zSig: UInt64, zExp: Int
+        )
+        let testCases: [TestCase] =
+        [
+            (
+                xSig: 5729532217080934400,   xExp: 60,
+                ySig: 7423868869837347414,   yExp: -61,
+                zSig: 0x4000_0000_0000_0000, zExp: 0
+            )
+        ]
+        
+        for (xSig, xExp, ySig, yExp, zSig, zExp) in testCases
+        {
+            let x = FloatType(significandBitPattern: xSig, exponent: xExp)
+            let y = FloatType(significandBitPattern: ySig, exponent: yExp)
+            let expected =
+                FloatType(significandBitPattern: zSig, exponent: zExp)
+            
+            let z = x * y
+            XCTAssertEqual(z, expected)
+        }
+    }
 }

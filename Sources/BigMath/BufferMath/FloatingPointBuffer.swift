@@ -195,7 +195,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isNaN: Bool
     {
-        if exponent & Int.max == Int.max {
+        if exponent == Int.max {
             return significand[0] & 1 == 1
         }
         
@@ -784,7 +784,8 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal static func subtract(_ x: Self, _ y: Self, into z: inout Self)
     {
-        assert(!x.isNaN && !y.isNaN)
+        assert(!x.isNaN, "x.exponent = \(x.exponent), x.isNaN - \(x.isNaN)")
+        assert(!y.isNaN, "y.exponent = \(y.exponent), y.isNaN - \(y.isNaN)")
         assert(!x.isInfinite && !y.isInfinite)
         assert(x.isNormalized && y.isNormalized)
         assert(x.significand.count == y.significand.count)

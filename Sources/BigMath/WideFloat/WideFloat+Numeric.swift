@@ -122,6 +122,11 @@ extension WideFloat: Numeric
             by: UInt.bitWidth
                 + wideProduct._significand.high.leadingZeroBitCount - 1
         )
+        
+        if wideProduct._significand.low.signBit {
+            wideProduct.roundingRightShift(by: 1)
+        }
+        
         var productExponent = left._exponent + right._exponent
         let expUpdate = wideProduct._exponent - UInt.bitWidth + 2
         if Int.max - expUpdate <= productExponent
@@ -136,6 +141,7 @@ extension WideFloat: Numeric
             significandBitPattern: wideProduct._significand.low,
             exponent: productExponent
         )
+        assert(result.isNormalized)
         result.negate(if: left.isNegative != right.isNegative)
         return result
     }

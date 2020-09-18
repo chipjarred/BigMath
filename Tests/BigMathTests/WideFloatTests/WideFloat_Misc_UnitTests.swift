@@ -1,0 +1,96 @@
+//
+//  WideFloat_MIsc_UnitTests.swift
+//  
+//
+//  Created by Chip Jarred on 9/17/20.
+//
+
+import XCTest
+@testable import BigMath
+
+class WideFloat_Misc_UnitTests: XCTestCase
+{
+    typealias FloatType = WideFloat<UInt64>
+    
+    // -------------------------------------
+    var randomDouble: Double
+    {
+        let bigLimit = Double(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Double.leastNormalMagnitude...1
+        let x = Double.random(in: bigRange)
+        return  x * Double.random(in: littleRange)
+    }
+    
+    // -------------------------------------
+    var randomFloat: Float
+    {
+        let bigLimit = Float(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float.leastNormalMagnitude...1
+        let x = Float.random(in: bigRange)
+        return  x * Float.random(in: littleRange)
+    }
+
+    var random64: Int64 { Int64.random(in: Int64.min...Int64.max) }
+    var urandom64: UInt64 { UInt64.random(in: UInt64.min...UInt64.max) }
+    
+    // -------------------------------------
+    func test_ulp()
+    {
+        typealias TestCase = (x: FloatType, ulp: FloatType)
+        let testCases: [TestCase] =
+        [
+            (x: FloatType(0),            ulp: .leastNonzeroMagnitude),
+            (x: FloatType(0).negated,    ulp: .leastNonzeroMagnitude),
+            (x: .infinity,               ulp: .nan),
+            (x: -.infinity,              ulp: .nan),
+            (x: .leastNonzeroMagnitude,  ulp: 0),
+            (x: -.leastNonzeroMagnitude, ulp: 0),
+            (
+                x: .greatestFiniteMagnitude,
+                ulp: FloatType(
+                    sign: .plus,
+                    exponent: Int.max - 63,
+                    significand: 1
+                )
+            ),
+            (
+                x: -.greatestFiniteMagnitude,
+                ulp: FloatType(
+                    sign: .plus,
+                    exponent: Int.max - 63,
+                    significand: 1
+                )
+            ),
+            (
+                x: 1,
+                ulp: FloatType(sign: .plus, exponent: -62, significand: 1)
+            ),
+            (
+                x: FloatType(sign: .plus, exponent: -62, significand: 1),
+                ulp: FloatType(sign: .plus, exponent: -124, significand: 1)
+            )
+        ]
+        
+        for (x, expected) in testCases
+        {
+            let ulpX = x.ulp
+            
+            if expected.isNaN
+            {
+                XCTAssertTrue(ulpX.isNaN)
+                continue
+            }
+            
+            if expected.isInfinite
+            {
+                XCTAssertTrue(ulpX.isInfinite)
+                XCTAssertEqual(ulpX.sign, expected.sign)
+                continue
+            }
+            
+            XCTAssertEqual(ulpX, expected)
+        }
+    }
+}

@@ -366,4 +366,118 @@ class WideFloat_Initialization_UnitTests: XCTestCase
         }
     }
     #endif
+    
+    // -------------------------------------
+    func test_init_with_sign_exponent_and_significand()
+    {
+        var x = FloatType(sign: .plus, exponent: 0, significand: FloatType.nan)
+        var dblX = Double(sign: .plus, exponent: 0, significand: Double.nan)
+        
+        XCTAssertEqual(x.isNaN, dblX.isNaN)
+                
+        x = FloatType(sign: .plus, exponent: 0, significand: FloatType.infinity)
+        dblX = Double(sign: .plus, exponent: 0, significand: Double.infinity)
+        
+        XCTAssertEqual(x.isInfinite, dblX.isInfinite)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+
+        x = FloatType(sign: .plus, exponent: 0, significand: 0)
+        dblX = Double(sign: .plus, exponent: 0, significand: 0)
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+
+        x = FloatType(sign: .plus, exponent: 3, significand: 8)
+        dblX = Double(sign: .plus, exponent: 3, significand: 8)
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = FloatType(sign: .plus, exponent: -3, significand: 8)
+        dblX = Double(sign: .plus, exponent: -3, significand: 8)
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+
+        x = FloatType(sign: .plus, exponent: 7, significand: 42)
+        dblX = Double(sign: .plus, exponent: 7, significand: 42)
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertEqual(x.doubleValue, dblX)
+        XCTAssertEqual(x.sign, dblX.sign)
+        
+        x = FloatType(
+            sign: .plus,
+            exponent: 1,
+            significand: FloatType.greatestFiniteMagnitude
+        )
+        
+        XCTAssertTrue(x.isInfinite)
+        XCTAssertFalse(x.isNegative)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertTrue(x.isInfinite)
+        XCTAssertTrue(x.isNegative)
+        
+        x = FloatType(
+            sign: .plus,
+            exponent: -1,
+            significand: FloatType.leastNonzeroMagnitude
+        )
+        
+        XCTAssertTrue(x.isZero)
+        XCTAssertFalse(x.isNegative)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertTrue(x.isZero)
+        XCTAssertTrue(x.isNegative)
+        
+        x = FloatType(
+            sign: .plus,
+            exponent: -1,
+            significand: FloatType.leastNormalMagnitude
+        )
+        
+        XCTAssertTrue(x.isZero)
+        XCTAssertFalse(x.isNegative)
+        
+        x = -x
+        dblX = -dblX
+        
+        XCTAssertTrue(x.isZero)
+        XCTAssertTrue(x.isNegative)
+    }
 }

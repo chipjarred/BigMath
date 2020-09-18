@@ -47,8 +47,8 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             FloatType.leastNormalMagnitude.negated,
             FloatType.leastNonzeroMagnitude,
             FloatType.leastNonzeroMagnitude.negated,
-            FloatType.greatestFiniteMagnigude,
-            FloatType.greatestFiniteMagnigude.negated,
+            FloatType.greatestFiniteMagnitude,
+            FloatType.greatestFiniteMagnitude.negated,
             FloatType(),
             FloatType().negated,
             FloatType(1),
@@ -114,8 +114,8 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             FloatType.leastNormalMagnitude.negated,
             FloatType.leastNonzeroMagnitude,
             FloatType.leastNonzeroMagnitude.negated,
-            FloatType.greatestFiniteMagnigude,
-            FloatType.greatestFiniteMagnigude.negated,
+            FloatType.greatestFiniteMagnitude,
+            FloatType.greatestFiniteMagnitude.negated,
             FloatType(),
             FloatType().negated,
             FloatType(1),
@@ -232,7 +232,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(1),
         ]
         
@@ -323,7 +323,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(1),
         ]
         
@@ -414,7 +414,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(),
             FloatType(1),
         ]
@@ -506,7 +506,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(),
             FloatType(1),
         ]
@@ -598,7 +598,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(),
             FloatType(1),
         ]
@@ -674,7 +674,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         [
             FloatType.leastNormalMagnitude,
             FloatType.leastNonzeroMagnitude,
-            FloatType.greatestFiniteMagnigude,
+            FloatType.greatestFiniteMagnitude,
             FloatType(),
             FloatType(1),
         ]
@@ -767,7 +767,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
     // -------------------------------------
     func test_multiplying_greatestFiniteMagnigude_by_itself_overflows_to_infinity()
     {
-        let x = FloatType.greatestFiniteMagnigude
+        let x = FloatType.greatestFiniteMagnitude
         var product = x * x
         XCTAssertTrue(product.isInfinite)
         XCTAssertFalse(product.isNegative)

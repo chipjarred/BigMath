@@ -382,6 +382,13 @@ struct FloatingPointBuffer
     @usableFromInline
     func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
+        if isZero
+        {
+            var result: F = 0
+            if isNegative { result.negate() }
+            return result
+        }
+        
         let radix = F(
             sign: .plus,
             exponent: F.Exponent(UInt.bitWidth),
@@ -584,32 +591,44 @@ struct FloatingPointBuffer
         assert(left.isNormalized && right.isNormalized)
         assert(left.significand.count == right.significand.count)
         
-        if UInt8(left.isNaN) | UInt8(right.isNaN) == 1 {
-            return .unordered
-        }
-        
         let leftSign = Int(left.signBit)
         let rightSign = Int(right.signBit)
-        
-        if left.isInfinite
+
+        let hasSpecialValue = UInt8(left.exponent == Int.max)
+            | UInt8(right.exponent == Int.max)
+        if hasSpecialValue == 1
         {
-            if right.isInfinite {
-                return ComparisonResult(rawValue: rightSign &- leftSign)!
+            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1 {
+                return .unordered
+            }
+            if left.isInfinite
+            {
+                if right.isInfinite {
+                    return ComparisonResult(rightSign &- leftSign)
+                }
+                
+                return ComparisonResult(
+                    select(if: leftSign == 1, then: -1, else: 1)
+                )
             }
             return ComparisonResult(
-                select(if: left.isNegative, then: -1, else: 1)
-            )
-        }
-        else if right.isInfinite
-        {
-            return ComparisonResult(
-                select(if: right.isNegative, then: 1, else: -1)
+                select(if: rightSign == 1, then: 1, else: -1)
             )
         }
         
-        // Testing for zero is now fast, so we just do it all the time.
-        // IEEE 754 says signed +0 and -0 compare as equal
-        if UInt8(left.isZero) & UInt8(right.isZero) == 1 { return .orderedSame }
+        if left.isZero
+        {
+            if right.isZero { return .orderedSame }
+            return ComparisonResult(
+                select(if: rightSign == 1, then: 1, else: -1)
+            )
+        }
+        else if right.isZero
+        {
+            return ComparisonResult(
+                select(if: leftSign == 1, then: -1, else: 1)
+            )
+        }
         
         let signResult = ComparisonResult(rawValue: rightSign &- leftSign)!
         guard signResult == .orderedSame else { return signResult }

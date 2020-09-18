@@ -133,7 +133,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     }
     
     // -------------------------------------
-    @inlinable static public var greatestFiniteMagnigude: Self
+    @inlinable static public var greatestFiniteMagnitude: Self
     {
         var significand = RawSignificand()
         significand.invert()
@@ -179,8 +179,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @inlinable public var int8Value: Int8 { convert(to: Int8.self) }
 
     // -------------------------------------
-    @inlinable
-    public init(significandBitPattern: RawSignificand, exponent: Int)
+    @usableFromInline @inline(__always)
+    internal init(significandBitPattern: RawSignificand, exponent: Int)
     {
         self._significand = significandBitPattern
         self._exponent = exponent
@@ -199,6 +199,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @inlinable
     public init<I: FixedWidthInteger>(_ source: I)
     {
+        guard source != 0 else { self = Self.zero; return }
+        
         var s = source.magnitude
         var exp = I.bitWidth - s.leadingZeroBitCount - 1
         

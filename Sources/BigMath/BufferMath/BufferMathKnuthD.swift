@@ -22,44 +22,6 @@ SOFTWARE.
 
 // -------------------------------------
 /**
- Subtract two `FixedWidthInteger`s, `x`, and `y`, storing the result back to
- `y`. (ie. `x -= y`)
- 
- - Parameters:
-    - x: The minuend and recipient of the resulting difference.
-    - y: The subtrahend
- 
- - Returns: Borrow out of the difference.
- */
-@usableFromInline @inline(__always)
-func subtractReportingBorrowKnuth(_ x: inout UInt, _ y: UInt) -> UInt
-{
-    let b: Bool
-    (x, b) = x.subtractingReportingOverflow(y)
-    return UInt(b)
-}
-
-// -------------------------------------
-/**
- Add two `FixedWidthInteger`s, `x`, and `y`, storing the result back to `x`.
- (ie. `x += y`)
- 
- - Parameters:
-    - x: The first addend and recipient of the resulting sum.
-    - y: The second addend
- 
- - Returns: Carry out of the sum.
- */
-@usableFromInline @inline(__always)
-func addReportingCarryKnuth(_ x: inout UInt, _ y: UInt) -> UInt
-{
-    let c: Bool
-    (x, c) = x.addingReportingOverflow(y)
-    return UInt(c)
-}
-
-// -------------------------------------
-/**
  Compute `y = y - x * k`
  
  - Parameters:
@@ -87,16 +49,16 @@ func subtractReportingBorrowKnuth(
     var borrow: UInt = 0
     while i < x.endIndex
     {
-        borrow = subtractReportingBorrowKnuth(&y[j], borrow)
+        borrow = y[j].subtractFromSelfReportingBorrow(borrow)
         let (pHi, pLo) = k.multipliedFullWidth(by: x[i])
         borrow &+= pHi
-        borrow &+= subtractReportingBorrowKnuth(&y[j], pLo)
+        borrow &+= y[j].subtractFromSelfReportingBorrow(pLo)
         
         i &+= 1
         j &+= 1
     }
     
-    return 0 != subtractReportingBorrowKnuth(&y[j], borrow)
+    return 0 != y[j].subtractFromSelfReportingBorrow(borrow)
 }
 
 // -------------------------------------
@@ -120,8 +82,8 @@ func += (left: inout MutableUIntBuffer, right: MutableUIntBuffer )
     var j = left.startIndex
     while i < right.endIndex
     {
-        carry = addReportingCarryKnuth(&left[j], carry)
-        carry &+= addReportingCarryKnuth(&left[j], right[i])
+        carry = left[j].addToSelfReportingCarry(carry)
+        carry &+= left[j].addToSelfReportingCarry(right[i])
         
         i &+= 1
         j &+= 1
@@ -232,7 +194,7 @@ internal func * (
     var product = left.low.multipliedFullWidth(by: right)
     let productHigh = left.high.multipliedFullWidth(by: right)
     assert(productHigh.high == 0, "multiplication overflow")
-    let c = addReportingCarryKnuth(&product.high, productHigh.low)
+    let c = product.high.addToSelfReportingCarry(productHigh.low)
     assert(c == 0, "multiplication overflow")
     
     return product
@@ -276,7 +238,7 @@ internal func > (left: (high: UInt, low: UInt), right: (high: UInt, low: UInt))
 /// Add a digit to a tuple's low part, carrying to the high part.
 @usableFromInline @inline(__always)
 func += (left: inout (high: UInt, low: UInt), right: UInt) {
-    left.high &+= addReportingCarryKnuth(&left.low, right)
+    left.high &+= left.low.addToSelfReportingCarry(right)
 }
 
 // -------------------------------------
@@ -284,7 +246,7 @@ func += (left: inout (high: UInt, low: UInt), right: UInt) {
 @usableFromInline @inline(__always)
 func += (left: inout (high: UInt, low: UInt), right: (high: UInt, low: UInt))
 {
-    left.high &+= addReportingCarryKnuth(&left.low, right.low)
+    left.high &+= left.low.addToSelfReportingCarry(right.low)
     left.high &+= right.high
 }
 
@@ -292,7 +254,7 @@ func += (left: inout (high: UInt, low: UInt), right: (high: UInt, low: UInt))
 /// Subtract a digit from a tuple, borrowing the high part if necessary
 @usableFromInline @inline(__always)
 func -= (left: inout (high: UInt, low: UInt), right: UInt) {
-    left.high &-= subtractReportingBorrowKnuth(&left.low, right)
+    left.high &-= left.low.subtractFromSelfReportingBorrow(right)
 }
 
 // -------------------------------------

@@ -361,7 +361,7 @@ struct FloatingPointBuffer
             let commonLen = min(significand.count, resultBuf.count)
             let s = significand[..<(significand.startIndex + commonLen)]
             
-            BigMath.leftShift(
+            BigMath.leftShiftKnuth(
                 s.immutable,
                 by: exponent - I.Magnitude.bitWidth + 2,
                 into: &resultBuf

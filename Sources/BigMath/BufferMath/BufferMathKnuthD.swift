@@ -32,11 +32,11 @@ SOFTWARE.
  - Returns: Borrow out of the difference.
  */
 @usableFromInline @inline(__always)
-func subtractReportingBorrow<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
+func subtractReportingBorrowKnuth(_ x: inout UInt, _ y: UInt) -> UInt
 {
     let b: Bool
     (x, b) = x.subtractingReportingOverflow(y)
-    return T(b)
+    return UInt(b)
 }
 
 // -------------------------------------
@@ -51,11 +51,11 @@ func subtractReportingBorrow<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
  - Returns: Carry out of the sum.
  */
 @usableFromInline @inline(__always)
-func addReportingCarry<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
+func addReportingCarryKnuth(_ x: inout UInt, _ y: UInt) -> UInt
 {
     let c: Bool
     (x, c) = x.addingReportingOverflow(y)
-    return T(c)
+    return UInt(c)
 }
 
 // -------------------------------------
@@ -74,37 +74,29 @@ func addReportingCarry<T: FixedWidthInteger>(_ x: inout T, _ y: T) -> T
  - Returns: The borrow out of the most signficant digit of `y`.
  */
 @usableFromInline @inline(__always)
-func subtractReportingBorrow<T, U>(
-    _ x: T,
-    times k: T.Element,
-    from y: inout U) -> Bool
-    where T: RandomAccessCollection,
-    T.Element: FixedWidthInteger,
-    T.Element.Magnitude == T.Element,
-    T.Index == Int,
-    U: RandomAccessCollection,
-    U: MutableCollection,
-    U.Element == T.Element,
-    U.Index == T.Index
+func subtractReportingBorrowKnuth(
+    _ x: MutableUIntBuffer,
+    times k: UInt,
+    from y: inout MutableUIntBuffer) -> Bool
 {
     assert(x.count + 1 <= y.count)
     
     var i = x.startIndex
     var j = y.startIndex
 
-    var borrow: T.Element = 0
+    var borrow: UInt = 0
     while i < x.endIndex
     {
-        borrow = subtractReportingBorrow(&y[j], borrow)
+        borrow = subtractReportingBorrowKnuth(&y[j], borrow)
         let (pHi, pLo) = k.multipliedFullWidth(by: x[i])
         borrow &+= pHi
-        borrow &+= subtractReportingBorrow(&y[j], pLo)
+        borrow &+= subtractReportingBorrowKnuth(&y[j], pLo)
         
         i &+= 1
         j &+= 1
     }
     
-    return 0 != subtractReportingBorrow(&y[j], borrow)
+    return 0 != subtractReportingBorrowKnuth(&y[j], borrow)
 }
 
 // -------------------------------------
@@ -119,24 +111,17 @@ func subtractReportingBorrow<T, U>(
         (ie. little endian).
  */
 @usableFromInline @inline(__always)
-func += <T, U>(left: inout U, right: T )
-    where T: RandomAccessCollection,
-    T.Element: FixedWidthInteger,
-    T.Index == Int,
-    U: RandomAccessCollection,
-    U: MutableCollection,
-    U.Element == T.Element,
-    U.Index == T.Index
+func += (left: inout MutableUIntBuffer, right: MutableUIntBuffer )
 {
     assert(right.count + 1 == left.count)
-    var carry: T.Element = 0
+    var carry: UInt = 0
     
     var i = right.startIndex
     var j = left.startIndex
     while i < right.endIndex
     {
-        carry = addReportingCarry(&left[j], carry)
-        carry &+= addReportingCarry(&left[j], right[i])
+        carry = addReportingCarryKnuth(&left[j], carry)
+        carry &+= addReportingCarryKnuth(&left[j], right[i])
         
         i &+= 1
         j &+= 1
@@ -157,20 +142,15 @@ func += <T, U>(left: inout U, right: T )
     - y: Storage for the resulting shift of `x`.  May alias `x`.
  */
 @usableFromInline @inline(__always)
-func leftShift<T, U>(_ x: T, by shift: Int, into y: inout U)
-    where
-    T: RandomAccessCollection,
-    T.Element:BinaryInteger,
-    T.Index == Int,
-    U: RandomAccessCollection,
-    U: MutableCollection,
-    U.Element == T.Element,
-    U.Index == T.Index
+func leftShiftKnuth(
+    _ x: UIntBuffer,
+    by shift: Int,
+    into y: inout MutableUIntBuffer)
 {
     assert(y.count >= x.count)
     assert(y.startIndex == x.startIndex)
     
-    let bitWidth = MemoryLayout<T.Element>.size * 8
+    let bitWidth = MemoryLayout<UInt>.size * 8
     
     for i in (1..<x.count).reversed() {
         y[i] = (x[i] << shift) | (x[i - 1] >> (bitWidth - shift))
@@ -190,19 +170,14 @@ func leftShift<T, U>(_ x: T, by shift: Int, into y: inout U)
     - y: Storage for the resulting shift of `x`.  May alias `x`.
  */
 @usableFromInline @inline(__always)
-func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
-    where
-    T: RandomAccessCollection,
-    T.Element:BinaryInteger,
-    T.Index == Int,
-    U: RandomAccessCollection,
-    U: MutableCollection,
-    U.Element == T.Element,
-    U.Index == T.Index
+func rightShiftKnuth(
+    _ x: MutableUIntBuffer,
+    by shift: Int,
+    into y: inout MutableUIntBuffer)
 {
     assert(y.count == x.count)
     assert(y.startIndex == x.startIndex)
-    let bitWidth = MemoryLayout<T.Element>.size * 8
+    let bitWidth = MemoryLayout<UInt>.size * 8
     
     let lastElemIndex = x.count - 1
     for i in 0..<lastElemIndex {
@@ -225,20 +200,15 @@ func rightShift<T, U>(_ x: T, by shift: Int, into y: inout U)
 - Returns: A single digit remainder.
  */
 @usableFromInline @inline(__always)
-func divide<T, U>(_ x: T, by y: T.Element, result z: inout U) -> T.Element
-    where T: RandomAccessCollection,
-    T.Element: FixedWidthInteger,
-    T.Element.Magnitude == T.Element,
-    T.Index == Int,
-    U: RandomAccessCollection,
-    U: MutableCollection,
-    U.Element == T.Element,
-    U.Index == T.Index
+func divide(
+    _ x: UIntBuffer,
+    by y: UInt,
+    result z: inout MutableUIntBuffer) -> UInt
 {
     assert(x.count == z.count)
     assert(x.startIndex == z.startIndex)
     
-    var r: T.Element = 0
+    var r: UInt = 0
     var i = x.count - 1
     
     (z[i], r) = x[i].quotientAndRemainder(dividingBy: y)
@@ -255,15 +225,14 @@ func divide<T, U>(_ x: T, by y: T.Element, result z: inout U) -> T.Element
 // -------------------------------------
 /// Multiply a tuple of digits by 1 digit
 @usableFromInline @inline(__always)
-internal func * <T>(
-    left: (high: T, low: T),
-    right: T) -> (high: T, low: T)
-    where T: FixedWidthInteger, T.Magnitude == T
+internal func * (
+    left: (high: UInt, low: UInt),
+    right: UInt) -> (high: UInt, low: UInt)
 {
     var product = left.low.multipliedFullWidth(by: right)
     let productHigh = left.high.multipliedFullWidth(by: right)
     assert(productHigh.high == 0, "multiplication overflow")
-    let c = addReportingCarry(&product.high, productHigh.low)
+    let c = addReportingCarryKnuth(&product.high, productHigh.low)
     assert(c == 0, "multiplication overflow")
     
     return product
@@ -274,13 +243,13 @@ infix operator /% : MultiplicationPrecedence
 // -------------------------------------
 /// Divide a tuple of digits by 1 digit obtaining both quotient and remainder
 @usableFromInline @inline(__always)
-internal func /% <T>(
-    left: (high: T, low: T),
-    right: T) -> (quotient: (high: T, low: T), remainder: (high: T, low: T))
-    where T: FixedWidthInteger, T.Magnitude == T
+internal func /% (
+    left: (high: UInt, low: UInt),
+    right: UInt)
+    -> (quotient: (high: UInt, low: UInt), remainder: (high: UInt, low: UInt))
 {
-    var r: T
-    let q: (high: T, low: T)
+    var r: UInt
+    let q: (high: UInt, low: UInt)
     (q.high, r) = left.high.quotientAndRemainder(dividingBy: right)
     (q.low, r) = right.dividingFullWidth((high: r, low: left.low))
     
@@ -295,10 +264,9 @@ internal func /% <T>(
     otherwise, 0.  This is done in place of returning a boolean as part of an
     optimization to avoid hidden conditional branches in boolean expressions.
  */
-
 @usableFromInline @inline(__always)
-internal func > <T>(left: (high: T, low: T), right: (high: T, low: T)) -> UInt8
-    where T: FixedWidthInteger, T.Magnitude == T
+internal func > (left: (high: UInt, low: UInt), right: (high: UInt, low: UInt))
+    -> UInt8
 {
     return UInt8(left.high > right.high)
         | (UInt8(left.high == right.high) & UInt8(left.low > right.low))
@@ -307,29 +275,24 @@ internal func > <T>(left: (high: T, low: T), right: (high: T, low: T)) -> UInt8
 // -------------------------------------
 /// Add a digit to a tuple's low part, carrying to the high part.
 @usableFromInline @inline(__always)
-func += <T>(left: inout (high: T, low: T), right: T)
-    where T: FixedWidthInteger, T.Magnitude == T
-{
-    left.high &+= addReportingCarry(&left.low, right)
+func += (left: inout (high: UInt, low: UInt), right: UInt) {
+    left.high &+= addReportingCarryKnuth(&left.low, right)
 }
 
 // -------------------------------------
 /// Add one tuple to another tuple
 @usableFromInline @inline(__always)
-func += <T>(left: inout (high: T, low: T), right: (high: T, low: T))
-    where T: FixedWidthInteger, T.Magnitude == T
+func += (left: inout (high: UInt, low: UInt), right: (high: UInt, low: UInt))
 {
-    left.high &+= addReportingCarry(&left.low, right.low)
+    left.high &+= addReportingCarryKnuth(&left.low, right.low)
     left.high &+= right.high
 }
 
 // -------------------------------------
 /// Subtract a digit from a tuple, borrowing the high part if necessary
 @usableFromInline @inline(__always)
-func -= <T>(left: inout (high: T, low: T), right: T)
-    where T: FixedWidthInteger, T.Magnitude == T
-{
-    left.high &-= subtractReportingBorrow(&left.low, right)
+func -= (left: inout (high: UInt, low: UInt), right: UInt) {
+    left.high &-= subtractReportingBorrowKnuth(&left.low, right)
 }
 
 // -------------------------------------
@@ -405,11 +368,11 @@ internal func fullWidthDivide_KnuthD(
     let shift = divisor.last!.leadingZeroBitCount
     
     var v = scratch
-    leftShift(divisor, by: shift, into: &v)
+    leftShiftKnuth(divisor, by: shift, into: &v)
 
     var u = remainder
     u[m] = dividend[m - 1] >> (digitWidth - shift)
-    leftShift(dividend, by: shift, into: &u)
+    leftShiftKnuth(dividend, by: shift, into: &u)
     
     let vLast: Digit = v.last!
     let vNextToLast: Digit = v[n - 2]
@@ -443,12 +406,12 @@ internal func fullWidthDivide_KnuthD(
 
         quotient[j] = q̂.low
         
-        if subtractReportingBorrow(v[0..<n], times: q̂.low, from: &u[j...jPlusN])
+        if subtractReportingBorrowKnuth(v[0..<n], times: q̂.low, from: &u[j...jPlusN])
         {
             quotient[j] &-= 1
             u[j...jPlusN] += v[0..<n] // digit collection addition!
         }
     }
     
-    rightShift(u[0..<n], by: shift, into: &u[0..<n])
+    rightShiftKnuth(u[0..<n], by: shift, into: &u[0..<n])
 }

@@ -444,7 +444,7 @@ class WideFloat_Division_UnitTests: XCTestCase
                 exponent: Int.random(in: Int.min..<Int.max)
             )
             assert(x.isNormalized)
-            let xInv = x.multiplicativeInverse
+            let xInv = x.multiplicativeInverse_NewtonRaphson
             
             let product = x * xInv
             XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
@@ -463,7 +463,7 @@ class WideFloat_Division_UnitTests: XCTestCase
                 exponent: Int.random(in: Int.min..<Int.max)
             )
             assert(x.isNormalized)
-            let xInv = x.multiplicativeInverse
+            let xInv = x.multiplicativeInverse_NewtonRaphson
             
             let product = x * xInv
             XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
@@ -482,7 +482,7 @@ class WideFloat_Division_UnitTests: XCTestCase
                 exponent: Int.random(in: Int.min..<Int.max)
             )
             assert(x.isNormalized)
-            let xInv = x.multiplicativeInverse2
+            let xInv = x.multiplicativeInverse_KnuthD
             
             let product = x * xInv
             XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)

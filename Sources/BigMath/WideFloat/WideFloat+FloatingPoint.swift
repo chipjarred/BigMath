@@ -299,7 +299,7 @@ extension WideFloat: FloatingPoint
         }
         
         #if false
-        let rightInv = right.multiplicativeInverse
+        let rightInv = right.multiplicativeInverse_NewtonRaphson
         return left * rightInv
         #else
         var dividend = left._significand
@@ -327,9 +327,16 @@ extension WideFloat: FloatingPoint
         #endif
     }
     
+    
     // -------------------------------------
     @inlinable
-    public var multiplicativeInverse: Self
+    public var multiplicativeInverse: Self {
+        return multiplicativeInverse_KnuthD
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public var multiplicativeInverse_NewtonRaphson: Self
     {
         if _exponent == Int.max
         {
@@ -354,7 +361,7 @@ extension WideFloat: FloatingPoint
          starting point, it doubles the number of good bits each iteration.
          */
         let s = significand.magnitude
-        var x = s.multiplicativeInverse0
+        var x = s.multiplicativeInverse_NewtonRaphson0
         let deltaExp = x._exponent + s._exponent
         
         let sigSize = MemoryLayout<RawSignificand>.size
@@ -381,7 +388,7 @@ extension WideFloat: FloatingPoint
     
     // -------------------------------------
     @inlinable
-    public var multiplicativeInverse2: Self
+    public var multiplicativeInverse_KnuthD: Self
     {
         if _exponent == Int.max
         {
@@ -406,7 +413,7 @@ extension WideFloat: FloatingPoint
          starting point, it doubles the number of good bits each iteration.
          */
         let s = significand.magnitude
-        var x = s.multiplicativeInverse20
+        var x = s.multiplicativeInverse0_KnuthD
         let deltaExp = x._exponent + s._exponent
         
         x._exponent = -self._exponent + deltaExp
@@ -419,7 +426,7 @@ extension WideFloat: FloatingPoint
 
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal var multiplicativeInverse0: Self
+    internal var multiplicativeInverse_NewtonRaphson0: Self
     {
         assert(!isNaN)
         assert(!isZero)
@@ -448,7 +455,7 @@ extension WideFloat: FloatingPoint
     
     // -------------------------------------
     @inlinable
-    internal var multiplicativeInverse20: Self
+    internal var multiplicativeInverse0_KnuthD: Self
     {
         assert(!isNaN)
         assert(!isZero)

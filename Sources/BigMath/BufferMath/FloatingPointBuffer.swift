@@ -873,29 +873,6 @@ struct FloatingPointBuffer
         }
         else { subtractUnalignedMagnitudes(x, y, result: &z) }
     }
-
-    // -------------------------------------
-    @inline(__always)
-    private func getDigit(at digitIndex: Int) -> UInt
-    {
-        if significand.indices.contains(digitIndex)
-        {
-            if digitIndex == significand.endIndex - 1 {
-                return significandHeadValue
-            }
-            return significand[digitIndex]
-        }
-        return 0
-    }
-    
-    // -------------------------------------
-    @inline(__always)
-    private func getDigit(at digitIndex: Int, rightShiftedBy shift: Int) -> UInt
-    {
-        var digit = getDigit(at: digitIndex) >> shift
-        digit |= getDigit(at: digitIndex + 1) << (UInt.bitWidth - shift)
-        return digit
-    }
     
     // -------------------------------------
     @inline(__always)
@@ -955,32 +932,62 @@ struct FloatingPointBuffer
             of: y.significand.immutable
         )
         
-        let yShift: Int
-        var yDigitIndex: Int
-        (yDigitIndex, yShift) = y.digitAndShift(forRightShift: exponentDelta)
+        let (yDigitIndex, yShift) =
+            y.digitAndShift(forRightShift: exponentDelta)
         
-        for i in 0..<(x.significand.count - 1)
+        var xPtr = x.significand.baseAddress!
+        let xHeadPtr = xPtr + x.significand.count - 1
+        
+        let yStart = y.significand.baseAddress!
+        let yEnd = yStart + y.significand.count
+        let yHeadPtr = yEnd - 1
+        var yPtr = yStart + yDigitIndex
+        
+        var zPtr = z.significand.baseAddress!
+        
+        var yDigitLow = yPtr < yEnd
+            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+            :   0
+        
+        yPtr += 1
+        
+        while xPtr < xHeadPtr
         {
-            let xDigit = x.significand[i]
-            let yDigit = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+            let xDigit = xPtr.pointee
+            
+            let yDigitHigh = yPtr < yEnd
+                ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+                :   0
+            let yDigit =
+                (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
+            yDigitLow = yDigitHigh
+
             var zDigit: UInt
             (zDigit, carry) = xDigit.addingReportingCarry(carry)
             carry &+= zDigit.addToSelfReportingCarry(yDigit)
-            z.significand[i] = zDigit
-            yDigitIndex += 1
+            zPtr.pointee = zDigit
+            
+            xPtr += 1
+            yPtr += 1
+            zPtr += 1
         }
         
         let xHead = x.significandHeadValue
-        let yHead = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
-        var zHead: UInt = 0
-        (zHead, _) = xHead.addingReportingCarry(carry)
+        
+        let yDigitHigh = yPtr < yEnd
+            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+            :   0
+
+        let yHead =
+            (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
+        
+        var (zHead, _) = xHead.addingReportingCarry(carry)
         _ = zHead.addToSelfReportingCarry(yHead)
         z.significandHead = zHead
 
         /*
          zHead has room for sign bit, and any carry would have propagated to
-         it.  We intentionally preset the zHead to 0, so we could just test the
-         sign bit.  Since we haven't set the sign yet, if it's 1, then we need
+         it.  Since we haven't set the sign yet, if it's 1, then we need
          to right shift z by 1.
          
          rightShiftForAddOrSubtract takes care of possible additional
@@ -1048,32 +1055,61 @@ struct FloatingPointBuffer
             of: y.significand.immutable
         )
         
-        let yShift: Int
-        var yDigitIndex: Int
-        (yDigitIndex, yShift) = y.digitAndShift(forRightShift: exponentDelta)
+        let (yDigitIndex, yShift) =
+            y.digitAndShift(forRightShift: exponentDelta)
         
-        for i in 0..<(x.significand.count - 1)
+        var xPtr = x.significand.baseAddress!
+        let xHeadPtr = xPtr + x.significand.count - 1
+        
+        let yStart = y.significand.baseAddress!
+        let yEnd = yStart + y.significand.count
+        let yHeadPtr = yEnd - 1
+        var yPtr = yStart + yDigitIndex
+        
+        var zPtr = z.significand.baseAddress!
+        
+        var yDigitLow = yPtr < yEnd
+            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+            :   0
+        
+        yPtr += 1
+        
+        while xPtr < xHeadPtr
         {
-            let xDigit = x.significand[i]
-            let yDigit = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
+            let xDigit = xPtr.pointee
+            
+            let yDigitHigh = yPtr < yEnd
+                ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+                :   0
+            let yDigit =
+                (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
+            yDigitLow = yDigitHigh
+
             var zDigit: UInt
             (zDigit, borrow) = xDigit.subtractingReportingBorrow(borrow)
             borrow &+= zDigit.subtractFromSelfReportingBorrow(yDigit)
-            z.significand[i] = zDigit
-            yDigitIndex += 1
+            zPtr.pointee = zDigit
+            
+            xPtr += 1
+            yPtr += 1
+            zPtr += 1
         }
         
         let xHead = x.significandHeadValue
-        let yHead = y.getDigit(at: yDigitIndex, rightShiftedBy: yShift)
-        var zHead: UInt = 0
-        (zHead, _) = xHead.subtractingReportingBorrow(borrow)
+
+        let yDigitHigh = yPtr < yEnd
+            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
+            :   0
+
+        let yHead =
+            (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
+        var (zHead, _) = xHead.subtractingReportingBorrow(borrow)
         _ = zHead.subtractFromSelfReportingBorrow(yHead)
         z.significandHead = zHead
 
         /*
          zHead has room for sign bit, and any borrow would have propagated to
-         it.  We intentionally preset the zHead to 0, so we could just test the
-         sign bit.  Since we haven't set the sign yet, if it's 1, then
+         it.  Since we haven't set the sign yet, if it's 1, then
          subtracting y from x gives the opposite sign of x, so we need to
          invert resultSign, and our result is now in 2's complement form, which
          means we need to arithmetically negate it to put it back into signed

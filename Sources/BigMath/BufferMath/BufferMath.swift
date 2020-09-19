@@ -222,30 +222,7 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 {
     assert(x.startIndex == 0)
     assert(shift >= 0)
-    
-    // -------------------------------------
-    @inline(__always)
-    func getDigit(from x: UIntBuffer, at digitIndex: Int) -> UInt
-    {
-        assert(x.startIndex == 0)
-        if x.indices.contains(digitIndex) { return x[digitIndex] }
-        return 0
-    }
-    
-    // -------------------------------------
-    @inline(__always)
-    func getDigit(
-        from x: UIntBuffer,
-        at digitIndex: Int,
-        rightShiftedBy shift: Int) -> UInt
-    {
-        assert(x.startIndex == 0)
-        var digit = getDigit(from: x, at: digitIndex) >> shift
-        digit |=
-            getDigit(from: x, at: digitIndex + 1) << (UInt.bitWidth - shift)
-        return digit
-    }
-    
+        
     // -------------------------------------
     @inline(__always)
     func digitAndShift(in x: UIntBuffer, forRightShift shift: Int)
@@ -310,7 +287,15 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      Get a UInt containing the least non-truncated bit and the bit
      immediately to its right as the lowest 2 bits.
      */
-    var digit = getDigit(from: x, at: digitIndex, rightShiftedBy: bitShift)
+    let xStart = x.baseAddress!
+    let xEnd = xStart + x.count
+    var xPtr = xStart + digitIndex + 1
+    let validXRange = xStart..<xEnd
+    
+    var digitHigh = validXRange.contains(xPtr) ? xPtr.pointee : 0
+    xPtr -= 1
+    var digitLow = x.indices.contains(digitIndex) ? xPtr.pointee : 0
+    var digit = digitLow >> bitShift | digitHigh << (UInt.bitWidth - bitShift)
 
     /*
      Do the truncated bits form at least half of the least non-truncated bit
@@ -325,17 +310,22 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
         else
         { // least non-truncated bit is even - we have to test lower bits.
             var accumulatedBits: UInt = 0
-            var i = digitIndex - 1
-            while i >= -1
+            
+            digitHigh = digitLow
+            xPtr -= 1
+            
+            let xStop = xStart - 1
+            while xPtr >= xStop
             {
-                /*
-                 TODO: This can be done more efficiently.  getDigit
-                 basically does two buffer accesses and 2 shifts. Fix once
-                 this is verified as working as-is.
-                 */
-                digit = getDigit(from: x, at: i, rightShiftedBy: bitShift)
+                digitLow = validXRange.contains(xPtr) ? xPtr.pointee : 0
+                
+                digit =
+                    digitLow >> bitShift | digitHigh << (UInt.bitWidth - bitShift)
+                
+                digitHigh = digitLow
+
                 accumulatedBits |= digit
-                i -= 1
+                xPtr -= 1
             }
             
             // round up if there were lower 1 bits; otherwise, round down

@@ -466,7 +466,7 @@ extension WideFloat: FloatingPoint
         
         let result = Self(
             significandBitPattern: q.low,
-            exponent: (1 / self.significand.doubleValue).exponent
+            exponent: (1 / self.significand.floatValue).exponent
         )
         assert(!result.isNegative)
         assert(result.isNormalized)

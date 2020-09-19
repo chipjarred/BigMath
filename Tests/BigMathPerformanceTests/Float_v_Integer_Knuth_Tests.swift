@@ -1,5 +1,5 @@
 //
-//  FP_Newton_Raphson_v_Integer_Knuth_Tests.swift
+//  Float_v_Integer_Knuth_Tests.swift
 //
 //
 //  Created by Chip Jarred on 9/7/20.
@@ -21,7 +21,7 @@ fileprivate func setWithRandomBytes<T>(_ dst: inout T)
 }
 
 // -------------------------------------
-class FP_Newton_Raphson_v_Integer_Knuth_Tests: XCTestCase
+class Float_v_Integer_Knuth_Tests: XCTestCase
 {
     // -------------------------------------
     @inline(__always)
@@ -99,13 +99,13 @@ class FP_Newton_Raphson_v_Integer_Knuth_Tests: XCTestCase
                     (dividend.high.wrapped, dividend.low.wrapped)
             )
         }
-        let knuthTime = Date().timeIntervalSince(start)
+        let intKnuthTime = Date().timeIntervalSince(start)
         
         start = Date()
         for (dividend, divisor) in fpTestCases {
             let _ = dividend / divisor
         }
-        let newtonRaphson = Date().timeIntervalSince(start)
+        let floatKnuthTime = Date().timeIntervalSince(start)
         
         start = Date()
         for (dividend, divisor) in fpTestCases {
@@ -117,8 +117,8 @@ class FP_Newton_Raphson_v_Integer_Knuth_Tests: XCTestCase
         
         print("\n")
         print("Results for \(T.self): \(iterations) iterations")
-        print("           Knuth D = \(knuthTime) seconds")
-        print("    Newton-Raphson = \(newtonRaphson) seconds")
+        print("   Integer Knuth D = \(intKnuthTime) seconds")
+        print("     Float Knuth D = \(floatKnuthTime) seconds")
         print("     mult inverse2 = \(multInverse2) seconds")
     }
     

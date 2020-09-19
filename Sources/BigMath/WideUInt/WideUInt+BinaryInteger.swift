@@ -145,19 +145,11 @@ extension WideUInt: BinaryInteger
     
     // -------------------------------------
     @inlinable
-    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
+    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger { self.init(withBytesOf: source) }
     
     // -------------------------------------
     @inlinable
-    public init<S>(_truncatingBits source: S) where S : BinaryInteger
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
+    public init<S>(_truncatingBits source: S) where S : BinaryInteger { self.init(withBytesOf: source) }
     
     // -------------------------------------
     @inlinable

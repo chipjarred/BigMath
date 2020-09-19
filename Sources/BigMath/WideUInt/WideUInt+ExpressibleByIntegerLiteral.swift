@@ -28,7 +28,7 @@ extension WideUInt: ExpressibleByIntegerLiteral
     // -------------------------------------
     @inlinable public init(integerLiteral value: UInt)
     {
-        self.init()
-        copyBytes(of: value, into: &self)
+        if value == 0 { self.init() }
+        else { self.init(withBytesOf: value) }
     }
 }

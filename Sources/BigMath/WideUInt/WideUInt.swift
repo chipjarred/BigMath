@@ -95,8 +95,32 @@ public struct WideUInt<T: WideDigit>: Hashable where T.Magnitude == T
                                      Yours truly,
                                      A programmer trying to write fast code.
          */
-        self.init()
-        copyBytes(of: source, into: &self)
+        if MemoryLayout<Self>.size <= MemoryLayout<T>.size {
+            self = unsafeBitCast(source, to: Self.self)
+        }
+        else if MemoryLayout<Digit>.size <= MemoryLayout<T>.size
+        {
+            self.init(low: unsafeBitCast(source, to: Digit.self))
+            Swift.withUnsafeBytes(of: source)
+            {
+                let ptr = $0.baseAddress!.advanced(by: MemoryLayout<Digit>.size)
+                Swift.withUnsafeMutableBytes(of: &self)
+                {
+                    _ = memcpy(
+                        $0.baseAddress!,
+                        ptr,
+                        MemoryLayout<T>.size - MemoryLayout<Digit>.size
+                    )
+                }
+            }
+        }
+        else
+        {
+            self.init()
+            Swift.withUnsafeMutableBytes(of: &self) {
+                $0.bindMemory(to: T.self).baseAddress!.pointee = source
+            }
+        }
     }
 
     // -------------------------------------
@@ -171,31 +195,11 @@ extension WideUInt
     }
 
     // -------------------------------------
-    @inlinable public init(_ source: UInt)
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
-    @inlinable public init(_ source: UInt8)
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
-    @inlinable public init(_ source: UInt16)
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
-    @inlinable public init(_ source: UInt32)
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
-    @inlinable public init(_ source: UInt64)
-    {
-        self.init()
-        copyBytes(of: source, into: &self)
-    }
+    @inlinable public init(_ source: UInt) { self.init(withBytesOf: source) }
+    @inlinable public init(_ source: UInt8) { self.init(withBytesOf: source) }
+    @inlinable public init(_ source: UInt16) { self.init(withBytesOf: source) }
+    @inlinable public init(_ source: UInt32) { self.init(withBytesOf: source) }
+    @inlinable public init(_ source: UInt64) { self.init(withBytesOf: source) }
 
     // -------------------------------------
     @inlinable public init(_ source: Int) { self.init(Int64(source)) }

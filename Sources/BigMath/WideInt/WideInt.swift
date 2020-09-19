@@ -53,24 +53,8 @@ public struct WideInt<T: WideDigit>: Hashable where T.Magnitude == T
     
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal init<T>(withBytesOf source: T)
-    {
-        /*
-         Dear Swift Team,
-         
-         I know requiring initilizaton of a variable before passing it as a
-         reference is generally good programming practice, and reduces the
-         number of bugs due to using uninitialized variables, but when you want
-         to pass it as a reference *in order to initialize it* with some bytes,
-         you're basically requiring us to initialize it twice, which for
-         performance critical code is not good. Please provide a way to do this,
-         even if it's in some kind of wordy "unsafeInit" syntax.
-         
-                                     Yours truly,
-                                     A programmer trying to write fast code.
-         */
-        self.init()
-        copyBytes(of: source, into: &self)
+    internal init<T>(withBytesOf source: T) {
+        self.bitPattern = Magnitude(withBytesOf: source)
     }
 }
 

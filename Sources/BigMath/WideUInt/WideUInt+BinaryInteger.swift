@@ -115,12 +115,13 @@ extension WideUInt: BinaryInteger
 
     // -------------------------------------
     @inlinable
-    public init<T>(clamping source: T) where T : BinaryInteger {
-        if source < 0 { self = 0 }
+    public init<T>(clamping source: T) where T : BinaryInteger
+    {
+        if source < 0 { self.init() }
         else if MemoryLayout<T>.size > MemoryLayout<Self>.size {
             self.init(truncatingIfNeeded: Swift.min(source, T(Self.max)))
         }
-        self.init(source)
+        else {  self.init(withBytesOf: source) }
     }
     
     // -------------------------------------
@@ -140,16 +141,20 @@ extension WideUInt: BinaryInteger
                 "\(source) cannot be represented by \(Self.self)"
             )
         }
-        self.init(_truncatingBits: source)
+        self.init(withBytesOf: source)
     }
     
     // -------------------------------------
     @inlinable
-    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger { self.init(withBytesOf: source) }
+    public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger {
+        self.init(withBytesOf: source)
+    }
     
     // -------------------------------------
     @inlinable
-    public init<S>(_truncatingBits source: S) where S : BinaryInteger { self.init(withBytesOf: source) }
+    public init<S>(_truncatingBits source: S) where S : BinaryInteger {
+        self.init(withBytesOf: source)
+    }
     
     // -------------------------------------
     @inlinable

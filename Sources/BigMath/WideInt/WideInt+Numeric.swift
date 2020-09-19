@@ -34,7 +34,7 @@ extension WideInt: Numeric
     @inlinable
     public init?<T>(exactly source: T) where T : BinaryInteger
     {
-        self.init(_truncatingBits: source)
+        self.init(withBytesOf: source)
         
         // Compiler should be able to optimize away this condition for inlining
         if MemoryLayout<T>.size > MemoryLayout<Self>.size

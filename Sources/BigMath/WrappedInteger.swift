@@ -319,7 +319,7 @@ public extension WrappedInteger
     // -------------------------------------
     @inlinable init<T>(_truncatingBits source: T) where T: BinaryInteger
     {
-        let wrapped = Wrapped(_truncatingBits: UInt(source))
+        let wrapped = Wrapped(truncatingIfNeeded: source)
         self.init(wrapped: wrapped)
     }
 

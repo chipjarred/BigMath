@@ -191,15 +191,36 @@ extension WideUInt
             Self.compareValues(of: Self.max, and: source) == .orderedDescending,
             "\(source) cannot be represented by \(Self.self)"
         )
-        self.init(_truncatingBits: source)
+        if source.isZero { self.init() }
+        else { self.init(withBytesOf: source) }
     }
 
     // -------------------------------------
-    @inlinable public init(_ source: UInt) { self.init(withBytesOf: source) }
-    @inlinable public init(_ source: UInt8) { self.init(withBytesOf: source) }
-    @inlinable public init(_ source: UInt16) { self.init(withBytesOf: source) }
-    @inlinable public init(_ source: UInt32) { self.init(withBytesOf: source) }
-    @inlinable public init(_ source: UInt64) { self.init(withBytesOf: source) }
+    @inlinable public init(_ source: UInt)
+    {
+        if source == 0 { self.init() }
+        else { self.init(withBytesOf: source) }
+    }
+    @inlinable public init(_ source: UInt8)
+    {
+        if source == 0 { self.init() }
+        else { self.init(withBytesOf: source) }
+    }
+    @inlinable public init(_ source: UInt16)
+    {
+        if source == 0 { self.init() }
+        else { self.init(withBytesOf: source) }
+    }
+    @inlinable public init(_ source: UInt32)
+    {
+        if source == 0 { self.init() }
+        else { self.init(withBytesOf: source) }
+    }
+    @inlinable public init(_ source: UInt64)
+    {
+        if source == 0 { self.init() }
+        else { self.init(withBytesOf: source) }
+    }
 
     // -------------------------------------
     @inlinable public init(_ source: Int) { self.init(Int64(source)) }

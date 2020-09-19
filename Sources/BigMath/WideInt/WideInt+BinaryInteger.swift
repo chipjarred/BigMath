@@ -78,11 +78,11 @@ extension WideInt: BinaryInteger
         if source < 0 { self = 0 }
         else if MemoryLayout<T>.size > MemoryLayout<Self>.size
         {
-            self.init(truncatingIfNeeded:
+            self.init(withBytesOf:
                 Swift.max(T(Self.min), Swift.min(source, T(Self.max)))
             )
         }
-        self.init(source)
+        else { self.init(withBytesOf: source) }
     }
     
     // -------------------------------------
@@ -94,8 +94,8 @@ extension WideInt: BinaryInteger
             + " stores its bit pattern and *only* its bit pattern directly"
             + " in itself (ie. not in an Array, or other indirect storage.)"
         )
-        self.init(_truncatingBits: source)
-        
+        self.init(withBytesOf: source)
+
         if MemoryLayout<T>.size > MemoryLayout<Self>.size
         {
             precondition(
@@ -107,7 +107,7 @@ extension WideInt: BinaryInteger
     
     // -------------------------------------
     public init<T>(truncatingIfNeeded source: T) where T : BinaryInteger {
-        self.init(_truncatingBits: source)
+        self.init(withBytesOf: source)
     }
     
     // -------------------------------------

@@ -108,18 +108,19 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
         let floatKnuthTime = Date().timeIntervalSince(start)
         
         start = Date()
-        for (dividend, divisor) in fpTestCases {
+        for (dividend, divisor) in fpTestCases
+        {
             let divInv = divisor.multiplicativeInverse_KnuthD
             let _ = dividend * divInv
         }
-        let multInverse2 = Date().timeIntervalSince(start)
+        let multInverseKnuth = Date().timeIntervalSince(start)
 
         
         print("\n")
         print("Results for \(T.self): \(iterations) iterations")
-        print("   Integer Knuth D = \(intKnuthTime) seconds")
-        print("     Float Knuth D = \(floatKnuthTime) seconds")
-        print("     mult inverse2 = \(multInverse2) seconds")
+        print("           Integer Knuth D = \(intKnuthTime) seconds")
+        print("             Float Knuth D = \(floatKnuthTime) seconds")
+        print("    Float Mult Inv Knuth D = \(multInverseKnuth) seconds")
     }
     
     // -------------------------------------

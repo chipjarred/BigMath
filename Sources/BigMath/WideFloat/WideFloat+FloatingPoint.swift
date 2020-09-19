@@ -408,9 +408,29 @@ extension WideFloat: FloatingPoint
             return result
         }
         
-        let s = significand.magnitude
-        var x = s.multiplicativeInverse0_KnuthD
-        let deltaExp = x._exponent + s._exponent
+        let sig = significand
+        
+        var rawSig = sig._significand
+        rawSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        let one = Self(1)
+        var q = WideUInt<RawSignificand>()
+        var r: RawSignificand
+        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: rawSig)
+        (q.low, r) = rawSig.dividingFullWidth((r, RawSignificand.zero))
+
+        let shift = q.leadingZeroBitCount - 1
+        q <<= shift
+        
+        q.roundingRightShift(by: RawSignificand.bitWidth)
+        
+        var x = Self(
+            significandBitPattern: q.low,
+            exponent: (1 / self.significand.floatValue).exponent
+        )
+        assert(!x.isNegative)
+        assert(x.isNormalized)
+
+        let deltaExp = x._exponent + sig._exponent
         
         x._exponent = -self._exponent + deltaExp
         
@@ -441,44 +461,12 @@ extension WideFloat: FloatingPoint
         
         let result = Self(
             significandBitPattern: q.low,
-            exponent: (1 / self.significand.doubleValue).exponent
-        )
-        assert(!result.isNegative)
-        assert(result.isNormalized)
-        return result
-    }
-    
-    
-    // -------------------------------------
-    @inlinable
-    internal var multiplicativeInverse0_KnuthD: Self
-    {
-        assert(!isNaN)
-        assert(!isZero)
-        assert(!isInfinite)
-        assert(!isNegative)
-        
-        let sig = self._significand
-        let one = Self(1)
-        var q = WideUInt<RawSignificand>()
-        var r: RawSignificand
-        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: sig)
-        (q.low, r) = sig.dividingFullWidth((r, RawSignificand.zero))
-
-        let shift = q.leadingZeroBitCount - 1
-        q <<= shift
-        
-        q.roundingRightShift(by: RawSignificand.bitWidth)
-        
-        let result = Self(
-            significandBitPattern: q.low,
             exponent: (1 / self.significand.floatValue).exponent
         )
         assert(!result.isNegative)
         assert(result.isNormalized)
         return result
     }
-
     
     // -------------------------------------
     @inlinable

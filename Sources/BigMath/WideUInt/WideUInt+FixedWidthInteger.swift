@@ -70,7 +70,7 @@ extension WideUInt: FixedWidthInteger
     public func quotientAndRemainder(dividingBy x: Self)
         -> (quotient: Self, remainder: Self)
     {
-        precondition(x != 0, "Dividing by 0")
+        precondition(!x.isZero, "Dividing by 0")
         
         var q = KnuthDRemainder<Self>()
         var r = KnuthDRemainder<Self>()
@@ -108,7 +108,7 @@ extension WideUInt: FixedWidthInteger
         -> (quotient: Self, remainder: Self)
     {
         typealias BiggerInt = WideUInt<Self>
-        precondition(self != 0, "Dividing by 0")
+        precondition(!self.isZero, "Dividing by 0")
         
         return dividingFullWidth_KnuthD(dividend)
     }

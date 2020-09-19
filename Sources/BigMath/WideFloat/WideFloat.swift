@@ -365,6 +365,38 @@ public struct WideFloat<T: WideDigit>:  Hashable
     }
     
     // -------------------------------------
+    @inlinable public func convert(to: Float.Type) -> Float
+    {
+        typealias F = Float
+        
+        if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
+        if isInfinite { return isNegative ? -F.infinity : F.infinity }
+        
+        if _exponent >= F.greatestFiniteMagnitude.exponent
+        {
+            if _exponent > F.greatestFiniteMagnitude.exponent
+                || Self(F.greatestFiniteMagnitude) < self.magnitude
+            {
+                return isNegative ? -F.infinity : F.infinity
+            }
+        }
+        else if _exponent <= F.leastNonzeroMagnitude.exponent
+        {
+            if _exponent < F.leastNonzeroMagnitude.exponent
+                || Self(F.leastNonzeroMagnitude) < self.magnitude
+            {
+                return F(
+                    sign: isNegative ? .minus : .plus,
+                    exponent: 0,
+                    significand: 0
+                )
+            }
+        }
+        
+        return withFloatBuffer { return $0.convert(to: F.self) }
+    }
+
+    // -------------------------------------
     @inlinable public func convert<I: FixedWidthInteger>(to: I.Type) -> I
     {
         let maxRepresentableExponent = I.bitWidth - Int(I.isSigned)

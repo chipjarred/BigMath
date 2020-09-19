@@ -347,7 +347,7 @@ struct FloatingPointBuffer
      
      NaNs and Infinity should also be handled before calling this method.
      */
-    @usableFromInline
+    @usableFromInline @inline(__always)
     func convert<I: FixedWidthInteger>(to: I.Type) -> I
     {
         assert(!isNaN && !isInfinite)
@@ -378,8 +378,46 @@ struct FloatingPointBuffer
         return unsafeBitCast(result, to: I.self)
     }
     
+    
     // -------------------------------------
-    @usableFromInline
+    @usableFromInline @inline(__always)
+    func convert(to: Float.Type) -> Float
+    {
+        assert(exponent != Int.max)
+        
+        if isZero || exponent < Float.leastNonzeroMagnitude.exponent
+        {
+            var result = Float.zero
+            if isNegative { result.negate() }
+            return result
+        }
+        if exponent > Float.greatestFiniteMagnitude.exponent
+        {
+            var result = Float.infinity
+            if isNegative { result.negate() }
+            return result
+        }
+        
+        let shift = Float.significandBitCount
+        var sigHead = significandHead
+        sigHead &= (UInt.max >> 2)
+        sigHead >>= (UInt.bitWidth - 2) - shift
+        
+        return Float(
+            sign: FloatingPointSign(rawValue:
+                select(
+                    if: isNegative,
+                    then: FloatingPointSign.minus.rawValue,
+                    else: FloatingPointSign.plus.rawValue
+                )
+            )!,
+            exponentBitPattern: UInt(exponent) + 127,
+            significandBitPattern: UInt32(sigHead)
+        )
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
     func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
         if isZero
@@ -419,7 +457,7 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    @usableFromInline
+    @usableFromInline @inline(__always)
     func convert_saved<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
         let radix = F(

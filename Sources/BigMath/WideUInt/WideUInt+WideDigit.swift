@@ -120,19 +120,24 @@ extension WideDigit
     @inlinable
     var isZero: Bool
     {
-        return withBuffer
+        if MemoryLayout<Self>.size <= MemoryLayout<UInt64>.size {
+            return self == 0
+        }
+        else
         {
-            var ptr = $0.baseAddress!
-            let endPtr = ptr + $0.count
-            
-            var accumulatedBits: UInt = 0
-            while ptr < endPtr
+            return withBuffer
             {
-                accumulatedBits |= ptr.pointee
-                ptr += 1
+                var ptr = $0.baseAddress!
+                let endPtr = ptr + $0.count
+                
+                while ptr < endPtr
+                {
+                    if ptr.pointee != 0 { return false }
+                    ptr += 1
+                }
+                
+                return true
             }
-            
-            return accumulatedBits == 0
         }
     }
 }

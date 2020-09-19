@@ -455,16 +455,12 @@ extension WideFloat: FloatingPoint
         let s = self._significand
         let one = Self(1)
         var q = WideUInt<RawSignificand>()
-        var q2 = WideUInt<RawSignificand>()
         var r: RawSignificand
         (q.high, r) = one._significand.quotientAndRemainder(dividingBy: s)
         (q.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
-//        (q2.high, r) = s.dividingFullWidth((r, RawSignificand.zero))
-//        (q2.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
 
         let shift = q.leadingZeroBitCount - 1
         q <<= shift
-        q |= q2 >> (RawSignificand.bitWidth * 2 - shift)
         
         q.roundingRightShift(by: RawSignificand.bitWidth)
         

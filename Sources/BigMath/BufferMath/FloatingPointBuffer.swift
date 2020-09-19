@@ -69,9 +69,9 @@ infix operator <=> : ComparisonPrecedence
 @usableFromInline
 struct FloatingPointBuffer
 {
-    @usableFromInline var exponent: Int
     @usableFromInline var significand: MutableUIntBuffer
-    
+    @usableFromInline var exponent: Int
+
     // -------------------------------------
     @usableFromInline @inline(__always)
     var signBit: UInt

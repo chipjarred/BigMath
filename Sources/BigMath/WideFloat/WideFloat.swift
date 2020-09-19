@@ -29,9 +29,9 @@ public struct WideFloat<T: WideDigit>:  Hashable
     public typealias RawSignificand = T
     public typealias Exponent = Int
     
-    @usableFromInline var _exponent: Exponent
     @usableFromInline var _significand: RawSignificand
-    
+    @usableFromInline var _exponent: Exponent
+
     @inlinable public var exponent: Exponent { return _exponent }
     
     // -------------------------------------

@@ -401,7 +401,7 @@ struct FloatingPointBuffer
         let shift = Float.significandBitCount
         var sigHead = significandHead
         sigHead &= (UInt.max >> 2)
-        sigHead >>= (UInt.bitWidth - 2) - shift
+        sigHead.roundingRightShift(by: (UInt.bitWidth - 2) - shift)
         
         return Float(
             sign: FloatingPointSign(rawValue:
@@ -411,11 +411,48 @@ struct FloatingPointBuffer
                     else: FloatingPointSign.plus.rawValue
                 )
             )!,
-            exponentBitPattern: UInt(exponent) + 127,
+            exponentBitPattern: UInt(exponent &+ 127),
             significandBitPattern: UInt32(sigHead)
         )
     }
     
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    func convert(to: Double.Type) -> Double
+    {
+        assert(exponent != Int.max)
+        
+        if isZero || exponent < Double.leastNonzeroMagnitude.exponent
+        {
+            var result = Double.zero
+            if isNegative { result.negate() }
+            return result
+        }
+        if exponent > Double.greatestFiniteMagnitude.exponent
+        {
+            var result = Double.infinity
+            if isNegative { result.negate() }
+            return result
+        }
+        
+        let shift = Double.significandBitCount
+        var sigHead = significandHead
+        sigHead &= (UInt.max >> 2)
+        sigHead.roundingRightShift(by: (UInt.bitWidth - 2) - shift)
+
+        return Double(
+            sign: FloatingPointSign(rawValue:
+                select(
+                    if: isNegative,
+                    then: FloatingPointSign.minus.rawValue,
+                    else: FloatingPointSign.plus.rawValue
+                )
+            )!,
+            exponentBitPattern: UInt(exponent &+ 1023),
+            significandBitPattern: UInt64(sigHead)
+        )
+    }
+
     // -------------------------------------
     @usableFromInline @inline(__always)
     func convert<F: BinaryFloatingPoint>(to: F.Type) -> F

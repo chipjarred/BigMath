@@ -29,10 +29,11 @@ internal struct WideExponent: Hashable, Comparable
     var rawExp: UInt
     
     /*
-     The exponent format is intended allow checking for special values such as
-     infinity or NaN efficiently, as well as the significand sign.  In addition,
-     since we don't support gradual underflow, the only value that can use the
-     exponent for zero is zero itself, which allows for a fast 0 test.
+     The exponent format is intended allow to checking for special values such
+     as infinity or NaN efficiently, as well as the significand sign.  In
+     addition, since we don't support gradual underflow, the only value that
+     can use the exponent for zero is zero itself, which allows for a fast test
+     for zero, which comes up a lot.
      
      The exponent contains 2 specially reserved bits.
      
@@ -40,7 +41,7 @@ internal struct WideExponent: Hashable, Comparable
      is negative, and clear if it is positive.
      
      The next highest bit is set for NaN, and clear for non-NaN values.  The
-     type of NaN is encoded in the least significant bit.  If the least
+     type of NaN is encoded in the least significant exponent bit.  If the least
      significant exponent bit is set, then the NaN is signaling, otherwise it
      is a quiet NaN.
      
@@ -65,10 +66,16 @@ internal struct WideExponent: Hashable, Comparable
     @usableFromInline @inline(__always)
     var intValue: Int
     {
+        // -------------------------------------
         get { return Int(rawExp & Self.magnitudeMask) &- Self.offset }
+        
+        // -------------------------------------
         set
         {
-            assert(Self.offset <= newValue, "applying offset will underflow")
+            assert(
+                Self.offset <= newValue,
+                "applying exponent offset will overflow"
+            )
             rawExp = UInt(bitPattern: newValue &+ Self.offset)
         }
     }
@@ -164,7 +171,13 @@ internal struct WideExponent: Hashable, Comparable
     }
     
     // -------------------------------------
-    /// `1` if the value is NaN or infinite; otherwise `0`
+    /**
+     `1` if the value is NaN or infinite; otherwise `0`.
+     
+     This version is useful when replacing a compound boolean expression, which
+     contains an implicit hidden branch because of short-circuit evaluation,
+     with a branchless bitwise equivalent.
+     */
     @usableFromInline @inline(__always)
     var isSpecialByte: UInt8 { return UInt8(isSpecial) }
     
@@ -279,7 +292,7 @@ internal struct WideExponent: Hashable, Comparable
         
         /*
          My apologies to anyone reading these nested select statements.
-         They're branchlessly replacing a big if-else... series
+         They're branchlessly replacing a series of if...else if statements.
          */
         let result: CResult.RawValue
         result = select(

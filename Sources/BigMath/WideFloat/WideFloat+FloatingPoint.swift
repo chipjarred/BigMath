@@ -408,10 +408,6 @@ extension WideFloat: FloatingPoint
             return result
         }
         
-        /*
-         Using Newton's method to find the multiplicative inverse.  Given a good
-         starting point, it doubles the number of good bits each iteration.
-         */
         let s = significand.magnitude
         var x = s.multiplicativeInverse0_KnuthD
         let deltaExp = x._exponent + s._exponent

@@ -302,8 +302,11 @@ extension WideFloat: FloatingPoint
         let rightInv = right.multiplicativeInverse
         return left * rightInv
         #else
-        let dividend = left.magnitude._significand
-        let divisor = right.magnitude._significand
+        var dividend = left._significand
+        dividend.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        var divisor = right._significand
+        divisor.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        
         let zero = RawSignificand.zero
         var qHigh, qLow, r: RawSignificand
         (qHigh, r) = dividend.quotientAndRemainder(dividingBy: divisor)
@@ -423,12 +426,12 @@ extension WideFloat: FloatingPoint
         assert(!isInfinite)
         assert(!isNegative)
         
-        let s = self._significand
+        let sig = self._significand
         let one = Self(1)
         var q = WideUInt<RawSignificand>()
         var r: RawSignificand
-        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: s)
-        (q.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
+        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: sig)
+        (q.low, r) = sig.dividingFullWidth((r, RawSignificand.zero))
         
         let shift = RawSignificand.bitWidth - q.leadingZeroBitCount + 1
         q.roundingRightShift(by: shift)
@@ -452,12 +455,12 @@ extension WideFloat: FloatingPoint
         assert(!isInfinite)
         assert(!isNegative)
         
-        let s = self._significand
+        let sig = self._significand
         let one = Self(1)
         var q = WideUInt<RawSignificand>()
         var r: RawSignificand
-        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: s)
-        (q.low, r) = s.dividingFullWidth((r, RawSignificand.zero))
+        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: sig)
+        (q.low, r) = sig.dividingFullWidth((r, RawSignificand.zero))
 
         let shift = q.leadingZeroBitCount - 1
         q <<= shift

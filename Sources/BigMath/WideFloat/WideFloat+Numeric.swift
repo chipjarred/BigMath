@@ -112,10 +112,13 @@ extension WideFloat: Numeric
         typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
         var wideProduct = WideProduct()
         
+        var leftSig = left._significand
+        leftSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        var rightSig = right._significand
+        rightSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+
         (wideProduct._significand.high, wideProduct._significand.low) =
-            left.magnitude._significand.multipliedFullWidth(
-                by: right.magnitude._significand
-        )
+            leftSig.multipliedFullWidth(by: rightSig)
         
         let halfWidth = WideProduct.RawSignificand.bitWidth / 2
         

@@ -38,7 +38,7 @@ public protocol WideDigit: FixedWidthInteger, UnsignedInteger, Codable
     /**
     Branchlessly set or clear the bit at a bit index.
     */
-    mutating func setBit(at bitIndex: Int, to value: Self)
+    mutating func setBit(at bitIndex: Int, to value: UInt)
     
     // -------------------------------------
     /**
@@ -50,7 +50,7 @@ public protocol WideDigit: FixedWidthInteger, UnsignedInteger, Codable
     /**
      Get the value of a bit at a bit index
      */
-    func getBit(at bitIndex: Int) -> Self
+    func getBit(at bitIndex: Int) -> UInt
 }
 
 // --------------------------------------
@@ -178,18 +178,6 @@ extension WideUInt: WideDigit
     
     // -------------------------------------
     /**
-    Branchlessly set or clear the bit at a bit index.
-    */
-    @inlinable
-    public mutating func setBit(at bitIndex: Int, to value: Self)
-    {
-        assert(value & ~1 == 0, "Not 1 or 0")
-        assert((0..<Self.bitWidth).contains(bitIndex))
-        setBit(at: bitIndex, to: UInt(value))
-    }
-    
-    // -------------------------------------
-    /**
     Branchlessly toggle the bit at a bit index.
     */
     @inlinable
@@ -206,11 +194,11 @@ extension WideUInt: WideDigit
     
     // -------------------------------------
     @inlinable
-    public func getBit(at bitIndex: Int) -> Self
+    public func getBit(at bitIndex: Int) -> UInt
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
         return withBuffer {
-            return Self(BigMath.getBit(at: bitIndex, from: $0))
+            return BigMath.getBit(at: bitIndex, from: $0)
         }
     }
 }
@@ -222,6 +210,41 @@ extension UInt: WideDigit
     public var signBit: Bool { return self >> (Self.bitWidth - 1) == 1 }
     
     @inlinable public mutating func invert() { self = ~self }
+
+    // -------------------------------------
+    /**
+    Branchlessly set or clear the bit at a bit index.
+    */
+    @inlinable
+    public mutating func setBit(at bitIndex: Int, to value: UInt)
+    {
+        assert(value & ~1 == 0, "Not 1 or 0")
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        
+        // Non-branching bit set/clear
+        let mask: Self = 1 << bitIndex
+
+        // Choice of branchless bit setting/clearing twiddling. Either should be
+        // faster than a conditional branch for any CPU manufactured since the
+        // mid-1990s.
+        #if false
+        // This should work faster for CPUs that do speculative execution with
+        // limited ALU redundancy.
+        self ^= ((~value &+ 1) ^ self) & mask
+        #else
+        // This should work faster for most modern CPUs with significant ALU
+        // redundancy.
+        self = (self & ~mask) | ((~value &+ 1) & mask)
+        #endif
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func getBit(at bitIndex: Int) -> UInt
+    {
+        assert((0..<Self.bitWidth).contains(bitIndex))
+        return (self >> bitIndex) & 1
+    }
 }
 
 // --------------------------------------

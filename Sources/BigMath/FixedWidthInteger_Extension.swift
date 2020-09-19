@@ -120,7 +120,7 @@ extension FixedWidthInteger
     */
     @inlinable
     public mutating func setBit(at bitIndex: Int, to value: Bool) {
-        setBit(at: bitIndex, to: Self(value))
+        setBit(at: bitIndex, to: UInt(value))
     }
     
     // -------------------------------------
@@ -128,26 +128,16 @@ extension FixedWidthInteger
     Branchlessly set or clear the bit at a bit index.
     */
     @inlinable
-    public mutating func setBit(at bitIndex: Int, to value: Self)
+    public mutating func setBit(at bitIndex: Int, to value: UInt)
     {
         assert(value & ~1 == 0, "Not 1 or 0")
         assert((0..<Self.bitWidth).contains(bitIndex))
         
-        // Non-branching bit set/clear
-        let mask: Self = 1 << bitIndex
-
-        // Choice of branchless bit setting/clearing twiddling. Either should be
-        // faster than a conditional branch for any CPU manufactured since the
-        // mid-1990s.
-        #if false
-        // This should work faster for CPUs that do speculative execution with
-        // limited ALU redundancy.
-        self ^= ((~value &+ 1) ^ self) & mask
-        #else
-        // This should work faster for most modern CPUs with significant ALU
-        // redundancy.
-        self = (self & ~mask) | ((~value &+ 1) & mask)
-        #endif
+        withMutableBuffer
+        {
+            var buf = $0
+            BigMath.setBit(at: bitIndex, in: &buf, to: value)
+        }
     }
     
     // -------------------------------------
@@ -159,10 +149,13 @@ extension FixedWidthInteger
     
     // -------------------------------------
     @inlinable
-    public func getBit(at bitIndex: Int) -> Self
+    public func getBit(at bitIndex: Int) -> UInt
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
-        return (self >> bitIndex) & 1
+        
+        return withBuffer {
+            BigMath.getBit(at: bitIndex, from: $0)
+        }
     }
     
     // -------------------------------------

@@ -32,10 +32,16 @@ internal func compareBuffers(
     _ left: UIntBuffer,
     _ right: UIntBuffer) -> ComparisonResult
 {
+    if UInt8(left.count == 0) & UInt8(right.count == 0) == 1 {
+        return .orderedSame
+    }
+    
     let left = left.count == 0 ? left : signficantDigits(of: left)
     let right = right.count == 0 ? right : signficantDigits(of: right)
-    
-    guard left.count == right.count else
+    let leftCount = left.count
+    let rightCount = right.count
+
+    guard leftCount == rightCount else
     {
         return ComparisonResult(
             rawValue: select(
@@ -46,29 +52,26 @@ internal func compareBuffers(
         )!
     }
     
-    if left.count == 0 { return .orderedSame }
-    
     let lStart = left.baseAddress!
-    var lPtr = lStart + (left.count - 1)
-    var rPtr = right.baseAddress! + (left.count - 1)
+    var lPtr = lStart + (leftCount - 1)
+    var rPtr = right.baseAddress! + (leftCount - 1)
+    
+    var result: Int
     
     repeat
     {
         let l = lPtr.pointee
         let r = rPtr.pointee
         
-        guard l == r else
-        {
-            return ComparisonResult(
-                rawValue: select(if: l < r, then: -1, else: 1)
-            )!
-        }
+        result = -Int(l < r) | Int(l > r)
         
         lPtr -= 1
         rPtr -= 1
-    } while lPtr >= lStart
+    } while Int(lPtr < lStart) | result == 0
     
-    return .orderedSame
+    assert((-1...1).contains(result))
+    
+    return ComparisonResult(rawValue: result)!
 }
 
 // -------------------------------------

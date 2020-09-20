@@ -285,17 +285,33 @@ extension WideUInt
     {
         return withBuffer
         {
-            var ptr = $0.baseAddress!
-            let endPtr = ptr + $0.count
-            
-            var accumulatedBits: UInt = 0
-            while ptr < endPtr
+            if MemoryLayout<Self>.size == MemoryLayout<UInt>.size * 2
             {
-                accumulatedBits |= ptr.pointee
-                ptr += 1
+                var ptr = $0.baseAddress!
+                let endPtr = ptr + $0.count
+                
+                var accumulatedBits: UInt = 0
+                while ptr < endPtr
+                {
+                    accumulatedBits |= ptr.pointee
+                    ptr += 1
+                }
+                
+                return accumulatedBits == 0
             }
-            
-            return accumulatedBits == 0
+            else
+            {
+                var ptr = $0.baseAddress!
+                let endPtr = ptr + $0.count
+                
+                while ptr < endPtr
+                {
+                    if ptr.pointee != 0 { return false }
+                    ptr += 1
+                }
+                
+                return true
+            }
         }
     }
 

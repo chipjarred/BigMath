@@ -129,36 +129,39 @@ internal func leftShift(
     assert(dst.count >= src.count)
     
     let d = fastMin(shift / uintBitWidth, src.count)
-    let lShift = shift % uintBitWidth
+    let lShift = shift & (uintBitWidth - 1)
     let rShift = uintBitWidth - lShift
     
     let dstBase = dst.baseAddress!
-    var dstDigit = dstBase.advanced(by: dst.count - 1)
+    var dstPtr = dstBase.advanced(by: dst.count - 1)
     
     if d < src.count
     {
         let srcBase = src.baseAddress!
-        var srcDigit = srcBase + (src.count - d - 1)
-        var prevDigit = srcDigit - 1
+        var srcPtr = srcBase + (src.count - d - 1)
         
-        while UInt8(prevDigit >= srcBase) & UInt8(dstDigit >= dstBase) == 1
+        var prevDigit = srcPtr.pointee
+        srcPtr -= 1
+        
+        while UInt8(srcPtr >= srcBase) & UInt8(dstPtr >= dstBase) == 1
         {
-            dstDigit.pointee =
-                (srcDigit.pointee << lShift) | (prevDigit.pointee >> rShift)
+            let curDigit = prevDigit
+            prevDigit = srcPtr.pointee
 
-            dstDigit -= 1
-            srcDigit -= 1
-            prevDigit -= 1
+            dstPtr.pointee = (curDigit << lShift) | (prevDigit >> rShift)
+
+            dstPtr -= 1
+            srcPtr -= 1
         }
         
-        dstDigit.pointee = srcDigit.pointee << lShift
-        dstDigit -= 1
+        dstPtr.pointee = prevDigit << lShift
+        dstPtr -= 1
     }
     
-    while dstDigit >= dstBase
+    while dstPtr >= dstBase
     {
-        dstDigit.pointee = 0
-        dstDigit -= 1
+        dstPtr.pointee = 0
+        dstPtr -= 1
     }
 }
 
@@ -175,7 +178,7 @@ internal func rightShift(
     assert(dst.count == src.count)
     
     let d = fastMin(shift / uintBitWidth, src.count)
-    let rShift = shift % uintBitWidth
+    let rShift = shift & (uintBitWidth - 1)
     let lShift = uintBitWidth - rShift
     let signBits = select(if: signExtend, then: UInt.max, else: 0)
 

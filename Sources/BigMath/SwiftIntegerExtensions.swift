@@ -26,6 +26,7 @@ import Foundation
 extension FixedWidthInteger where Self: ContiguousBytes
 {
     // --------------------------------------
+    @inlinable
     public func withUnsafeBytes<R>(
         _ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R
     {

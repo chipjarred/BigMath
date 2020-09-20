@@ -121,7 +121,28 @@ internal func rightShift(
 }
 
 // -------------------------------------
-@usableFromInline
+@inline(__always)
+fileprivate func digitShift(for shift: Int) -> Int
+{
+    if MemoryLayout<UInt>.size == 8 {
+        return shift >> 6
+    }
+    else if MemoryLayout<UInt>.size == 4 {
+        return shift >> 5
+    }
+    else { fatalError("Shouldn't get here") }
+}
+
+// -------------------------------------
+@inline(__always)
+fileprivate func sameBuffer(_ src: UIntBuffer, _ dst: MutableUIntBuffer) -> Bool
+{
+    return
+        Int(bitPattern: src.baseAddress!) == Int(bitPattern: dst.baseAddress!)
+}
+
+// -------------------------------------
+@usableFromInline  @inline(__always)
 internal func leftShift(
     from src: UIntBuffer,
     to dst: MutableUIntBuffer,
@@ -130,8 +151,18 @@ internal func leftShift(
     assert(shift >= 0)
     assert(src.count > 0)
     assert(dst.count >= src.count)
+        
+    if shift == 0
+    {
+        if sameBuffer(src, dst) { return }
+        copy(buffer: src, to: dst)
+        fillBuffer(dst[(dst.startIndex + src.count)...], with: 0)
+    }
+    else if shift >= src.count * UInt.bitWidth {
+        fillBuffer(dst, with: 0)
+    }
     
-    let d = fastMin(shift / uintBitWidth, src.count)
+    let d = fastMin(digitShift(for: shift), src.count)
     let lShift = shift & (uintBitWidth - 1)
     let rShift = uintBitWidth - lShift
     
@@ -169,7 +200,7 @@ internal func leftShift(
 }
 
 // -------------------------------------
-@usableFromInline
+@usableFromInline  @inline(__always)
 internal func rightShift(
     from src: UIntBuffer,
     to dst: MutableUIntBuffer,
@@ -180,10 +211,22 @@ internal func rightShift(
     assert(src.count > 0)
     assert(dst.count == src.count)
     
-    let d = fastMin(shift / uintBitWidth, src.count)
+    let signBits = select(if: signExtend, then: UInt.max, else: 0)
+    
+    if shift == 0
+    {
+        if sameBuffer(src, dst) { return }
+        copy(buffer: src, to: dst)
+        fillBuffer(dst[(dst.startIndex + src.count)...], with: signBits)
+    }
+//    else if shift >= src.count * UInt.bitWidth {
+//        fillBuffer(dst, with: signBits)
+//    }
+
+    
+    let d = fastMin(digitShift(for: shift), src.count)
     let rShift = shift & (uintBitWidth - 1)
     let lShift = uintBitWidth - rShift
-    let signBits = select(if: signExtend, then: UInt.max, else: 0)
 
     var dstPtr = dst.baseAddress!
     let dstEnd = dstPtr + dst.count
@@ -1049,6 +1092,7 @@ internal func multiply(
 /**
  - Returns: Remainder
  */
+@inline(__always)
 internal func divide(
     buffer x: UIntBuffer,
     by y: UInt,

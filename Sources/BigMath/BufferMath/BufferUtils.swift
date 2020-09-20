@@ -317,7 +317,7 @@ internal func fillBuffer(
     _ buffer: MutableUIntBuffer,
     with value: UInt)
 {
-    assert(buffer.count > 0)
+    if buffer.count == 0 { return }
     
     var p = buffer.baseAddress!
     let end = p + buffer.count

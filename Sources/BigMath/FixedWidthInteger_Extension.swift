@@ -80,7 +80,7 @@ extension FixedWidthInteger
         UnsafeMutableBufferPointer<UInt>.SubSequence
     
     // -------------------------------------
-    @usableFromInline
+    @usableFromInline @inline(__always)
     internal func withBuffer<R>(body: (UIntBuffer) -> R) -> R
     {
         return Swift.withUnsafeBytes(of: self) {
@@ -89,7 +89,7 @@ extension FixedWidthInteger
     }
     
     // -------------------------------------
-    @usableFromInline
+    @usableFromInline @inline(__always)
     internal mutating func withMutableBuffer<R>(
         body: (MutableUIntBuffer) -> R) -> R
     {

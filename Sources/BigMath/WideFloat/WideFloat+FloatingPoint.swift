@@ -213,121 +213,93 @@ extension WideFloat: FloatingPoint
     }
     
     // -------------------------------------
+    @inlinable
     public static func / (left: Self, right: Self) -> Self
     {
-        /*
-         Ugh - all this conditional branching sucks.  Most of the conditions
-         should be fairly predictable, though, as ideally dividing NaNs and
-         infinities should be unusual.  However, dividing 0 is more common
-         and IEEE 754 has special rules for signed 0s that we have to handle.
-         */
-        let hasSpecialValue =
-            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
-        if hasSpecialValue == 1
-        {
-            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
-            {
-                let hasSignalingNaN =
-                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
-                
-                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
-                
-                // sNaNs are converted to qNaNs after being handled per IEEE 754
-                return Self.nan
-            }
-            
-            if left.isInfinite
-            {
-                if right.isInfinite { return self.nan }
-                
-                if right.isZero
-                {
-                    var result = Self.infinity
-                    result.negate(if: left.isNegative != right.isNegative)
-                    return result
-                }
-                
-                var result = Self.zero
-                result.negate(if: left.isNegative != right.isNegative)
-                return result
-            }
-            else if right.isInfinite
-            {
-                if left.isZero
-                {
-                    var result = Self.zero
-                    result.negate(if: left.isNegative != right.isNegative)
-                    return result
-                }
-                
-                var result = Self.zero
-                result.negate(if: left.isNegative != right.isNegative)
-                return result
-            }
-        }
-        
-        if left.isZero
-        {
-            if right.isZero { return Self.nan }
-            
-            var result = Self.zero
-            result.negate(if: left.isNegative != right.isNegative)
-            return result
-        }
-        else if right.isZero
-        {
-            var result = Self.infinity
-            result.negate(if: left.isNegative != right.isNegative)
-            return result
-        }
-        
-        // Handle underflow to 0, and overflow to infinity
-        if right.exponent > 0
-        {
-            if Int.min + right.exponent > left.exponent
-            {
-                var result = Self.zero
-                result.negate(if: left.isNegative != right.isNegative)
-                return result
-            }
-        }
-        else if Int.max + right.exponent <= left.exponent
-        {
-            var result = Self.infinity
-            result.negate(if: left.isNegative != right.isNegative)
-            return result
-        }
-        
         #if false
-        let rightInv = right.multiplicativeInverse_NewtonRaphson
-        return left * rightInv
+        return left.divide_MultInv(by: right)
         #else
-        var dividend = left._significand
-        dividend.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        var divisor = right._significand
-        divisor.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        return left.divide_KnuthD(by: right)
+        #endif
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func /= (left: inout Self, right: Self) {
+        left = left / right
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public mutating func round(_ rule: FloatingPointRoundingRule)
+    {
+        #warning("Implement me!")
+        fatalError("Unimplemented")
+    }
+    
+    // -------------------------------------
+    /**
+     Divide two `WideFloats` by finding the `divisor`'s multiplicative inverse
+     using Newton's method, and multiplying it by the `dividend`.
+     */
+    @inlinable
+    public func divide_NewtonRaphson(by divisor: Self) -> Self
+    {
+        if let result = self.divideSpecialValues(by: divisor) { return result }
+
+        let divisorInv = divisor.multiplicativeInverse_NewtonRaphson_Core
+        return self.multiply_Core(divisorInv)
+    }
+    
+    // -------------------------------------
+    /**
+     Divide two `WideFloats` by finding the `divisor`'s multiplicative inverse
+     using Knuth's Algorithm D, and multiplying it by the `dividend`.
+     */
+    @inlinable
+    public func divide_MultInv(by divisor: Self) -> Self
+    {
+        if let result = self.divideSpecialValues(by: divisor) { return result }
+
+        let divisorInv = divisor.multiplicativeInverse_KnuthD_Core
+        return self.multiply_Core(divisorInv)
+    }
+
+    // -------------------------------------
+    /**
+     Divide two `WideFloats` by dividing their significands using Knuth's
+     Algorithm D and then adjusting the exponents.
+     */
+    @inlinable
+    public func divide_KnuthD(by divisor: Self) -> Self
+    {
+        if let result = self.divideSpecialValues(by: divisor) { return result }
+
+        var dividendSig = self._significand
+        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        var divisorSig = divisor._significand
+        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
         
         let zero = RawSignificand.zero
         var qHigh, qLow, r: RawSignificand
-        (qHigh, r) = dividend.quotientAndRemainder(dividingBy: divisor)
-        (qLow, r) = divisor.dividingFullWidth((r, zero))
+        (qHigh, r) = dividendSig.quotientAndRemainder(dividingBy: divisorSig)
+        (qLow, r) = divisorSig.dividingFullWidth((r, zero))
         let shift = qHigh.leadingZeroBitCount - 1
         qHigh <<= shift
         qHigh |= qLow >> (RawSignificand.bitWidth - shift)
         let qExpDelta = (
-            left.significand.floatValue / right.significand.floatValue
+            self.significand.floatValue / divisor.significand.floatValue
         ).exponent
         
         var result = Self(
             significandBitPattern: qHigh,
-            exponent: left.exponent - right.exponent + qExpDelta
+            exponent: self.exponent - divisor.exponent + qExpDelta
         )
-        result.negate(if: left.isNegative != right.isNegative)
+        result.negate(if: self.isNegative != divisor.isNegative)
         return result
-        #endif
     }
-    
-    
+
+    // MARK:- Multiplicative inverses
     // -------------------------------------
     @inlinable
     public var multiplicativeInverse: Self {
@@ -338,24 +310,21 @@ extension WideFloat: FloatingPoint
     @inlinable
     public var multiplicativeInverse_NewtonRaphson: Self
     {
-        if _exponent == Int.max
-        {
-            if isNaN { return Self.nan }
-            if isInfinite
-            {
-                var result = Self.zero
-                result.negate(if: isNegative)
-                return result
-            }
-        }
+        if let result = multiplicativeInverseOfSpecialValue { return result }
         
-        if isZero || _exponent <= Int.min + 1
-        {
-            var result = Self.infinity
-            result.negate(if: isNegative)
-            return result
-        }
-        
+        return multiplicativeInverse_NewtonRaphson_Core
+    }
+    
+    // -------------------------------------
+    /**
+     Handles the core of calculating the multiplicative inverse.  Shared by
+     division method and multiplicative inverse property, which both handle
+     special cases, so this method does not, and for that reason should not be
+     called directly.
+     */
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse_NewtonRaphson_Core: Self
+    {
         /*
          Using Newton's method to find the multiplicative inverse.  Given a good
          starting point, it doubles the number of good bits each iteration.
@@ -385,29 +354,27 @@ extension WideFloat: FloatingPoint
         x.negate(if: isNegative)
         return x
     }
-    
+
     // -------------------------------------
     @inlinable
     public var multiplicativeInverse_KnuthD: Self
     {
-        if _exponent == Int.max
-        {
-            if isNaN { return Self.nan }
-            if isInfinite
-            {
-                var result = Self.zero
-                result.negate(if: isNegative)
-                return result
-            }
-        }
-        
-        if isZero || _exponent <= Int.min + 1
-        {
-            var result = Self.infinity
-            result.negate(if: isNegative)
-            return result
-        }
-        
+        if let result = multiplicativeInverseOfSpecialValue { return result }
+
+        return multiplicativeInverse_KnuthD_Core
+    }
+    
+    
+    // -------------------------------------
+    /**
+     Handles the core of calculating the multiplicative inverse.  Shared by
+     division method and multiplicative inverse property, which both handle
+     special cases, so this method does not, and for that reason should not be
+     called directly.
+     */
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse_KnuthD_Core: Self
+    {
         let sig = significand
         
         var rawSig = sig._significand
@@ -468,16 +435,140 @@ extension WideFloat: FloatingPoint
         return result
     }
     
+    // MARK: - Special value handling
     // -------------------------------------
-    @inlinable
-    public static func /= (left: inout Self, right: Self) {
-        left = left / right
+    /**
+     Handles division involving NaNs, infinities and zeros, as well as
+     cases where the result can be obtained purelfy from the exponents.
+     
+     This method is intended to separate the noise of special value handling
+     from the main operation logic.
+     
+     - Returns: the result of the division, or `nil` if no special value
+        was involved.
+     */
+    @usableFromInline @inline(__always)
+    internal func divideSpecialValues(by right:Self) -> Self?
+    {
+        /*
+         Ugh - all this conditional branching sucks.  Most of the conditions
+         should be fairly predictable, though, as ideally dividing NaNs and
+         infinities should be unusual.  However, dividing 0 is more common
+         and IEEE 754 has special rules for signed 0s that we have to handle.
+         */
+        let hasSpecialValue =
+            UInt8(self._exponent == Int.max) | UInt8(right._exponent == Int.max)
+        if hasSpecialValue == 1
+        {
+            if UInt8(self.isNaN) | UInt8(right.isNaN) == 1
+            {
+                let hasSignalingNaN =
+                    UInt8(self.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                
+                if hasSignalingNaN == 1 {
+                    Self.handleSignalingNaN(self, right)
+                }
+                
+                // sNaNs are converted to qNaNs after being handled per IEEE 754
+                return Self.nan
+            }
+            
+            if self.isInfinite
+            {
+                if right.isInfinite { return Self.nan }
+                
+                if right.isZero
+                {
+                    var result = Self.infinity
+                    result.negate(if: self.isNegative != right.isNegative)
+                    return result
+                }
+                
+                var result = Self.zero
+                result.negate(if: self.isNegative != right.isNegative)
+                return result
+            }
+            else if right.isInfinite
+            {
+                if self.isZero
+                {
+                    var result = Self.zero
+                    result.negate(if: self.isNegative != right.isNegative)
+                    return result
+                }
+                
+                var result = Self.zero
+                result.negate(if: self.isNegative != right.isNegative)
+                return result
+            }
+        }
+        
+        if self.isZero
+        {
+            if right.isZero { return Self.nan }
+            
+            var result = Self.zero
+            result.negate(if: self.isNegative != right.isNegative)
+            return result
+        }
+        else if right.isZero
+        {
+            var result = Self.infinity
+            result.negate(if: self.isNegative != right.isNegative)
+            return result
+        }
+        
+        // Handle underflow to 0, and overflow to infinity
+        if right.exponent > 0
+        {
+            if Int.min + right.exponent > self.exponent
+            {
+                var result = Self.zero
+                result.negate(if: self.isNegative != right.isNegative)
+                return result
+            }
+        }
+        else if Int.max + right.exponent <= self.exponent
+        {
+            var result = Self.infinity
+            result.negate(if: self.isNegative != right.isNegative)
+            return result
+        }
+        
+        return nil
     }
     
     // -------------------------------------
-    public mutating func round(_ rule: FloatingPointRoundingRule)
+    /**
+     Handles finding the multiplicative inverse of NaNs, infinities and zero.
+     
+     This property is intended to separate the noise of special value handling
+     from the main operation logic.
+     
+     - Returns: the result of the multiplicative inverse, or `nil` if no
+        special value was involved.
+     */
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverseOfSpecialValue: Self?
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        if _exponent == Int.max
+        {
+            if isNaN { return Self.nan }
+            if isInfinite
+            {
+                var result = Self.zero
+                result.negate(if: isNegative)
+                return result
+            }
+        }
+        
+        if isZero || _exponent <= Int.min + 1
+        {
+            var result = Self.infinity
+            result.negate(if: isNegative)
+            return result
+        }
+        
+        return nil
     }
 }

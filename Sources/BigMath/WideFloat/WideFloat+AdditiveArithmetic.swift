@@ -33,6 +33,62 @@ extension WideFloat: AdditiveArithmetic
     @inlinable
     public static func + (left: Self, right: Self) -> Self
     {
+        if let result = addSpecialValues(left, right) {
+            return result
+        }
+        
+        var result = Self()
+        result.withMutableFloatBuffer
+        {
+            var resultBuf = $0
+            left.withFloatBuffer
+            { leftBuf in
+                right.withFloatBuffer {
+                    FloatingPointBuffer.add(leftBuf, $0, into: &resultBuf)
+                }
+            }
+            $0.exponent = resultBuf.exponent
+        }
+
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func - (left: Self, right: Self) -> Self
+    {
+        if let result = subtractSpecialValues(left, right) { return result }
+        
+        var result = Self()
+        result.withMutableFloatBuffer
+        {
+            var resultBuf = $0
+            left.withFloatBuffer
+            { leftBuf in
+                right.withFloatBuffer {
+                    FloatingPointBuffer.subtract(leftBuf, $0, into: &resultBuf)
+                }
+            }
+            $0.exponent = resultBuf.exponent
+        }
+
+        return result
+    }
+    
+    // MARK: - Special value handling
+    // -------------------------------------
+    /*
+     Handles addition involving NaNs, infinities and zeros.
+     
+     This method is intended to separate the noise of special value handling
+     from the main operation logic.
+     
+     - Returns: the result of the addition, or `nil` if no special value was
+        involved.
+     */
+    @usableFromInline @inline(__always)
+    internal static func addSpecialValues(_ left: Self, _ right:Self) -> Self?
+    {
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally adding NaNs and
@@ -76,26 +132,23 @@ extension WideFloat: AdditiveArithmetic
             return right
         }
         if right.isZero { return left }
-        
-        var result = Self()
-        result.withMutableFloatBuffer
-        {
-            var resultBuf = $0
-            left.withFloatBuffer
-            { leftBuf in
-                right.withFloatBuffer {
-                    FloatingPointBuffer.add(leftBuf, $0, into: &resultBuf)
-                }
-            }
-            $0.exponent = resultBuf.exponent
-        }
-
-        return result
+        return nil
     }
-    
+
     // -------------------------------------
-    @inlinable
-    public static func - (left: Self, right: Self) -> Self
+    /*
+     Handles subtraction involving NaNs, infinities and zeros.
+     
+     This method is intended to separate the noise of special value handling
+     from the main operation logic.
+     
+     - Returns: the result of the subtraction, or `nil` if no special value was
+        involved.
+     */
+    @usableFromInline @inline(__always)
+    internal static func subtractSpecialValues(
+        _ left: Self,
+        _ right:Self) -> Self?
     {
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
@@ -140,20 +193,7 @@ extension WideFloat: AdditiveArithmetic
             return right.negated
         }
         if right.isZero { return left }
-        
-        var result = Self()
-        result.withMutableFloatBuffer
-        {
-            var resultBuf = $0
-            left.withFloatBuffer
-            { leftBuf in
-                right.withFloatBuffer {
-                    FloatingPointBuffer.subtract(leftBuf, $0, into: &resultBuf)
-                }
-            }
-            $0.exponent = resultBuf.exponent
-        }
 
-        return result
+        return nil
     }
 }

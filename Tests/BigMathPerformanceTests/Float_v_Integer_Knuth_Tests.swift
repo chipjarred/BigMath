@@ -103,15 +103,13 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
         
         start = Date()
         for (dividend, divisor) in fpTestCases {
-            let _ = dividend / divisor
+            let _ = dividend.divide_KnuthD(by: divisor)
         }
         let floatKnuthTime = Date().timeIntervalSince(start)
         
         start = Date()
-        for (dividend, divisor) in fpTestCases
-        {
-            let divInv = divisor.multiplicativeInverse_KnuthD
-            let _ = dividend * divInv
+        for (dividend, divisor) in fpTestCases {
+            let _ = dividend.divide_MultInv(by: divisor)
         }
         let multInverseKnuth = Date().timeIntervalSince(start)
 

@@ -42,6 +42,96 @@ extension WideFloat: Numeric
     @inlinable
     public static func * (left: Self, right: Self) -> Self
     {
+        if let result = multiplySpecialValues(left, right) { return result }
+                
+        return left.multiply_Core(right)
+    }
+    
+    // -------------------------------------
+    /**
+     Shared by multiplication and some division methods.
+     */
+    @usableFromInline @inline(__always)
+    internal func multiply_Core(_ other: Self) -> Self
+    {
+        typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
+        var wideProduct = WideProduct()
+        
+        // Compute signficand product
+        var leftSig = self._significand
+        leftSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        var rightSig = other._significand
+        rightSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+
+        (wideProduct._significand.high, wideProduct._significand.low) =
+            leftSig.multipliedFullWidth(by: rightSig)
+        
+        let halfWidth = WideProduct.RawSignificand.bitWidth / 2
+        
+        wideProduct.normalize()
+        
+        wideProduct.roundingRightShift(
+            by: halfWidth
+                + wideProduct._significand.high.leadingZeroBitCount - 1
+        )
+        
+        if wideProduct._significand.low.signBit {
+            wideProduct.roundingRightShift(by: 1)
+        }
+        
+        // Adjust exponents
+        var productExponent = self._exponent + other._exponent
+        let expUpdate = wideProduct._exponent - halfWidth + 2
+        if expUpdate > 0
+        {
+            if Int.max - expUpdate <= productExponent
+            {
+                var result = Self.infinity
+                result.negate(if: self.isNegative != other.isNegative)
+                return result
+            }
+        }
+        else if Int.min - expUpdate > productExponent
+        {
+            var result = Self.zero
+            result.negate(if: self.isNegative != other.isNegative)
+            return result
+        }
+        
+        productExponent += expUpdate
+
+        var result = Self(
+            significandBitPattern: wideProduct._significand.low,
+            exponent: productExponent
+        )
+        assert(result.isNormalized)
+        result.negate(if: self.isNegative != other.isNegative)
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public static func *= (left: inout Self, right: Self) {
+        left = left * right
+    }
+    
+    // MARK: - Special value handling
+    // -------------------------------------
+    /**
+     Handles multiplication involving NaNs, infinities and zeros, as well as
+     cases where the result can be obtained purelfy from the exponents.
+     
+     This method is intended to separate the noise of special value handling
+     from the main operation logic.
+     
+     - Returns: the result of the multiplication, or `nil` if no special value
+        was involved.
+     */
+    @usableFromInline @inline(__always)
+    internal static func multiplySpecialValues(
+        _ left: Self,
+        _ right:Self) -> Self?
+    {
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally multiplying NaNs and
@@ -108,63 +198,7 @@ extension WideFloat: Numeric
                 return result
             }
         }
-        
-        typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
-        var wideProduct = WideProduct()
-        
-        var leftSig = left._significand
-        leftSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        var rightSig = right._significand
-        rightSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
 
-        (wideProduct._significand.high, wideProduct._significand.low) =
-            leftSig.multipliedFullWidth(by: rightSig)
-        
-        let halfWidth = WideProduct.RawSignificand.bitWidth / 2
-        
-        wideProduct.normalize()
-        
-        wideProduct.roundingRightShift(
-            by: halfWidth
-                + wideProduct._significand.high.leadingZeroBitCount - 1
-        )
-        
-        if wideProduct._significand.low.signBit {
-            wideProduct.roundingRightShift(by: 1)
-        }
-        
-        var productExponent = left._exponent + right._exponent
-        let expUpdate = wideProduct._exponent - halfWidth + 2
-        if expUpdate > 0
-        {
-            if Int.max - expUpdate <= productExponent
-            {
-                var result = Self.infinity
-                result.negate(if: left.isNegative != right.isNegative)
-                return result
-            }
-        }
-        else if Int.min - expUpdate > productExponent
-        {
-            var result = Self.zero
-            result.negate(if: left.isNegative != right.isNegative)
-            return result
-        }
-        
-        productExponent += expUpdate
-
-        var result = Self(
-            significandBitPattern: wideProduct._significand.low,
-            exponent: productExponent
-        )
-        assert(result.isNormalized)
-        result.negate(if: left.isNegative != right.isNegative)
-        return result
-    }
-    
-    // -------------------------------------
-    @inlinable
-    public static func *= (left: inout Self, right: Self) {
-        left = left * right
+        return nil
     }
 }

@@ -798,7 +798,7 @@ struct FloatingPointBuffer
     {
         assert(shift >= 0)
         
-        guard exponent <= Int.max - shift else
+        guard exponent <= Int.max &- shift else
         {
             setInfinity()
             return
@@ -810,7 +810,7 @@ struct FloatingPointBuffer
             by: shift
         )
         
-        exponent += shift
+        exponent &+= shift
     }
 
     // -------------------------------------

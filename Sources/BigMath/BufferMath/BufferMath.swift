@@ -242,16 +242,16 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 
         return (
             digitIndex: shift >> digitIndexShift,
-            bitShift: shift & (UInt.bitWidth - 1)
+            bitShift: shift & (UInt.bitWidth &- 1)
         )
     }
     
-    let (digitIndex, bitShift) = digitAndShift(in: x, forRightShift: shift - 1)
+    if shift > x.count * UInt.bitWidth &+ 1 { return 0 }
+    
+    let (digitIndex, bitShift) = digitAndShift(in: x, forRightShift: shift &- 1)
     
     /*
-     IEEE 754 seems to do "bankers" rounding, which is kind of unfortunate,
-     because that requires more work that will slow us down, but we must do
-     it.
+     IEEE 754 seems to do "bankers" rounding.
      
      The banker's rounding rule works like this: If the truncated portion
      is more than half of the value of the value of a 1 in the least
@@ -261,7 +261,8 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      down, and if it's odd you round up.
      
      We return 0 for rounding down, and 1 for rounding up, so the rounding
-     can be done by unconditionally adding our return value.
+     can be done by the caller by unconditionally adding our return value to
+     the last significant `UInt` it performs its right-shift.
      
      If the bit immediately to the right of our least significant
      non-truncated bit is 0, then we already know truncated bits are less
@@ -273,20 +274,6 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      half, rounding up if it is more than half, and if it is exactly half,
      round up or down according to the even/odd value of the least
      non-truncated bit.
-     
-     But checking if the lower bits are more than half means iterating
-     through the lower digits of y, which is O(n).  We can avoid that half
-     of the time by realizing that if the least non-truncated bit is
-     odd (1), we're going to round up regardless. We only need to
-     iterate through the lower digits of y if the least non-truncated bit
-     is even (0).
-     
-     We can make testing the lower bits more efficient by realizing that we
-     don't need to actually compute their value.  If there are any more 1
-     bits to right of the one we already tested, then it's more than half.
-     We can do that most efficiently with a bitwise OR accumuluation which
-     will be 0 when the truncated portion is exactly half, and non-zero
-     when its more than half.
      */
     
     /*
@@ -295,52 +282,63 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      */
     let xStart = x.baseAddress!
     let xEnd = xStart + x.count
-    var xPtr = xStart + digitIndex + 1
+    var xPtr = xStart + (digitIndex &+ 1)
     let validXRange = xStart..<xEnd
     
-    var digitHigh = validXRange.contains(xPtr) ? xPtr.pointee : 0
+    let highShift = UInt.bitWidth &- bitShift
+
+    var digit = xPtr < xEnd ? xPtr.pointee : 0
+    var shiftedDigit = digit << highShift
     xPtr -= 1
-    var digitLow = x.indices.contains(digitIndex) ? xPtr.pointee : 0
-    var digit = digitLow >> bitShift | digitHigh << (UInt.bitWidth - bitShift)
+    digit = validXRange.contains(xPtr) ? xPtr.pointee : 0
+    shiftedDigit |= digit >> bitShift
 
     /*
      Do the truncated bits form at least half of the least non-truncated bit
      position?
+     
+     We use 3 for our mask, because that gets bits 0 and 1.  Bit 0 is most
+     significant truncated bit and bit 1 is least non-truncated.  Bit 0 tells
+     us whether the truncated bits form at least half of the least sigificant
+     non-truncated bit position.
+     
+     Given the rounding rules above, we can make a table for what to do based
+     on these two bits.
+     
+            +-------+-------+------------------+
+            | Bit 1 | Bit 0 | Meaning          |
+            +-------+-------+------------------+
+            |   0   |   0   | Round down       |
+            |   0   |   1   | Check lower bits |
+            |   1   |   0   | Round down       |
+            |   1   |   1   | Round up         |
+            +-------+-------+------------------+
+     
+     So the only time we need to do the O(n) check for the lower bits is when
+     bits 1 is 0 and bit 0 is 1... in other words when the lower two bits
+     combine to form the value 1.  That's what the guard statement below tests.
+     If these two bits do *not* form the value 1, then only time we round up is
+     when they are both 1, which makes their combined value 3, which is what
+     the return in the guard statement's else clause takes care of.
+     
+     The code after the guard statement does the check of the lower bits.
      */
-    if digit & 1 == 1
-    {   // truncated bits form at least half.  We might have to round up
-        if digit & 2 == 2
-        {   // least non-truncated bit is odd - round up regardless
-            return 1
-        }
-        else
-        { // least non-truncated bit is even - we have to test lower bits.
-            var accumulatedBits: UInt = 0
-            
-            digitHigh = digitLow
-            xPtr -= 1
-            
-            let xStop = xStart - 1
-            while xPtr >= xStop
-            {
-                digitLow = validXRange.contains(xPtr) ? xPtr.pointee : 0
-                
-                digit =
-                    digitLow >> bitShift | digitHigh << (UInt.bitWidth - bitShift)
-                
-                digitHigh = digitLow
+        
+    let maskedDigit = shiftedDigit & 3
+    guard maskedDigit == 1 else { return UInt(maskedDigit == 3) }
 
-                accumulatedBits |= digit
-                xPtr -= 1
-            }
-            
-            // round up if there were lower 1 bits; otherwise, round down
-            return UInt(accumulatedBits != 0)
-        }
-    }
+    // We have to check lower bits
+    var accumulatedBits: UInt = digit << highShift
+    xPtr -= 1
     
-    // round down
-    return 0
+    while UInt8(xPtr >= xStart) & UInt8(accumulatedBits == 0) == 1
+    {
+        accumulatedBits |= xPtr.pointee
+        xPtr -= 1
+    }
+
+    // round up if there were lower 1 bits; otherwise, round down
+    return UInt(accumulatedBits != 0)
 }
 
 // -------------------------------------

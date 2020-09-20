@@ -31,9 +31,7 @@ extension WideFloat: AdditiveArithmetic
     @inlinable
     public static func + (left: Self, right: Self) -> Self
     {
-        if let result = addSpecialValues(left, right) {
-            return result
-        }
+        if let result = left.addSpecialValues(right) { return result }
         
         var result = Self()
         result.withMutableFloatBuffer
@@ -55,7 +53,7 @@ extension WideFloat: AdditiveArithmetic
     @inlinable
     public static func - (left: Self, right: Self) -> Self
     {
-        if let result = subtractSpecialValues(left, right) { return result }
+        if let result = left.subtractSpecialValues(right) { return result }
         
         var result = Self()
         result.withMutableFloatBuffer
@@ -85,7 +83,7 @@ extension WideFloat: AdditiveArithmetic
         involved.
      */
     @usableFromInline @inline(__always)
-    internal static func addSpecialValues(_ left: Self, _ right:Self) -> Self?
+    internal func addSpecialValues(_ other:Self) -> Self?
     {
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
@@ -94,42 +92,42 @@ extension WideFloat: AdditiveArithmetic
          IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
+            UInt8(self._exponent == Int.max) | UInt8(other._exponent == Int.max)
         if hasSpecialValue == 1
         {
-            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1
             {
                 let hasSignalingNaN =
-                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                    UInt8(self.isSignalingNaN) | UInt8(other.isSignalingNaN)
                 
-                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
+                if hasSignalingNaN == 1 { Self.handleSignalingNaN(self, other) }
                 
                 // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            if left.isInfinite
+            if self.isInfinite
             {
-                let differentSigns = left.isNegative != right.isNegative
-                if UInt8(right.isInfinite) & UInt8(differentSigns) == 1 {
+                let differentSigns = self.isNegative != other.isNegative
+                if UInt8(other.isInfinite) & UInt8(differentSigns) == 1 {
                     return Self.nan
                 }
-                return left
+                return self
             }
-            else if right.isInfinite { return right }
+            else if other.isInfinite { return other }
         }
         
-        if left.isZero
+        if self.isZero
         {
-            if right.isZero
+            if other.isZero
             {
                 // We have to take into account special signed 0 rules
-                return left.isNegative == right.isNegative
-                    ? left
-                    : left.magnitude
+                return self.isNegative == other.isNegative
+                    ? self
+                    : self.magnitude
             }
-            return right
+            return other
         }
-        if right.isZero { return left }
+        if other.isZero { return self }
         return nil
     }
 
@@ -144,9 +142,7 @@ extension WideFloat: AdditiveArithmetic
         involved.
      */
     @usableFromInline @inline(__always)
-    internal static func subtractSpecialValues(
-        _ left: Self,
-        _ right:Self) -> Self?
+    internal func subtractSpecialValues(_ other:Self) -> Self?
     {
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
@@ -155,42 +151,42 @@ extension WideFloat: AdditiveArithmetic
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
+            UInt8(self._exponent == Int.max) | UInt8(other._exponent == Int.max)
         if hasSpecialValue == 1
         {
-            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1
             {
                 let hasSignalingNaN =
-                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                    UInt8(self.isSignalingNaN) | UInt8(other.isSignalingNaN)
                 
-                if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
+                if hasSignalingNaN == 1 { Self.handleSignalingNaN(self, other) }
                 
                 // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            if left.isInfinite
+            if self.isInfinite
             {
-                let sameSigns = left.isNegative == right.isNegative
-                if UInt8(right.isInfinite) & UInt8(sameSigns) == 1 {
+                let sameSigns = self.isNegative == other.isNegative
+                if UInt8(other.isInfinite) & UInt8(sameSigns) == 1 {
                     return Self.nan
                 }
-                return left
+                return self
             }
-            else if right.isInfinite { return right.negated }
+            else if other.isInfinite { return other.negated }
         }
         
-        if left.isZero
+        if self.isZero
         {
-            if right.isZero
+            if other.isZero
             {
                 // We have to take into account special signed 0 rules
-                return left.isNegative == right.isNegative
-                    ? left.magnitude
-                    : left
+                return self.isNegative == other.isNegative
+                    ? self.magnitude
+                    : self
             }
-            return right.negated
+            return other.negated
         }
-        if right.isZero { return left }
+        if other.isZero { return self }
 
         return nil
     }

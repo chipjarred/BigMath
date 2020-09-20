@@ -121,7 +121,7 @@ extension WideUInt: FixedWidthInteger
         public var r = T()
         public var overflow: UInt = 0
         
-        @inlinable
+        @inline(__always)
         public mutating func withMutableBuffer<R>(
             body: (MutableUIntBuffer) -> R) -> R
         {
@@ -130,7 +130,7 @@ extension WideUInt: FixedWidthInteger
             }
         }
         
-        @inlinable public init() { }
+        @inline(__always) public init() { }
     }
     
     // -------------------------------------

@@ -379,20 +379,20 @@ extension WideFloat: FloatingPoint
         
         var rawSig = sig._significand
         rawSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        let one = Self(1)
-        var q = WideUInt<RawSignificand>()
-        var r: RawSignificand
-        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: rawSig)
-        (q.low, r) = rawSig.dividingFullWidth((r, RawSignificand.zero))
+        let zero = RawSignificand.zero
+        var one = zero
+        one.setBit(at: RawSignificand.bitWidth - 2, to: 1)
+        var qLow, qHigh, r: RawSignificand
+        (qHigh, r) = one.quotientAndRemainder(dividingBy: rawSig)
+        (qLow, r) = rawSig.dividingFullWidth((r, zero))
 
-        let shift = q.leadingZeroBitCount - 1
-        q <<= shift
-        
-        q.roundingRightShift(by: RawSignificand.bitWidth)
-        
+        let shift = qHigh.leadingZeroBitCount - 1
+        qHigh <<= shift
+        qHigh |= qLow >> (RawSignificand.bitWidth - shift)
+
         var x = Self(
-            significandBitPattern: q.low,
-            exponent: (1 / self.significand.floatValue).exponent
+            significandBitPattern: qHigh,
+            exponent: (1 / sig.floatValue).exponent
         )
         assert(!x.isNegative)
         assert(x.isNormalized)

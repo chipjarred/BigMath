@@ -179,34 +179,37 @@ internal func rightShift(
     let lShift = uintBitWidth - rShift
     let signBits = select(if: signExtend, then: UInt.max, else: 0)
 
-    var dstDigit = dst.baseAddress!
-    let dstEnd = dstDigit + dst.count
+    var dstPtr = dst.baseAddress!
+    let dstEnd = dstPtr + dst.count
     
     if d < src.count
     {
         let srcBase = src.baseAddress!
         let srcEnd = srcBase + src.count
-        var srcDigit = srcBase + d
-        var nextDigit = srcDigit + 1
+        var srcPtr = srcBase + d
         
-        while nextDigit < srcEnd
-        {
-            dstDigit.pointee =
-                (srcDigit.pointee >> rShift) | (nextDigit.pointee << lShift)
+        var nextDigit = srcPtr.pointee
+        srcPtr += 1
 
-            dstDigit += 1
-            srcDigit += 1
-            nextDigit += 1
+        while srcPtr < srcEnd
+        {
+            let curDigit = nextDigit
+            nextDigit = srcPtr.pointee
+            
+            dstPtr.pointee = (curDigit >> rShift) | (nextDigit << lShift)
+
+            dstPtr += 1
+            srcPtr += 1
         }
         
-        dstDigit.pointee = (srcDigit.pointee >> rShift) | (signBits << lShift)
-        dstDigit += 1
+        dstPtr.pointee = (nextDigit >> rShift) | (signBits << lShift)
+        dstPtr += 1
     }
     
-    while dstDigit < dstEnd
+    while dstPtr < dstEnd
     {
-        dstDigit.pointee = signBits
-        dstDigit += 1
+        dstPtr.pointee = signBits
+        dstPtr += 1
     }
 }
 

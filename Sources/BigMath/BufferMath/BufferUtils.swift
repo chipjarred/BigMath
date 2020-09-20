@@ -333,8 +333,14 @@ internal func fillBuffer(
 @usableFromInline @inline(__always)
 internal func mostSignicantUInt(of x: UIntBuffer) -> UInt
 {
-    for i in x.indices.reversed() {
-        if x[i] != 0 { return x[i] }
+    let xStart = x.baseAddress!
+    var i = x.count - 1
+    var xPtr = xStart + i
+    while xPtr >= xStart
+    {
+        if xPtr.pointee != 0 { return xPtr.pointee }
+        i -= 1
+        xPtr -= 1
     }
     
     return 0
@@ -344,8 +350,14 @@ internal func mostSignicantUInt(of x: UIntBuffer) -> UInt
 @usableFromInline @inline(__always)
 internal func indexOfMostSignificantUInt(of x: UIntBuffer) -> Int
 {
-    for i in x.indices.reversed() {
-        if x[i] != 0 { return i }
+    let xStart = x.baseAddress!
+    var i = x.count - 1
+    var xPtr = xStart + i
+    while xPtr >= xStart
+    {
+        if xPtr.pointee != 0 { return x.startIndex + i }
+        i -= 1
+        xPtr -= 1
     }
     
     return x.startIndex
@@ -353,8 +365,19 @@ internal func indexOfMostSignificantUInt(of x: UIntBuffer) -> Int
 
 // -------------------------------------
 @usableFromInline @inline(__always)
-internal func indexOfMostSignificantUInt(of x: MutableUIntBuffer) -> Int {
-    return indexOfMostSignificantUInt(of: x.immutable)
+internal func indexOfMostSignificantUInt(of x: MutableUIntBuffer) -> Int
+{
+    let xStart = x.baseAddress!
+    var i = x.count - 1
+    var xPtr = xStart + i
+    while xPtr >= xStart
+    {
+        if xPtr.pointee != 0 { return x.startIndex + i }
+        i -= 1
+        xPtr -= 1
+    }
+    
+    return x.startIndex
 }
 
 // -------------------------------------

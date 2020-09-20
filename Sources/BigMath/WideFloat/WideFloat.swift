@@ -22,6 +22,77 @@ SOFTWARE.
 
 import Foundation
 
+@usableFromInline let preMadeOneSize = 4096
+
+/*
+ Generics like WideFloat can't have static storage, which is a bummer, because
+ that means, following Swift's rules, we have to actually initialize big
+ constant values whenever we need them.  That truly sucks, and it's a
+ significant performance drain.  So we're cheating to get around it.  At least
+ up to a really big size, we're basically construct an array to hold our
+ "constant" for any WideFloat up to that size, and then cast its bytes to the
+ right type.  That still copies the value, which is less than ideal, but at
+ least it's not going through all the overhead of initialization.
+ 
+ This way we only take the initialization hit on the first access.
+ */
+// -------------------------------------
+fileprivate func makeReallyWideFloatValueArray(_ value: UInt) -> [UInt]
+{
+    typealias FloatType = WideUInt<UInt>
+    var bigOne = [UInt](repeating: 0, count: preMadeOneSize + 1)
+    bigOne.withUnsafeMutableBytes
+    {
+        let byteOffset = $0.count - MemoryLayout<FloatType>.size
+        $0.baseAddress!.advanced(by: byteOffset)
+            .bindMemory(to: FloatType.self, capacity: 1)
+            .pointee = FloatType(value)
+    }
+    
+    return bigOne
+}
+
+@usableFromInline let preMadeZeroUInts = makeReallyWideFloatValueArray(0)
+@usableFromInline let preMadeOneUInts = makeReallyWideFloatValueArray(1)
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func makeWideFloatZero<T>() -> WideFloat<T>
+    where T: WideDigit
+{
+    typealias FloatType = WideFloat<T>
+    
+    if MemoryLayout<FloatType.RawSignificand>.size > preMadeOneSize {
+        return FloatType(0)
+    }
+
+    return preMadeZeroUInts.withUnsafeBytes
+    {
+        let byteOffset = $0.count - MemoryLayout<FloatType>.size
+        return $0.baseAddress!.advanced(by: byteOffset)
+            .bindMemory(to: FloatType.self, capacity: 1).pointee
+    }
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func makeWideFloatOne<T>() -> WideFloat<T>
+    where T: WideDigit
+{
+    typealias FloatType = WideFloat<T>
+    
+    if MemoryLayout<FloatType.RawSignificand>.size > preMadeOneSize {
+        return FloatType(1)
+    }
+    
+    return preMadeOneUInts.withUnsafeBytes
+    {
+        let byteOffset = $0.count - MemoryLayout<FloatType>.size
+        return $0.baseAddress!.advanced(by: byteOffset)
+            .bindMemory(to: FloatType.self, capacity: 1).pointee
+    }
+}
+
 // -------------------------------------
 public struct WideFloat<T: WideDigit>:  Hashable
     where T.Magnitude == T
@@ -102,6 +173,10 @@ public struct WideFloat<T: WideDigit>:  Hashable
         return withFloatBuffer { return $0.isZero }
     }
     
+    // -------------------------------------
+    @inlinable public static var zero: Self { return makeWideFloatZero() }
+    @inlinable public static var one: Self { return makeWideFloatOne() }
+
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal var isNormalized: Bool {

@@ -23,8 +23,6 @@ SOFTWARE.
 // -------------------------------------
 extension WideFloat: AdditiveArithmetic
 {
-    public static var zero: WideFloat<T> { return Self() }
-    
     // -------------------------------------
     @inlinable
     public static prefix func - (x: Self) -> Self { return x.negated }

@@ -26,16 +26,36 @@ import Foundation
 extension WideUInt: FixedWidthInteger
 {
     // -------------------------------------
-    @inlinable public var nonzeroBitCount: Int {
-        return low.nonzeroBitCount + high.nonzeroBitCount
+    @inlinable public var nonzeroBitCount: Int
+    {
+        return withBuffer
+        {
+            var result = 0
+            
+            for digit in $0 {
+                result &+= digit.nonzeroBitCount
+            }
+            
+            return result
+        }
     }
     
     // -------------------------------------
     @inlinable public var leadingZeroBitCount: Int
     {
-        return high.isZero
-            ? low.leadingZeroBitCount + Digit.bitWidth
-            : high.leadingZeroBitCount
+        return withBuffer
+        {
+            var result = 0
+            
+            for digit in $0.reversed()
+            {
+                let curLeadingZeros = digit.leadingZeroBitCount
+                result &+= curLeadingZeros
+                guard curLeadingZeros == UInt.bitWidth else { break }
+            }
+            
+            return result
+        }
     }
     
     // -------------------------------------

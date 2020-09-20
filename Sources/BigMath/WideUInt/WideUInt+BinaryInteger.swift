@@ -48,9 +48,19 @@ extension WideUInt: BinaryInteger
     @inlinable
     public var trailingZeroBitCount: Int
     {
-        return low.isZero
-            ? high.trailingZeroBitCount + Digit.bitWidth
-            : low.trailingZeroBitCount
+        return withBuffer
+        {
+            var result = 0
+            
+            for digit in $0
+            {
+                let curTrailingZeros = digit.trailingZeroBitCount
+                result &+= curTrailingZeros
+                guard curTrailingZeros == UInt.bitWidth else { break }
+            }
+            
+            return result
+        }
     }
 
     // -------------------------------------

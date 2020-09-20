@@ -28,23 +28,21 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
     static func generateTests<T>(
         count: Int,
         forType: T.Type)
-        -> [(dividend:(high: T, low: T), divisor: T)]
+        -> [(dividend: T, divisor: T)]
         where
             T: WideUnsignedInteger,
             T.Wrapped == WideUInt<T.Digit>
     {
-        var testCases = [(dividend:(high: T, low: T), divisor: T)]()
+        var testCases = [(dividend: T, divisor: T)]()
         testCases.reserveCapacity(count)
 
         for _ in 0..<count
         {
-            var high = T()
-            var low = T()
+            var dividend = T()
             var divisor = T()
-            setWithRandomBytes(&high)
-            setWithRandomBytes(&low)
+            setWithRandomBytes(&dividend)
             setWithRandomBytes(&divisor)
-            testCases.append(((high, low), divisor))
+            testCases.append((dividend, divisor))
         }
         
         return testCases
@@ -52,7 +50,7 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
     
     // -------------------------------------
     static func generateFPTests<T>(
-        from intTests: [(dividend:(high: T, low: T), divisor: T)])
+        from intTests: [(dividend:T, divisor: T)])
         -> [(dividend: WideFloat<WideUInt<T>>, divisor: WideFloat<WideUInt<T>>)]
         where
             T: WideUnsignedInteger,
@@ -65,7 +63,7 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
         for (intDividend, intDivisor) in intTests
         {
             let wideDividend = WideUInt<T>(intDividend)
-            let wideDivisor = WideUInt<T>(low: intDivisor)
+            let wideDivisor = WideUInt<T>(intDivisor)
             
             fpTests.append(
                 (
@@ -85,19 +83,26 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
             T.Wrapped == WideUInt<T.Digit>,
             T.Magnitude == T
     {
-        var quotient = T()
-        var remainder = T()
+        var doNewtonRaphson: Bool { false }
         
         let testCases = Self.generateTests(count: iterations, forType: T.self)
         let fpTestCases = Self.generateFPTests(from: testCases)
+        
+        // To make the tests fair, we have double the width of the integer
+        // division, because internally the floating point must do double width
+        // division for precision purposes.
+        let intTestCases = testCases.map
+        {
+            (
+                dividend: WideUInt(high: $0.dividend.wrapped),
+                divisor: WideUInt(high: $0.divisor.wrapped)
+            )
+        }
 
         var start = Date()
-        for (dividend, divisor) in testCases
+        for (dividend, divisor) in intTestCases
         {
-            (quotient.wrapped, remainder.wrapped) = divisor.wrapped
-                .dividingFullWidth_KnuthD(
-                    (dividend.high.wrapped, dividend.low.wrapped)
-            )
+            (_, _) = dividend.quotientAndRemainder(dividingBy: divisor)
         }
         let intKnuthTime = Date().timeIntervalSince(start)
         
@@ -112,6 +117,15 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
             let _ = dividend.divide_MultInv(by: divisor)
         }
         let multInverseKnuth = Date().timeIntervalSince(start)
+        
+        if doNewtonRaphson
+        {
+            start = Date()
+            for (dividend, divisor) in fpTestCases {
+                let _ = dividend.divide_NewtonRaphson(by: divisor)
+            }
+        }
+        let newtonRaphson = Date().timeIntervalSince(start)
 
         
         print("\n")
@@ -119,6 +133,9 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
         print("           Integer Knuth D = \(intKnuthTime) seconds")
         print("             Float Knuth D = \(floatKnuthTime) seconds")
         print("    Float Mult Inv Knuth D = \(multInverseKnuth) seconds")
+        if doNewtonRaphson {
+            print("            Newton-Raphson = \(newtonRaphson) seconds")
+        }
     }
     
     // -------------------------------------

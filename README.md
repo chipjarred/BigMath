@@ -12,6 +12,8 @@ The remaining performance drains may require me shift away from generics, and un
 
 That said, I'm getting noticeably better performance than any of the available Swift multiprecision libraries I've tried, so the effort and "breaking the rules" is paying off.   It could be that these techniques could be affect AppStore acceptance.  That isn't an issue for my use case, but it could be for you.
 
+To anyone who thinks these sorts of techniques can't possibly result in that much better performance, take a look at the Performance section below for multiplication.  I re-ran the comparsion tests, and show the original measurements along side the new ones.
+
 ## Motivation
 
 My motivation in creating this package is that for one of my personal projects, I have a need for  floating point types with more precision than the `Float80` Swift-native type, and after trying some of the popular multiprecision Swift packages already available, I quickly concluded that they were much, much too slow.  Much of their sluggishness has to do with the way they store their digits, or "limbs," as some people prefer to call them.  They put them in an array, which means lots of dynamic memory allocation, which is slow.  Many of them don't even bother to make their API `@inlinable`, which wouldn't solve all the problems, but would avoid a lot of protocol/generic witness table thunking and unnecesary function call overhead.   To be fair, they also provide dynamic *arbitrary* precision, which means they can be used, for example, to find the millionth digit of *π*, or find the next prime number after the largest discovered so far. 
@@ -121,23 +123,25 @@ The current default algorithm for multiplication is the "school book" method, wh
 
 There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   For that reason most Karatsuba implementations, including mine, have a threshold for the number of digits, below which it fails over to school book.  After some experimentation, I've set mine to 8192 bits (which is based on results on one particular 64-bit Mac, so hardly the best choice for every machine this package might run on.)
 
-The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384-bit integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over.
+The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384-bit integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over. (*Update: After many optimizations that benefited all algorithms used, you can now see the cross-over at 8192, though that may just be a statiscal variation - maybe some some other process on my machine kicked in during the school book run, but you can see a bigger difference at 16384 that is too large to be explained by system "noise"*)
 
 These tests consisted of randomly generating 100,000 multiplicand-multiplier pairs and doing full width multiplication (meaning the result is twice as wide as the operands).  The run times in the following table do not include generation of these pairs.  One algorithm is timed multiplying all of the pairs before  the second algorithm is timed multiplying the same pairs.  Both algorithms are tested on a single type before testing them on the next type.
 
 Time in seconds to run algorithm 100,000 times :
-| Integer Type | School Book | Karatsuba |
-|     :--:     |            --: |     --: |
-|    `UInt128`   |      0.09    |   0.116  |
-|    `UInt256`   |      0.14    |   0.341  |
-|    `UInt512`   |      0.27    |   0.690  |
-|   `UInt1024`   |     0.534    |   1.401  |
-|   `UInt2048`   |     1.142    |   2.980  |
-|   `UInt4096`   |     2.589    |   6.446  |
-|   `UInt8192`   |     6.363    |  14.333  |
-|  `UInt16384`   |    50.782    |  72.539  |
+| Integer Type | School Book |  Karatsuba |  Shool Book 2 | Karatsuba 2 |
+|     :--:               |              --: |               --: |                     --: |               - -: |
+|    `UInt128`     |      0.09      |    0.116       |              0.003  | 0.005           |
+|    `UInt256`     |      0.14      |    0.341       |              0.004  | 0.007           |
+|    `UInt512`     |      0.27      |    0.690       |              0.010  | 0.014           |
+|   `UInt1024`    |      0.534    |    1.401       |              0.032  | 0.036           |
+|   `UInt2048`    |      1.142    |    2.980       |              0.127  | 0.129           |
+|   `UInt4096`    |      2.589    |    6.446       |              0.505  | 0.511           |
+|   `UInt8192`    |      6.363    |  14.333       |              2.057  | 2.056           |
+|  `UInt16384`   |    50.782    |  72.539       |              8.106  | 6.415           |
 
-Another thing to note is that up to `UInt8192` in these tests, Karatsuba is actually just calling the school book method.  On first blush, one would expect that their performance should be identical, and yet Karatsuba's failing over to school book is markedly slower than just calling school book directly.   The reason for this is that school book is a completely iterative algorithm, and easily inlinable.  Karatsuba, on the other hand, is recursive, and not tail recursive which one could translate into an iterative version fairly easily.  It works by doing 3 smaller multiplications and combining the results.   That recursive nature is a problem for inlining, so even the top-level call to that function is a real, honest-to-God function call.  That overhead accounts for the performance difference.  If I can figure out a clever way to do Karatsuba iteratively without doing any heap allocations, I will implement it, and revisit these tests.
+*School Book 2 and Karatsuba 2 are measurements made after many optimizations.  As you can see, performance has dramatically improved!*
+
+Another thing to note is that up to `UInt8192` in these tests, Karatsuba is actually just calling the school book method.  On first blush, one would expect that their performance should be identical, and yet Karatsuba's failing over to school book is markedly slower than just calling school book directly. (*Note: after optimizations, they're actually pretty close, as one would expect.*)   The reason for this is that school book is a completely iterative algorithm, and easily inlinable.  Karatsuba, on the other hand, is recursive, and not tail recursive which one could translate into an iterative version fairly easily.  It works by doing 3 smaller multiplications and combining the results.   That recursive nature is a problem for inlining, so even the top-level call to that function is a real, honest-to-God function call.  That overhead accounts for the performance difference.  If I can figure out a clever way to do Karatsuba iteratively without doing any heap allocations, I will implement it, and revisit these tests.
 
 I should also mention that I only created the types larger than 4096 bits for these tests.  They have been disabled to keep build times reasonable.
 

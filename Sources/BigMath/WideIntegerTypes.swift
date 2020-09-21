@@ -124,7 +124,7 @@ public struct UInt4096: WideUnsignedInteger
 //public struct UInt8192: WideUnsignedInteger
 //{
 //    public typealias Digit = UInt4096
-//    
+//
 //    public var wrapped: Wrapped
 //
 //    public static let zero: Self = Self(wrapped: Wrapped())
@@ -139,7 +139,7 @@ public struct UInt4096: WideUnsignedInteger
 //public struct UInt16384: WideUnsignedInteger
 //{
 //    public typealias Digit = UInt8192
-//    
+//
 //    public var wrapped: Wrapped
 //
 //    public static let zero: Self = Self(wrapped: Wrapped())

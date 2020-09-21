@@ -10,7 +10,7 @@ These have made a huge difference in performance, but there still remain some th
 
 The remaining performance drains may require me shift away from generics, and unfortuantely use separate and distinct types for every single size of integer I want, with the code duplication that goes with it.  Protocol extensions can help alleviate that, but protocol thunking is one of the problems I'm trying to overcome.
 
-That said, I'm getting noticeably better performance than any of the available Swift multiprecision libraries I've tried, so the effort and "breaking the rules" is paying off.   It could be that these techniques could be affect AppStore acceptance.  That isn't an issue for my use case, but it could be for you.
+That said, I'm getting noticeably better performance than any of the available Swift multiprecision libraries I've tried, so the effort and "breaking the rules" is paying off.   It could be that these techniques could affect AppStore acceptance.  That isn't an issue for my use case, but it could be for you.
 
 To anyone who thinks these sorts of techniques can't possibly result in that much better performance, take a look at the Performance section below for multiplication.  I re-ran the comparsion tests, and show the original measurements along side the new ones.
 
@@ -24,7 +24,7 @@ I need *fast* types.  I also need high precision, but I don't need arbitrary pre
 
 ## So where are the floating point types?
 
-In short, I'm not there *yet*.
+In short, I'm not there *yet*. (Actually, in progress... and coming very soon!)
 
 I'm working toward floating point types, but those  have to be built on a fast multiprecision integer types, so that the floating point types have a solid foundation.  Although I expect to do some optimizing, the integer types are more or less complete now, and before moving on to the floating point, I wanted to publish them to GitHub. In the process I also did a lot of project clean-up, because it had remnants of tons of experimentation, many of which were wrong turns, so I just decided to make a whole new package. 
 

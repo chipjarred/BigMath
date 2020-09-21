@@ -129,15 +129,15 @@ These tests consisted of randomly generating 100,000 multiplicand-multiplier pai
 
 Time in seconds to run algorithm 100,000 times :
 | Integer Type | School Book |  Karatsuba |  Shool Book 2 | Karatsuba 2 |
-|     :--:               |              --: |               --: |                     --: |               - -: |
-|    `UInt128`     |      0.09      |    0.116       |              0.003  | 0.005           |
-|    `UInt256`     |      0.14      |    0.341       |              0.004  | 0.007           |
-|    `UInt512`     |      0.27      |    0.690       |              0.010  | 0.014           |
-|   `UInt1024`    |      0.534    |    1.401       |              0.032  | 0.036           |
-|   `UInt2048`    |      1.142    |    2.980       |              0.127  | 0.129           |
-|   `UInt4096`    |      2.589    |    6.446       |              0.505  | 0.511           |
-|   `UInt8192`    |      6.363    |  14.333       |              2.057  | 2.056           |
-|  `UInt16384`   |    50.782    |  72.539       |              8.106  | 6.415           |
+|     :--: |              --: |               --: |  --: |  --: |
+|    `UInt128` |      0.09 |    0.116 | 0.003  | 0.005 |
+|    `UInt256` |      0.14 |    0.341 | 0.004  | 0.007 |
+|    `UInt512` |      0.27 |    0.690 | 0.010  | 0.014 |
+|   `UInt1024` |      0.534 |    1.401 | 0.032  | 0.036 |
+|   `UInt2048` |      1.142 |    2.980 | 0.127  | 0.129 |
+|   `UInt4096` |      2.589 |    6.446 | 0.505  | 0.511 |
+|   `UInt8192` |      6.363 |  14.333 | 2.057  | 2.056 |
+|  `UInt16384` |    50.782 |  72.539 | 8.106  | 6.415 |
 
 *School Book 2 and Karatsuba 2 are measurements made after many optimizations.  As you can see, performance has dramatically improved!*
 

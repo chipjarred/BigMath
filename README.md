@@ -12,7 +12,7 @@ The remaining performance drains may require me shift away from generics, and un
 
 That said, I'm getting noticeably better performance than any of the available Swift multiprecision libraries I've tried, so the effort and "breaking the rules" is paying off.   It could be that these techniques could affect AppStore acceptance.  That isn't an issue for my use case, but it could be for you.
 
-To anyone who thinks these sorts of techniques can't possibly result in that much better performance, take a look at the Performance section below for multiplication.  I re-ran the comparsion tests, and show the original measurements along side the new ones.
+To anyone who thinks these sorts of techniques can't possibly result in that much better performance, take a look at the Performance section below for integer multiplication and division.  I re-ran the comparsion tests, and show the original measurements along side the new ones.
 
 ## Motivation
 
@@ -153,20 +153,20 @@ At least two of the libraries I looked at claimed that their shift-subtract algo
 I've implemented the shift-subtract division algorithm to benchmark it, and though I suspected it was going to be slower than Knuth's, and so was a little biased, I nonetheless did my best to give it every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divisor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were created to be used in the tests prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
 
 Time in seconds to run algorithm 100,000 times :
-| Integer Type | Shift-Subtract | Knuth D | Knuth D2 |
-|     :--:     |            --: |     --: |     --: |
-|    `UInt128`   |      13.63     |   0.55  |    0.19   |
-|    `UInt256`   |      27.47     |   0.93  |    0.37   |
-|    `UInt512`   |      55.57     |   1.66  |    0.70   |
-|   `UInt1024`   |     114.69     |   3.15  |  1.39   |
-|   `UInt2048`   |     243.78     |   6.40  |  2.89   |
-|   `UInt4096`   |     543.61     |  13.40  |  6.37  |
+| Integer Type | Shift-Subtract | Knuth D | Knuth D2 | Shift-Subtract2 |  Knuth D3 |
+|     :--:     |            --: |     --: |     --: |     --: |     --: |
+|    `UInt128`   |      13.63     |   0.55  |    0.19   |     7.18 | 0.10 |
+|    `UInt256`   |      27.47     |   0.93  |    0.37   |   14.41 | 0.20 |
+|    `UInt512`   |      55.57     |   1.66  |    0.70   |   29.84 | 0.31 |
+|   `UInt1024`   |     114.69     |   3.15  |  1.39   |   63.94 | 0.53 |
+|   `UInt2048`   |     243.78     |   6.40  |  2.89   | 143.19 | 1.06 |
+|   `UInt4096`   |     543.61     |  13.40  |  6.37  | 346.76 | 2.50 |
 
-"Knuth D" is the version of the algorithm used in the original comparison with shift-subtract
+*Knuth D is the version of the algorithm used in the original comparison with shift-subtract*
 
-"Knuth D2" is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.
+*Knuth D2 is an updated version with better 64-bit implementation.  It was not part of the original comparison test, and is provided here to show the improvement in implementation performance.*
 
-*After doing these tests, I inlined both shift-subtract and Knuth D.  It only barely improved their test times.  The improvement was less than 5% and appeared proportionately in both algorithms, so the data above still holds.*
+*Shift-Subtract2 and KnuthD3 are the results after many optimizations.*
 
 *Update: After reaching out to the owner of one of those libraries that was using shift-subtract, we adapated the Knuth algothorithm for his array-based library and he now reports a 25x speed up for division!*
 

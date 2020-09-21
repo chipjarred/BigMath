@@ -100,9 +100,11 @@ extension WideUInt: Numeric
         typealias BiggerInt = WideUInt<Self>
         
         var result: BiggerInt = 0
-        result.withBuffers(self, other) {
-            fullMultiplyBuffers_SchoolBook($1, $2, result: $0)
-        }
+        let resultBuffer = result.mutableBuffer()
+        let selfBuffer = self.buffer()
+        let otherBuffer = other.buffer()
+        
+        fullMultiplyBuffers_SchoolBook(selfBuffer, otherBuffer, result: resultBuffer)
 
         return (high: result.high, low: result.low)
     }
@@ -116,30 +118,26 @@ extension WideUInt: Numeric
         -> (high: Self, low: Self.Magnitude)
     {
         var result = WideUInt<Self>()
-        result.withBuffers(self, other)
-        { rBuf, xBuf, yBuf in
-            var scratch = Self()
-            scratch.withMutableBuffer
-            { s1Buf in
-                var scratch = Self()
-                scratch.withMutableBuffer
-                { s2Buf in
-                    var scratch = WideUInt<Self>()
-                    scratch.withMutableBuffer
-                    { s3Buf in
-                        fullMultiplyBuffers_Karatsuba(
-                            xBuf,
-                            yBuf,
-                            scratch1: s1Buf,
-                            scratch2: s2Buf,
-                            scratch3: s3Buf,
-                            result: rBuf
-                        )
-                    }
-                }
-            }
-        }
+        var scratch1 = Self()
+        var scratch2 = Self()
+        var scratch3 = WideUInt<Self>()
         
+        let rBuf = result.mutableBuffer()
+        let xBuf = self.buffer()
+        let yBuf = other.buffer()
+        let s1Buf = scratch1.mutableBuffer()
+        let s2Buf = scratch2.mutableBuffer()
+        let s3Buf = scratch3.mutableBuffer()
+
+        fullMultiplyBuffers_Karatsuba(
+            xBuf,
+            yBuf,
+            scratch1: s1Buf,
+            scratch2: s2Buf,
+            scratch3: s3Buf,
+            result: rBuf
+        )
+
         return (result.high, result.low)
     }
 
@@ -149,15 +147,17 @@ extension WideUInt: Numeric
         -> (partialValue: Self, overflow: Bool)
     {
         var result: Self = 0
-        let overflow: Bool = result.withBuffers(self, other)
-        {
-            var zBuf = $0
-            return lowerHalfMuliplyBuffers_SchoolBook(
-                $1,
-                $2,
-                result: &zBuf
-            )
-        }
+        
+        var zBuf = result.mutableBuffer()
+        let xBuf = self.buffer()
+        let yBuf = other.buffer()
+        
+        let overflow: Bool = lowerHalfMuliplyBuffers_SchoolBook(
+            xBuf,
+            yBuf,
+            result: &zBuf
+        )
+            
         return (result, overflow)
     }
     

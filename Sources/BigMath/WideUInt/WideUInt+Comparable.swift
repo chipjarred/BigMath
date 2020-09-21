@@ -61,8 +61,9 @@ extension WideUInt: Comparable
     @inlinable
     public static func <=> (lhs: Self, rhs: Self) -> ComparisonResult
     {
-        return lhs.withBuffer {left in
-            return rhs.withBuffer { right in compareBuffers(left, right) }
-        }
+        let left = lhs.buffer()
+        let right = rhs.buffer()
+        
+        return compareBuffers(left, right)
     }
 }

@@ -67,20 +67,14 @@ extension WideDigit
     // --------------------------------------
     @inlinable var decimalValue: Decimal
     {
-        return Swift.withUnsafeBytes(of: self)
-        {
-            let uintBuf = $0.bindMemory(to: UInt.self)
-            return BigMath.decimalValue(from: uintBuf[...])
-        }
+        let selfBuf = self.buffer()
+        return BigMath.decimalValue(from: selfBuf)
     }
     
     @inlinable func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
-        return Swift.withUnsafeBytes(of: self)
-        {
-            let uintBuf = $0.bindMemory(to: UInt.self)
-            return BigMath.convert(from: uintBuf[...], to: F.self)
-        }
+        let selfBuf = self.buffer()
+        return BigMath.convert(from: selfBuf, to: F.self)
     }
     
     // -------------------------------------
@@ -104,7 +98,8 @@ extension WideDigit
         assert(_floor >= 0)
         assert(_floor.exponent <= Self.bitWidth)
         self.init()
-        withMutableBuffer { set(buffer: $0, from: _floor) }
+        let selfBuffer = self.mutableBuffer()
+        set(buffer: selfBuffer, from: _floor)
     }
     
     // -------------------------------------
@@ -125,19 +120,18 @@ extension WideDigit
         }
         else
         {
-            return withBuffer
+            let selfBuffer = self.buffer()
+            
+            var ptr = selfBuffer.baseAddress!
+            let endPtr = ptr + selfBuffer.count
+            
+            while ptr < endPtr
             {
-                var ptr = $0.baseAddress!
-                let endPtr = ptr + $0.count
-                
-                while ptr < endPtr
-                {
-                    if ptr.pointee != 0 { return false }
-                    ptr += 1
-                }
-                
-                return true
+                if ptr.pointee != 0 { return false }
+                ptr += 1
             }
+            
+            return true
         }
     }
 }
@@ -169,11 +163,8 @@ extension WideUInt: WideDigit
         assert(value & ~1 == 0, "Not 1 or 0")
         assert((0..<Self.bitWidth).contains(bitIndex))
 
-        withMutableBuffer
-        {
-            var buf = $0
-            BigMath.setBit(at: bitIndex, in: &buf, to: value)
-        }
+        var selfBuffer = self.mutableBuffer()
+        BigMath.setBit(at: bitIndex, in: &selfBuffer, to: value)
     }
     
     // -------------------------------------
@@ -185,11 +176,8 @@ extension WideUInt: WideDigit
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
         
-        withMutableBuffer
-        {
-            var buf = $0
-            BigMath.toggleBit(at: bitIndex, in: &buf)
-        }
+        var selfBuffer = self.mutableBuffer()
+        BigMath.toggleBit(at: bitIndex, in: &selfBuffer)
     }
     
     // -------------------------------------
@@ -197,9 +185,9 @@ extension WideUInt: WideDigit
     public func getBit(at bitIndex: Int) -> UInt
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
-        return withBuffer {
-            return BigMath.getBit(at: bitIndex, from: $0)
-        }
+        
+        let selfBuffer = self.buffer()
+        return BigMath.getBit(at: bitIndex, from: selfBuffer)
     }
 }
 

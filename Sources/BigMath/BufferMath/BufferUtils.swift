@@ -31,6 +31,16 @@ import Foundation
 extension UIntBuffer
 {
     @usableFromInline @inline(__always)
+    init(_ source: UnsafeRawBufferPointer) {
+        self = source.bindMemory(to: UInt.self)[...]
+    }
+    
+    @usableFromInline @inline(__always)
+    init(_ source: UnsafeMutableRawBufferPointer) {
+        self.init(UnsafeRawBufferPointer(source))
+    }
+    
+    @usableFromInline @inline(__always)
     var baseAddress: UnsafePointer<UInt>? {
         return self.base.baseAddress?.advanced(by: self.startIndex)
     }
@@ -91,6 +101,11 @@ extension UIntBuffer
 // -------------------------------------
 extension MutableUIntBuffer
 {
+    @usableFromInline @inline(__always)
+    init(_ source: UnsafeMutableRawBufferPointer) {
+        self = source.bindMemory(to: UInt.self)[...]
+    }
+    
     @usableFromInline @inline(__always)
     var baseAddress: UnsafeMutablePointer<UInt>? {
         return self.base.baseAddress?.advanced(by: self.startIndex)

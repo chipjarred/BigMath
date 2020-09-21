@@ -119,19 +119,18 @@ extension WideInt
     @inlinable
     var isZero: Bool
     {
-        return withBuffer
+        let selfBuffer = self.buffer()
+        
+        var ptr = selfBuffer.baseAddress!
+        let endPtr = ptr + selfBuffer.count
+        
+        var accumulatedBits: UInt = 0
+        while ptr < endPtr
         {
-            var ptr = $0.baseAddress!
-            let endPtr = ptr + $0.count
-            
-            var accumulatedBits: UInt = 0
-            while ptr < endPtr
-            {
-                accumulatedBits |= ptr.pointee
-                ptr += 1
-            }
-            
-            return accumulatedBits == 0
+            accumulatedBits |= ptr.pointee
+            ptr += 1
         }
+        
+        return accumulatedBits == 0
     }
 }

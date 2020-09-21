@@ -28,34 +28,32 @@ extension WideUInt: FixedWidthInteger
     // -------------------------------------
     @inlinable public var nonzeroBitCount: Int
     {
-        return withBuffer
-        {
-            var result = 0
-            
-            for digit in $0 {
-                result &+= digit.nonzeroBitCount
-            }
-            
-            return result
+        let selfBuffer = self.buffer()
+        
+        var result = 0
+        
+        for digit in selfBuffer {
+            result &+= digit.nonzeroBitCount
         }
+        
+        return result
     }
     
     // -------------------------------------
     @inlinable public var leadingZeroBitCount: Int
     {
-        return withBuffer
+        let selfBuffer = self.buffer()
+        
+        var result = 0
+        
+        for digit in selfBuffer.reversed()
         {
-            var result = 0
-            
-            for digit in $0.reversed()
-            {
-                let curLeadingZeros = digit.leadingZeroBitCount
-                result &+= curLeadingZeros
-                guard curLeadingZeros == UInt.bitWidth else { break }
-            }
-            
-            return result
+            let curLeadingZeros = digit.leadingZeroBitCount
+            result &+= curLeadingZeros
+            guard curLeadingZeros == UInt.bitWidth else { break }
         }
+        
+        return result
     }
     
     // -------------------------------------
@@ -96,28 +94,19 @@ extension WideUInt: FixedWidthInteger
         var r = KnuthDRemainder<Self>()
         var scratch = Self()
         
-        self.withBuffer
-        { dividend in
-            x.withBuffer
-            { divisor in
-                q.withMutableBuffer
-                { quotient in
-                    r.withMutableBuffer
-                    { remainder in
-                        scratch.withMutableBuffer
-                        { scratch in
-                            fullWidthDivide_KnuthD(
-                                dividend,
-                                by: divisor,
-                                quotient: quotient,
-                                remainder: remainder,
-                                scratch: scratch
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        let dividend = self.buffer()
+        let divisor = x.buffer()
+        let quotient = q.mutableBuffer()
+        let remainder = r.mutableBuffer()
+        let scratchBuf = scratch.mutableBuffer()
+        
+        fullWidthDivide_KnuthD(
+            dividend,
+            by: divisor,
+            quotient: quotient,
+            remainder: remainder,
+            scratch: scratchBuf
+        )
 
         return (quotient: q.r, remainder: r.r)
     }
@@ -141,15 +130,48 @@ extension WideUInt: FixedWidthInteger
         public var r = T()
         public var overflow: UInt = 0
         
-        @inline(__always)
-        public mutating func withMutableBuffer<R>(
+        // -------------------------------------
+        @usableFromInline @inline(__always)
+        internal mutating func withMutableBuffer<R>(
             body: (MutableUIntBuffer) -> R) -> R
         {
-            return withUnsafeMutableBytes(of: &self) {
-                return body($0.bindMemory(to: UInt.self)[...])
-            }
+            let buffer = self.mutableBuffer()
+            return body(buffer)
         }
-        
+
+        // -------------------------------------
+        /*
+         - Important: This is so unsafe, but we need it for performance!  Calling
+            a closure via withUnsafeBytes turns out to be way more costly than
+            expected.  I would have thought it would disappear with inlining, but
+            it doesn't.
+         */
+        @usableFromInline @inline(__always)
+        internal mutating func mutableBuffer() -> MutableUIntBuffer
+        {
+            /*
+             withUnsafeBytes invalidates the pointer on return, so we can't just
+             return $0.  However, the address remains valid (this is *NOT*
+             guaranteed behavior in future versons of Swift, and not technically
+             supported even in the current version.  But we're desperate to avoid as
+             many nested withUnsafeBytes calls as we can, and for that we need
+             pointers outside of the withUnsafeBytes calls.  So we fake out
+             withUnsafeBytes by turning the pointer into an integer, and then back
+             into a pointer after we return.
+             */
+            let address = Swift.withUnsafeMutableBytes(of: &self) {
+                return UInt(bitPattern: $0.baseAddress!)
+            }
+            
+            let ptr = UnsafeMutableRawPointer(bitPattern: address)!
+            let bufferSize = MemoryLayout<Self>.size
+            let buffer = UnsafeMutableRawBufferPointer(
+                start: ptr,
+                count:  bufferSize
+            )
+            return MutableUIntBuffer.init(buffer)
+        }
+
         @inline(__always) public init() { }
     }
     
@@ -164,33 +186,21 @@ extension WideUInt: FixedWidthInteger
         var scratch = Self()
         let dividend = BiggerInt(dividend)
         
-        dividend.withBuffer
-        { dividend in
-            self.withBuffer
-            { divisor in
-                q.withMutableBuffer
-                { quotient in
-                    r.withMutableBuffer
-                    { remainder in
-                        scratch.withMutableBuffer
-                        { scratch in
-                            fullWidthDivide_KnuthD(
-                                dividend,
-                                by: divisor,
-                                quotient: quotient,
-                                remainder: remainder,
-                                scratch: scratch
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        return (
-            quotient: q.r,
-            remainder: r.r.low
+        let dividendBuf = dividend.buffer()
+        let divisorBuf = self.buffer()
+        let quotient = q.mutableBuffer()
+        let remainder = r.mutableBuffer()
+        let scratchBuf = scratch.mutableBuffer()
+        
+        fullWidthDivide_KnuthD(
+            dividendBuf,
+            by: divisorBuf,
+            quotient: quotient,
+            remainder: remainder,
+            scratch: scratchBuf
         )
+
+        return (quotient: q.r, remainder: r.r.low)
     }
     
     // -------------------------------------
@@ -203,28 +213,18 @@ extension WideUInt: FixedWidthInteger
         var r = KnuthDRemainder<BiggerInt>()
         let dividend = BiggerInt(dividend)
         
-        dividend.withBuffer
-        { dividend in
-            self.withBuffer
-            { divisor in
-                q.withMutableBuffer
-                { quotient in
-                    r.withMutableBuffer
-                    { remainder in
-                        fullWidthDivide_ShiftSubtract(
-                            dividend,
-                            by: divisor,
-                            quotient: quotient,
-                            remainder: remainder
-                        )
-                    }
-                }
-            }
-        }
-
-        return (
-            quotient: q.r,
-            remainder: r.r.low
+        let dividendBuf = dividend.buffer()
+        let divisor = self.buffer()
+        let quotient = q.mutableBuffer()
+        let remainder = r.mutableBuffer()
+        
+        fullWidthDivide_ShiftSubtract(
+            dividendBuf,
+            by: divisor,
+            quotient: quotient,
+            remainder: remainder
         )
+
+        return (quotient: q.r, remainder: r.r.low)
     }
 }

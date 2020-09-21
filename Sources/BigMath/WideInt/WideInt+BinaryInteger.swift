@@ -25,7 +25,7 @@ import Foundation
 // -------------------------------------
 extension WideInt: BinaryInteger
 {
-    public typealias Words = UnsafeBufferPointer<UInt>
+    public typealias Words = [UInt]
     
     // -------------------------------------
     @inlinable

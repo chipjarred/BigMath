@@ -145,15 +145,11 @@ extension WideUInt
         body: (MutableUIntBuffer, UIntBuffer, UIntBuffer) -> R) -> R
         where S: FixedWidthInteger, T: FixedWidthInteger
     {
-        return self.withMutableBuffer
-        { selfBuffer in
-            return x.withBuffer
-            { xBuffer in
-                return y.withBuffer { yBuffer in
-                    return body(selfBuffer, xBuffer, yBuffer)
-                }
-            }
-        }
+        let selfBuffer = self.mutableBuffer()
+        let xBuffer = x.buffer()
+        let yBuffer = y.buffer()
+        
+        return body(selfBuffer, xBuffer, yBuffer)
     }
     
     // -------------------------------------

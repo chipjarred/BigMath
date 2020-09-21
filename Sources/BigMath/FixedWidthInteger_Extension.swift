@@ -83,9 +83,8 @@ extension FixedWidthInteger
     @usableFromInline @inline(__always)
     internal func withBuffer<R>(body: (UIntBuffer) -> R) -> R
     {
-        return Swift.withUnsafeBytes(of: self) {
-            return body($0.bindMemory(to: UInt.self)[...])
-        }
+        let buffer = self.buffer()
+        return body(buffer)
     }
     
     // -------------------------------------
@@ -93,9 +92,71 @@ extension FixedWidthInteger
     internal mutating func withMutableBuffer<R>(
         body: (MutableUIntBuffer) -> R) -> R
     {
-        return withUnsafeMutableBytes(of: &self) {
-            return body($0.bindMemory(to: UInt.self)[...])
+        let buffer = self.mutableBuffer()
+        return body(buffer)
+    }
+    
+    // -------------------------------------
+    /*
+     - Important: This is so unsafe, but we need it for performance!  Calling
+        a closure via withUnsafeBytes turns out to be way more costly than
+        expected.  I would have thought it would disappear with inlining, but
+        it doesn't.
+     */
+    @usableFromInline @inline(__always)
+    internal func buffer() -> UIntBuffer
+    {
+        /*
+         withUnsafeBytes invalidates the pointer on return, so we can't just
+         return $0.  However, the address remains valid (this is *NOT*
+         guaranteed behavior in future versons of Swift, and not technically
+         supported even in the current version.  But we're desperate to avoid as
+         many nested withUnsafeBytes calls as we can, and for that we need
+         pointers outside of the withUnsafeBytes calls.  So we fake out
+         withUnsafeBytes by turning the pointer into an integer, and then back
+         into a pointer after we return.
+         */
+        let address = Swift.withUnsafeBytes(of: self) {
+            return UInt(bitPattern: $0.baseAddress!)
         }
+        
+        let ptr = UnsafeRawPointer(bitPattern: address)!
+        let bufferSize = MemoryLayout<Self>.size
+        let buffer = UnsafeRawBufferPointer(start: ptr, count:  bufferSize)
+        return UIntBuffer.init(buffer)
+    }
+    
+    // -------------------------------------
+    /*
+     - Important: This is so unsafe, but we need it for performance!  Calling
+        a closure via withUnsafeBytes turns out to be way more costly than
+        expected.  I would have thought it would disappear with inlining, but
+        it doesn't.
+     */
+    @usableFromInline @inline(__always)
+    internal mutating func mutableBuffer() -> MutableUIntBuffer
+    {
+        /*
+         withUnsafeBytes invalidates the pointer on return, so we can't just
+         return $0.  However, the address remains valid (this is *NOT*
+         guaranteed behavior in future versons of Swift, and not technically
+         supported even in the current version.  But we're desperate to avoid as
+         many nested withUnsafeBytes calls as we can, and for that we need
+         pointers outside of the withUnsafeBytes calls.  So we fake out
+         withUnsafeBytes by turning the pointer into an integer, and then back
+         into a pointer after we return.
+         */
+        let address = Swift.withUnsafeMutableBytes(of: &self) {
+            return UInt(bitPattern: $0.baseAddress!)
+        }
+        
+        let ptr = UnsafeMutableRawPointer(bitPattern: address)!
+        let bufferSize = MemoryLayout<Self>.size
+        let buffer = UnsafeMutableRawBufferPointer(
+            start: ptr,
+            count:  bufferSize
+        )
+        return MutableUIntBuffer.init(buffer)
     }
 }
 
@@ -153,9 +214,8 @@ extension FixedWidthInteger
     {
         assert((0..<Self.bitWidth).contains(bitIndex))
         
-        return withBuffer {
-            BigMath.getBit(at: bitIndex, from: $0)
-        }
+        let selfBuffer = self.buffer()
+        return BigMath.getBit(at: bitIndex, from: selfBuffer)
     }
     
     // -------------------------------------

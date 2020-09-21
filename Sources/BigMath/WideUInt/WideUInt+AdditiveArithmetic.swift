@@ -105,10 +105,16 @@ extension WideUInt: AdditiveArithmetic
         -> (partialValue: Self, carry: Digit)
     {
         var sum = Self()
-        let carry = sum.withBuffers(self, other) {
-            addReportingCarry($1, $2, result: $0)
-        }
         
+        let sumBuffer = sum.mutableBuffer()
+        let selfBuffer = self.buffer()
+        let otherBuffer = other.buffer()
+        
+        let carry = addReportingCarry(
+            selfBuffer,
+            otherBuffer,
+            result: sumBuffer
+        )
         return (partialValue: sum, carry: Digit(carry))
     }
     
@@ -116,9 +122,14 @@ extension WideUInt: AdditiveArithmetic
     @usableFromInline @inline(__always)
     internal mutating func addToSelfReportingCarry(_ other: Self) -> Digit
     {
-        let carry = self.withBuffers(self, other) {
-            addReportingCarry($1, $2, result: $0)
-        }
+        let selfBuffer = self.mutableBuffer()
+        let otherBuffer = other.buffer()
+        
+        let carry = addReportingCarry(
+            selfBuffer.immutable,
+            otherBuffer,
+            result: selfBuffer
+        )
         return Digit(carry)
     }
     
@@ -147,10 +158,17 @@ extension WideUInt: AdditiveArithmetic
         -> (partialValue: Self, borrow: Digit)
     {
         var difference = Self()
-        let borrow = difference.withBuffers(self, other) {
-            subtractReportingBorrow($1, $2, result: $0)
-        }
         
+        let diffBuffer = difference.mutableBuffer()
+        let selfBuffer = self.buffer()
+        let otherBuffer = other.buffer()
+        
+        let borrow = subtractReportingBorrow(
+            selfBuffer,
+            otherBuffer,
+            result: diffBuffer
+        )
+
         return (partialValue: difference, borrow: Digit(borrow))
     }
 
@@ -158,9 +176,14 @@ extension WideUInt: AdditiveArithmetic
     @usableFromInline @inline(__always)
     internal mutating func subtractFromSelfReportingBorrow(_ other: Self) -> Digit
     {
-        let borrow = self.withBuffers(self, other) {
-            subtractReportingBorrow($1, $2, result: $0)
-        }
+        let selfBuffer = self.mutableBuffer()
+        let otherBuffer = other.buffer()
+        
+        let borrow = subtractReportingBorrow(
+            selfBuffer.immutable,
+            otherBuffer,
+            result: selfBuffer
+        )
         return Digit(borrow)
     }
     

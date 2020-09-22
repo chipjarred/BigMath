@@ -501,6 +501,31 @@ internal func floatDivide(
         zPtr -= 1
     }
     
+    let truncDigit: UInt
+    (truncDigit, r) = y.dividingFullWidth((r, 0))
+
+    
+    // Need to round least signifcant digit
+    let halfDigit = (UInt.max >> 1) &+ 1
+    if truncDigit >= halfDigit
+    {
+        zPtr += 1
+        if r > halfDigit || r == halfDigit && (zPtr.pointee & 1 == 1)
+        {
+            let carry = addReportingCarry(z.immutable, 1, result: z)
+            if carry == 1
+            {
+                var z = z
+                roundingRightShift(from: z.immutable, to: z, by: 1)
+                assert(
+                    getBit(at: z.count * UInt.bitWidth - 1, from: z.immutable)
+                        == 0
+                )
+                setBit(at: z.count * UInt.bitWidth - 1, in: &z, to: 1)
+            }
+        }
+    }
+    
     return r
 }
 

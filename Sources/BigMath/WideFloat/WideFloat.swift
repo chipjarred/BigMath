@@ -39,6 +39,7 @@ import Foundation
 // -------------------------------------
 fileprivate func makeReallyWideFloatValueArray(_ value: UInt) -> [UInt]
 {
+    let value = value << (value.leadingZeroBitCount - 1)
     typealias FloatType = WideUInt<UInt>
     var bigOne = [UInt](repeating: 0, count: preMadeOneSize + 1)
     bigOne.withUnsafeMutableBytes

@@ -545,7 +545,7 @@ internal func floatDivide_KnuthD(
     assert(
         dividend.reduce(0, | ) == 0
         || dividend.last!.bit(at: digitWidth - 2),
-        "Dividend not normalized"
+        "Dividend not normalized, dividend.last = \(binary: dividend.last!)"
     )
     assert(!dividend.last!.bit(at: digitWidth - 1), "Dividend is negative")
     assert(divisor.reduce(0) { $0 | $1 } != 0, "Division by 0")

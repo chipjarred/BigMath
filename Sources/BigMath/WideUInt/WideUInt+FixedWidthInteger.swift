@@ -29,31 +29,14 @@ extension WideUInt: FixedWidthInteger
     @inlinable public var nonzeroBitCount: Int
     {
         let selfBuffer = self.buffer()
-        
-        var result = 0
-        
-        for digit in selfBuffer {
-            result &+= digit.nonzeroBitCount
-        }
-        
-        return result
+        return countNonzeroBits(selfBuffer)
     }
     
     // -------------------------------------
     @inlinable public var leadingZeroBitCount: Int
     {
         let selfBuffer = self.buffer()
-        
-        var result = 0
-        
-        for digit in selfBuffer.reversed()
-        {
-            let curLeadingZeros = digit.leadingZeroBitCount
-            result &+= curLeadingZeros
-            guard curLeadingZeros == UInt.bitWidth else { break }
-        }
-        
-        return result
+        return countLeadingZeroBits(selfBuffer)
     }
     
     // -------------------------------------

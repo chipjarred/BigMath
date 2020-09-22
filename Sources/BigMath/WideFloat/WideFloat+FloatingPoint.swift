@@ -362,15 +362,8 @@ extension WideFloat: FloatingPoint
         {
             let buf = mutableBuffer()
 
-            var leadZeros = 0
+            let leadZeros = countLeadingZeroBits(buf.immutable)
             
-            for digit in buf.reversed()
-            {
-                let curLeadingZeros = digit.leadingZeroBitCount
-                leadZeros &+= curLeadingZeros
-                guard curLeadingZeros == UInt.bitWidth else { break }
-            }
-
             let rightShift = UInt.bitWidth - leadZeros + 1
             if rightShift < 0 { leftShift(buffer: buf, by: -rightShift) }
             else { BigMath.rightShift(buffer: buf, by: rightShift) }

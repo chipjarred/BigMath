@@ -47,16 +47,7 @@ extension WideUInt: BinaryInteger
     public var trailingZeroBitCount: Int
     {
         let selfBuffer = self.buffer()
-        var result = 0
-        
-        for digit in selfBuffer
-        {
-            let curTrailingZeros = digit.trailingZeroBitCount
-            result &+= curTrailingZeros
-            guard curTrailingZeros == UInt.bitWidth else { break }
-        }
-        
-        return result
+        return countTrailingZeroBits(selfBuffer)
     }
 
     // -------------------------------------

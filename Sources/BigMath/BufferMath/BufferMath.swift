@@ -507,6 +507,51 @@ internal func bitwiseComplement(
     } while xPtr < xEnd
 }
 
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func countLeadingZeroBits(_ x: UIntBuffer) -> Int
+{
+    var result = 0
+    
+    for digit in x.reversed()
+    {
+        let curLeadingZeros = digit.leadingZeroBitCount
+        result &+= curLeadingZeros
+        guard curLeadingZeros == UInt.bitWidth else { break }
+    }
+    
+    return result
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func countTrailingZeroBits(_ x: UIntBuffer) -> Int
+{
+    var result = 0
+    
+    for digit in x
+    {
+        let curTrailingZeros = digit.trailingZeroBitCount
+        result &+= curTrailingZeros
+        guard curTrailingZeros == UInt.bitWidth else { break }
+    }
+    
+    return result
+}
+
+// -------------------------------------
+@usableFromInline @inline(__always)
+internal func countNonzeroBits(_ x: UIntBuffer) -> Int
+{
+    var result = 0
+    
+    for digit in x {
+        result &+= digit.nonzeroBitCount
+    }
+    
+    return result
+}
+
 // MARK:- Arithmetic operations
 // -------------------------------------
 /// Two's complement arithmetic negation

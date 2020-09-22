@@ -620,10 +620,10 @@ struct FloatingPointBuffer
     {
         assert(buffer.count > 0, "Must have room for at least one digit.")
 
-        buffer.baseAddress!.pointee |= 1
+        buffer.baseAddress!.pointee |= (1 | (UInt(signaling) << 1))
         return Self(
             significand: buffer,
-            exponent: select(if: signaling, then: -1, else: Int.max),
+            exponent: Int.max,
             isNegative: false
         )
     }
@@ -637,7 +637,11 @@ struct FloatingPointBuffer
         assert(buffer.count > 0, "Must have room for at least one digit.")
 
         zeroBuffer(buffer)
-        return Self(significand: buffer, exponent: -1, isNegative: isNegative)
+        return Self(
+            significand: buffer,
+            exponent: Int.max,
+            isNegative: isNegative
+        )
     }
     
     // MARK:-

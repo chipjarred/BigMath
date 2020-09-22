@@ -247,7 +247,7 @@ struct FloatingPointBuffer
     var isNormalized: Bool
     {
         // This handles NaN, sNaN, and +/- Infinity
-        if exponent & Int.max == Int.max { return true }
+        if exponent == Int.max { return true }
         
         // If the significand is zero, the exponent must be zero
         if significandIsZero { return exponent == 0 }
@@ -257,7 +257,7 @@ struct FloatingPointBuffer
          be one.
          */
         let sigHead = significandHead
-        return ((sigHead >> (UInt.bitWidth - 2)) & 1) == 1
+        return sigHead.bit(at:UInt.bitWidth - 2)
     }
     
     // -------------------------------------
@@ -310,7 +310,7 @@ struct FloatingPointBuffer
     mutating func normalize()
     {
         // NaN, sNaN and infinities are already normalized
-        if exponent & Int.max == Int.max { return }
+        if exponent == Int.max { return }
         
         // totalBits doesn't include sign bit
         let totalBits = significand.count * UInt.bitWidth - 1

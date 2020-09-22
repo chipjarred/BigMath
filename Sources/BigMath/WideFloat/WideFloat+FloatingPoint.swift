@@ -501,12 +501,12 @@ extension WideFloat: FloatingPoint
                 x = x + x * (1 - s * x)
              We're using the second one
              */
-            let sx = s * x
+            let sx = s.multiply_Core(x)
             
             let oneMinusSX = one - sx
             
             if oneMinusSX.isZero { break }
-            let xOneMinusSX = x * oneMinusSX
+            let xOneMinusSX = x.multiply_Core(oneMinusSX)
 
             x =  x + xOneMinusSX
         }

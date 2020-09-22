@@ -15,12 +15,10 @@ class WideFloat_Buffer_UnitTests: XCTestCase
     func callRoundingBit(for x: [UInt], shift: Int) -> UInt
     {
         var x = x
+        x.append(0)
         return x.withUnsafeMutableBufferPointer
         {
-            let buff = FloatingPointBuffer(
-                rawSignificand: $0[...],
-                exponent: 0
-            )
+            let buff = FloatingPointBuffer(wideFloatUIntBuffer: $0[...])
             return roundingBit(
                 forRightShift: shift,
                 of: buff.significand.immutable
@@ -35,18 +33,16 @@ class WideFloat_Buffer_UnitTests: XCTestCase
         shift: Int) -> (significand: [UInt], exponent: Int)
     {
         var x = x
+        x.append(UInt(bitPattern: exponent))
         var exponent = exponent
         x.withUnsafeMutableBufferPointer
         {
-            var buff = FloatingPointBuffer(
-                rawSignificand: $0[...],
-                exponent: exponent
-            )
+            var buff = FloatingPointBuffer(wideFloatUIntBuffer: $0[...])
             buff.rightShiftForAddOrSubtract(by: shift)
             exponent = buff.exponent
         }
         
-        return (x, exponent)
+        return (x.dropLast(), exponent)
     }
     
     // -------------------------------------

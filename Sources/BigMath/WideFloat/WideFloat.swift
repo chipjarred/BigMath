@@ -595,15 +595,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @usableFromInline @inline(__always)
     internal func withFloatBuffer<R>(body: (FloatingPointBuffer) -> R) -> R
     {
-        return _significand.withBuffer
-        {
-            let fBuf = FloatingPointBuffer(
-                rawSignificand: $0.mutable,
-                exponent: _exponent
-            )
-            
-            return body(fBuf)
-        }
+        let fBuf = floatBuffer()
+        return body(fBuf)
     }
     
     // -------------------------------------
@@ -611,15 +604,74 @@ public struct WideFloat<T: WideDigit>:  Hashable
     internal mutating func withMutableFloatBuffer<R>(
         body: (inout FloatingPointBuffer) -> R) -> R
     {
-        return _significand.withMutableBuffer
-        {
-            var fBuf = FloatingPointBuffer(
-                rawSignificand: $0,
-                exponent: _exponent
-            )
-            let result = body(&fBuf)
-            self._exponent = fBuf.exponent
-            return result
+        var fBuf = mutableFloatBuffer()
+        return body(&fBuf)
+    }
+    
+    // -------------------------------------
+    /*
+     - Important: This is so unsafe, but we need it for performance!  Calling
+        a closure via withUnsafeBytes turns out to be way more costly than
+        expected.  I would have thought it would disappear with inlining, but
+        it doesn't.
+     */
+    @usableFromInline @inline(__always)
+    internal func floatBuffer() -> FloatingPointBuffer
+    {
+        /*
+         withUnsafeBytes invalidates the pointer on return, so we can't just
+         return $0.  However, the address remains valid (this is *NOT*
+         guaranteed behavior in future versons of Swift, and not technically
+         supported even in the current version.  But we're desperate to avoid as
+         many nested withUnsafeBytes calls as we can, and for that we need
+         pointers outside of the withUnsafeBytes calls.  So we fake out
+         withUnsafeBytes by turning the pointer into an integer, and then back
+         into a pointer after we return.
+         */
+        let address = Swift.withUnsafeBytes(of: self) {
+            return UInt(bitPattern: $0.baseAddress!)
         }
+        
+        let ptr = UnsafeRawPointer(bitPattern: address)!
+        let bufferSize = MemoryLayout<Self>.size
+        let buffer = UnsafeRawBufferPointer(start: ptr, count:  bufferSize)
+        return FloatingPointBuffer(
+            wideFloatUIntBuffer: UIntBuffer(buffer).mutable
+        )
+    }
+    
+    // -------------------------------------
+    /*
+     - Important: This is so unsafe, but we need it for performance!  Calling
+        a closure via withUnsafeBytes turns out to be way more costly than
+        expected.  I would have thought it would disappear with inlining, but
+        it doesn't.
+     */
+    @usableFromInline @inline(__always)
+    internal mutating func mutableFloatBuffer() -> FloatingPointBuffer
+    {
+        /*
+         withUnsafeBytes invalidates the pointer on return, so we can't just
+         return $0.  However, the address remains valid (this is *NOT*
+         guaranteed behavior in future versons of Swift, and not technically
+         supported even in the current version.  But we're desperate to avoid as
+         many nested withUnsafeBytes calls as we can, and for that we need
+         pointers outside of the withUnsafeBytes calls.  So we fake out
+         withUnsafeBytes by turning the pointer into an integer, and then back
+         into a pointer after we return.
+         */
+        let address = Swift.withUnsafeMutableBytes(of: &self) {
+            return UInt(bitPattern: $0.baseAddress!)
+        }
+        
+        let ptr = UnsafeMutableRawPointer(bitPattern: address)!
+        let bufferSize = MemoryLayout<Self>.size
+        let buffer = UnsafeMutableRawBufferPointer(
+            start: ptr,
+            count:  bufferSize
+        )
+        return FloatingPointBuffer(
+            wideFloatUIntBuffer: MutableUIntBuffer(buffer)
+        )
     }
 }

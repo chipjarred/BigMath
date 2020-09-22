@@ -69,8 +69,26 @@ infix operator <=> : ComparisonPrecedence
 @usableFromInline
 struct FloatingPointBuffer
 {
-    @usableFromInline var significand: MutableUIntBuffer
+    @usableFromInline var uintBuf: MutableUIntBuffer
+    
+    var exponentIndex: Int { uintBuf.endIndex - 1}
+
     @usableFromInline var exponent: Int
+    {
+        get { Int(bitPattern: uintBuf[exponentIndex]) }
+        set { uintBuf[exponentIndex] = UInt(bitPattern: newValue) }
+    }
+    
+    @usableFromInline @inline(__always)
+    var significand: MutableUIntBuffer
+    {
+        get { uintBuf[..<exponentIndex] }
+        set
+        {
+            assert(newValue.count == uintBuf[..<exponentIndex].count)
+            uintBuf[..<exponentIndex] = newValue
+        }
+    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -528,12 +546,8 @@ struct FloatingPointBuffer
     // MARK:- Initializers
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal init(
-        rawSignificand: MutableUIntBuffer,
-        exponent: Int)
-    {
-        self.exponent = exponent
-        self.significand = rawSignificand
+    internal init(wideFloatUIntBuffer: MutableUIntBuffer) {
+        self.uintBuf = wideFloatUIntBuffer
     }
     
     // -------------------------------------
@@ -543,10 +557,9 @@ struct FloatingPointBuffer
         assert(buffer.count > 0, "Must have room for at least one digit.")
 
         buffer.baseAddress!.pointee |= (1 | (UInt(signaling) << 1))
-        return Self(
-            rawSignificand: buffer,
-            exponent: Int.max
-        )
+        var result = Self(wideFloatUIntBuffer: buffer)
+        result.exponent = Int.max
+        return result
     }
     
     // -------------------------------------
@@ -558,10 +571,8 @@ struct FloatingPointBuffer
         assert(buffer.count > 0, "Must have room for at least one digit.")
 
         buffer.baseAddress!.pointee = 0
-        var result = Self(
-            rawSignificand: buffer,
-            exponent: Int.max
-        )
+        var result = Self(wideFloatUIntBuffer: buffer)
+        result.exponent = Int.max
         result.signBit = UInt(isNegative)
         return result
     }

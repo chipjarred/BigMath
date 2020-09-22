@@ -433,7 +433,26 @@ class WideFloat_Division_UnitTests: XCTestCase
     }
     
     // -------------------------------------
-    func test_multidigit_multiplicative_inverse()
+    func test_singleDigit_Newton_Raphson_multiplicative_inverse()
+    {
+        typealias FloatType = WideFloat<UInt64>
+        
+        for _ in 0..<100
+        {
+            let x = FloatType(
+                significandBitPattern: urandom64,
+                exponent: Int.random(in: Int.min..<Int.max)
+            )
+            assert(x.isNormalized)
+            let xInv = x.multiplicativeInverse_NewtonRaphson
+            
+            let product = x * xInv
+            XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
+        }
+    }
+
+    // -------------------------------------
+    func test_multidigit_Newton_Raphson_multiplicative_inverse()
     {
         typealias FloatType = WideFloat<UInt256>
         
@@ -450,9 +469,9 @@ class WideFloat_Division_UnitTests: XCTestCase
             XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
         }
     }
-    
+
     // -------------------------------------
-    func test_bigger_multidigit_multiplicative_inverse()
+    func test_bigger_multidigit_Newton_Raphson_multiplicative_inverse()
     {
         typealias FloatType = WideFloat<UInt4096>
         
@@ -471,7 +490,45 @@ class WideFloat_Division_UnitTests: XCTestCase
     }
     
     // -------------------------------------
-    func test_bigger_multidigit_multiplicative_inverse2()
+    func test_singleDigit_KnuthD_multiplicative_inverse()
+    {
+        typealias FloatType = WideFloat<UInt64>
+        
+        for _ in 0..<100
+        {
+            let x = FloatType(
+                significandBitPattern: urandom64,
+                exponent: Int.random(in: Int.min..<Int.max)
+            )
+            assert(x.isNormalized)
+            let xInv = x.multiplicativeInverse_KnuthD
+            
+            let product = x * xInv
+            XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
+        }
+    }
+    
+    // -------------------------------------
+    func test_bigger_multidigit_KnuthD_multiplicative_inverse()
+    {
+        typealias FloatType = WideFloat<UInt4096>
+        
+        for _ in 0..<100
+        {
+            let x = FloatType(
+                significandBitPattern: UInt4096.random(in: ...),
+                exponent: Int.random(in: Int.min..<Int.max)
+            )
+            assert(x.isNormalized)
+            let xInv = x.multiplicativeInverse_KnuthD
+            
+            let product = x * xInv
+            XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
+        }
+    }
+
+    // -------------------------------------
+    func test_bigger_multidigit_Knuth_multiplicative_inverse()
     {
         typealias FloatType = WideFloat<UInt4096>
         

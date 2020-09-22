@@ -377,7 +377,6 @@ extension WideFloat: FloatingPoint
         }
     }
 
-
     // -------------------------------------
     /**
      Divide two `WideFloats` by dividing their significands using Knuth's
@@ -422,7 +421,7 @@ extension WideFloat: FloatingPoint
         result.negate(if: self.isNegative != divisor.isNegative)
         return result
     }
-    
+
     // -------------------------------------
     /**
      Divide two `WideFloats` by dividing their significands using Knuth's
@@ -491,26 +490,49 @@ extension WideFloat: FloatingPoint
         var x = s.multiplicativeInverse_NewtonRaphson0
         let deltaExp = x._exponent + s._exponent
         
-        let sigSize = MemoryLayout<RawSignificand>.size
-        let uintSize = MemoryLayout<UInt>.size
-        let iterations = Int(log2(Double(sigSize / uintSize)))
+        let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
+        let one = Self.one
         
         for _ in 0..<iterations
         {
+            /*
+             There are two formulations
+                x = x * (2 - s * x)
+                x = x + x * (1 - s * x)
+             We're using the second one
+             */
             let sx = s * x
-            let oneMinusSX = 1 - sx
+            
+            let oneMinusSX = one - sx
+            
             if oneMinusSX.isZero { break }
             let xOneMinusSX = x * oneMinusSX
 
             x =  x + xOneMinusSX
         }
+
+        x._exponent = -self._exponent - deltaExp
         
-        x._exponent = -self._exponent + deltaExp
-        
-        assert(x.isNormalized)
+        assert(x.isNormalized, "x.sig = \(binary: x._significand)")
         
         x.negate(if: isNegative)
         return x
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse_NewtonRaphson0: Self
+    {
+        assert(!isNaN)
+        assert(!isZero)
+        assert(!isInfinite)
+        assert(!isNegative)
+        
+        let sig = self.significand
+        let f80Value = sig.float80Value
+        let f80Inverse = 1 / f80Value
+        
+        return Self(f80Inverse)
     }
 
     // -------------------------------------
@@ -556,11 +578,13 @@ extension WideFloat: FloatingPoint
         
         q.adjust()
         
+        let fSig = sig.floatValue
+        let fInv = 1 / fSig
         var x = Self(
             significandBitPattern: q.r,
-            exponent: (1 / sig.floatValue).exponent
+            exponent: fInv.exponent
         )
-        let deltaExp = x._exponent + sig._exponent
+        let deltaExp = -fSig.exponent - fInv.exponent
         x._exponent = -self._exponent + deltaExp
         x.negate(if: self.isNegative)
         return x
@@ -606,34 +630,6 @@ extension WideFloat: FloatingPoint
         
         x.negate(if: isNegative)
         return x
-    }
-
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    internal var multiplicativeInverse_NewtonRaphson0: Self
-    {
-        assert(!isNaN)
-        assert(!isZero)
-        assert(!isInfinite)
-        assert(!isNegative)
-        
-        let sig = self._significand
-        let one = Self(1)
-        var q = WideUInt<RawSignificand>()
-        var r: RawSignificand
-        (q.high, r) = one._significand.quotientAndRemainder(dividingBy: sig)
-        (q.low, r) = sig.dividingFullWidth((r, RawSignificand.zero))
-        
-        let shift = RawSignificand.bitWidth - q.leadingZeroBitCount + 1
-        q.roundingRightShift(by: shift)
-        
-        let result = Self(
-            significandBitPattern: q.low,
-            exponent: (1 / self.significand.floatValue).exponent
-        )
-        assert(!result.isNegative)
-        assert(result.isNormalized)
-        return result
     }
     
     // MARK: - Special value handling

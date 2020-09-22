@@ -83,7 +83,7 @@ class Float_v_Integer_Knuth_Tests: XCTestCase
             T.Wrapped == WideUInt<T.Digit>,
             T.Magnitude == T
     {
-        var doNewtonRaphson: Bool { false }
+        var doNewtonRaphson: Bool { true }
         
         let testCases = Self.generateTests(count: iterations, forType: T.self)
         let fpTestCases = Self.generateFPTests(from: testCases)

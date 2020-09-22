@@ -527,20 +527,6 @@ struct FloatingPointBuffer
 
     // MARK:- Initializers
     // -------------------------------------
-    @inline(__always)
-    private init(
-        significand: MutableUIntBuffer,
-        exponent: Int,
-        isNegative: Bool)
-    {
-        self.exponent = exponent
-        self.significand = significand
-        self.signBit = UInt(isNegative)
-        
-        self.normalize()
-    }
-    
-    // -------------------------------------
     @usableFromInline @inline(__always)
     internal init(
         rawSignificand: MutableUIntBuffer,
@@ -558,9 +544,8 @@ struct FloatingPointBuffer
 
         buffer.baseAddress!.pointee |= (1 | (UInt(signaling) << 1))
         return Self(
-            significand: buffer,
-            exponent: Int.max,
-            isNegative: false
+            rawSignificand: buffer,
+            exponent: Int.max
         )
     }
     
@@ -572,12 +557,13 @@ struct FloatingPointBuffer
     {
         assert(buffer.count > 0, "Must have room for at least one digit.")
 
-        zeroBuffer(buffer)
-        return Self(
-            significand: buffer,
-            exponent: Int.max,
-            isNegative: isNegative
+        buffer.baseAddress!.pointee = 0
+        var result = Self(
+            rawSignificand: buffer,
+            exponent: Int.max
         )
+        result.signBit = UInt(isNegative)
+        return result
     }
     
     // MARK:-

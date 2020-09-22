@@ -264,6 +264,119 @@ extension WideFloat: FloatingPoint
         let divisorInv = divisor.multiplicativeInverse_KnuthD_Core
         return self.multiply_Core(divisorInv)
     }
+    
+    // -------------------------------------
+    @usableFromInline
+    internal struct Remainder
+    {
+        var low = RawSignificand()
+        @usableFromInline var r: RawSignificand
+        var extra: UInt = 0
+
+        @usableFromInline init() { r = RawSignificand() }
+        
+        @usableFromInline init(_ source: RawSignificand) {
+            r = source
+        }
+        
+        @usableFromInline @inline(__always)
+        func buffer() -> UIntBuffer
+        {
+            let address = Swift.withUnsafeBytes(of: self) {
+                return UInt(bitPattern: $0.baseAddress!)
+            }
+            
+            let ptr = UnsafeRawPointer(bitPattern: address)!
+            let bufferSize = MemoryLayout<Self>.size
+            let buffer = UnsafeRawBufferPointer(
+                start: ptr,
+                count:  bufferSize
+            )
+            return UIntBuffer.init(buffer)
+        }
+        
+        @usableFromInline @inline(__always)
+        mutating func mutableBuffer() -> MutableUIntBuffer
+        {
+            let address = Swift.withUnsafeMutableBytes(of: &self) {
+                return UInt(bitPattern: $0.baseAddress!)
+            }
+            
+            let ptr = UnsafeMutableRawPointer(bitPattern: address)!
+            let bufferSize = MemoryLayout<Self>.size
+            let buffer = UnsafeMutableRawBufferPointer(
+                start: ptr,
+                count:  bufferSize
+            )
+            return MutableUIntBuffer.init(buffer)
+        }
+   }
+    
+    // -------------------------------------
+    @usableFromInline
+    internal struct Quotient
+    {
+        @usableFromInline var r: RawSignificand
+        var extra: UInt = 0
+
+        @usableFromInline init() { r = RawSignificand() }
+        
+        @usableFromInline init(_ source: RawSignificand) {
+            r = source
+        }
+        
+        @usableFromInline @inline(__always)
+        func buffer() -> UIntBuffer
+        {
+            let address = Swift.withUnsafeBytes(of: self) {
+                return UInt(bitPattern: $0.baseAddress!)
+            }
+            
+            let ptr = UnsafeRawPointer(bitPattern: address)!
+            let bufferSize = MemoryLayout<Self>.size
+            let buffer = UnsafeRawBufferPointer(
+                start: ptr,
+                count:  bufferSize
+            )
+            return UIntBuffer.init(buffer)
+        }
+        
+        @usableFromInline @inline(__always)
+        mutating func mutableBuffer() -> MutableUIntBuffer
+        {
+            let address = Swift.withUnsafeMutableBytes(of: &self) {
+                return UInt(bitPattern: $0.baseAddress!)
+            }
+            
+            let ptr = UnsafeMutableRawPointer(bitPattern: address)!
+            let bufferSize = MemoryLayout<Self>.size
+            let buffer = UnsafeMutableRawBufferPointer(
+                start: ptr,
+                count:  bufferSize
+            )
+            return MutableUIntBuffer.init(buffer)
+        }
+        
+        @usableFromInline @inline(__always)
+        mutating func adjust()
+        {
+            let buf = mutableBuffer()
+
+            var leadZeros = 0
+            
+            for digit in buf.reversed()
+            {
+                let curLeadingZeros = digit.leadingZeroBitCount
+                leadZeros &+= curLeadingZeros
+                guard curLeadingZeros == UInt.bitWidth else { break }
+            }
+
+            let rightShift = UInt.bitWidth - leadZeros + 1
+            if rightShift < 0 { leftShift(buffer: buf, by: -rightShift) }
+            else { BigMath.rightShift(buffer: buf, by: rightShift) }
+        }
+    }
+
 
     // -------------------------------------
     /**
@@ -272,6 +385,51 @@ extension WideFloat: FloatingPoint
      */
     @inlinable
     public func divide_KnuthD(by divisor: Self) -> Self
+    {
+        if let result = self.divideSpecialValues(by: divisor) { return result }
+
+        var dividendSig = self._significand
+        var divisorSig = divisor._significand
+                
+        var q = Quotient()
+        var r = Remainder()
+        
+        let divisorBuf = divisorSig.mutableBuffer().immutable
+        let dividendBuf = dividendSig.mutableBuffer().immutable
+        let qBuf = q.mutableBuffer()
+        let rBuf = r.mutableBuffer()
+
+        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+
+        floatDivide_KnuthD(
+            dividendBuf,
+            by: divisorBuf,
+            quotient: qBuf,
+            remainder: rBuf
+        )
+        
+        q.adjust()
+        
+        let qExpDelta = (
+            self.significand.floatValue / divisor.significand.floatValue
+        ).exponent
+        
+        var result = Self(
+            significandBitPattern: q.r,
+            exponent: self.exponent - divisor.exponent + qExpDelta
+        )
+        result.negate(if: self.isNegative != divisor.isNegative)
+        return result
+    }
+    
+    // -------------------------------------
+    /**
+     Divide two `WideFloats` by dividing their significands using Knuth's
+     Algorithm D and then adjusting the exponents.
+     */
+    @inlinable
+    public func divide_KnuthD_saved(by divisor: Self) -> Self
     {
         if let result = self.divideSpecialValues(by: divisor) { return result }
 
@@ -364,7 +522,6 @@ extension WideFloat: FloatingPoint
         return multiplicativeInverse_KnuthD_Core
     }
     
-    
     // -------------------------------------
     /**
      Handles the core of calculating the multiplicative inverse.  Shared by
@@ -374,6 +531,50 @@ extension WideFloat: FloatingPoint
      */
     @usableFromInline @inline(__always)
     internal var multiplicativeInverse_KnuthD_Core: Self
+    {
+        let sig = self.significand
+        var dividendSig = RawSignificand.zero
+        dividendSig.setBit(at: RawSignificand.bitWidth - 2, to: 1)
+        var divisorSig = sig._significand
+                
+        var q = Quotient()
+        var r = Remainder()
+        
+        let divisorBuf = divisorSig.mutableBuffer().immutable
+        let dividendBuf = dividendSig.mutableBuffer().immutable
+        let qBuf = q.mutableBuffer()
+        let rBuf = r.mutableBuffer()
+
+        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
+
+        floatDivide_KnuthD(
+            dividendBuf,
+            by: divisorBuf,
+            quotient: qBuf,
+            remainder: rBuf
+        )
+        
+        q.adjust()
+        
+        var x = Self(
+            significandBitPattern: q.r,
+            exponent: (1 / sig.floatValue).exponent
+        )
+        let deltaExp = x._exponent + sig._exponent
+        x._exponent = -self._exponent + deltaExp
+        x.negate(if: self.isNegative)
+        return x
+    }
+    
+    // -------------------------------------
+    /**
+     Handles the core of calculating the multiplicative inverse.  Shared by
+     division method and multiplicative inverse property, which both handle
+     special cases, so this method does not, and for that reason should not be
+     called directly.
+     */
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse_KnuthD_Core_saved: Self
     {
         let sig = significand
         

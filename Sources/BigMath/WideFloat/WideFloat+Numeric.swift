@@ -65,7 +65,27 @@ extension WideFloat: Numeric
         let yBuf = y.floatBuffer()
         var zBuf = z.mutableFloatBuffer()
         
-        _ = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)
+        if useKaratsuba
+        {
+            var scratch1 = RawSignificand()
+            var scratch2 = RawSignificand()
+            var scratch3 = WideProduct.RawSignificand()
+            
+            var s1Buf = scratch1.mutableBuffer()
+            var s2Buf = scratch2.mutableBuffer()
+            var s3Buf = scratch3.mutableBuffer()
+            
+            _ = xBuf.multiply_karatsuba(
+                by: yBuf,
+                scratch1: &s1Buf,
+                scratch2: &s2Buf,
+                scratch3: &s3Buf,
+                result: &zBuf
+            )
+        }
+        else {
+            _ = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)
+        }
         
         var result = Self(
             significandBitPattern: z._significand.high,
@@ -73,6 +93,13 @@ extension WideFloat: Numeric
         )
         result.negate(if: self.isNegative != other.isNegative)
         return result
+    }
+    
+    @inline(__always)
+    private var useKaratsuba: Bool
+    {
+        return MemoryLayout<RawSignificand>.size >
+            karatsubaCutoff * MemoryLayout<UInt>.size
     }
     
     // -------------------------------------

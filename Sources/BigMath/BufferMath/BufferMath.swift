@@ -24,6 +24,9 @@ import Foundation
 
 fileprivate let uintBitWidth = MemoryLayout<UInt>.size * 8
 
+/// Number of digits below which Karatsuba fails over to school book
+internal let karatsubaCutoff = 128
+
 
 // MARK:- Buffer comparison
 // -------------------------------------
@@ -869,8 +872,9 @@ internal func fullMultiplyBuffers_Karatsuba(
     let middleProduct = scratch3.low
     let extraScratch = scratch3.high
     
-    guard xBuf.count > 128 else
+    guard xBuf.count > karatsubaCutoff else
     {
+        zeroBuffer(zBuf)
         fullMultiplyBuffers_SchoolBook(xBuf, yBuf, result: zBuf)
         return
     }

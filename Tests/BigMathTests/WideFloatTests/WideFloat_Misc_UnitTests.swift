@@ -51,7 +51,7 @@ class WideFloat_Misc_UnitTests: XCTestCase
                 x: .greatestFiniteMagnitude,
                 ulp: FloatType(
                     sign: .plus,
-                    exponent: Int.max - 63,
+                    exponent: WExp.max.intValue - 63,
                     significand: 1
                 )
             ),
@@ -59,7 +59,7 @@ class WideFloat_Misc_UnitTests: XCTestCase
                 x: -.greatestFiniteMagnitude,
                 ulp: FloatType(
                     sign: .plus,
-                    exponent: Int.max - 63,
+                    exponent: WExp.max.intValue - 63,
                     significand: 1
                 )
             ),

@@ -102,9 +102,9 @@ public struct WideFloat<T: WideDigit>:  Hashable
     public typealias Exponent = Int
     
     @usableFromInline var _significand: RawSignificand
-    @usableFromInline var _exponent: Exponent
+    @usableFromInline var _exponent: WExp
 
-    @inlinable public var exponent: Exponent { return _exponent }
+    @inlinable public var exponent: Exponent { return _exponent.intValue }
     
     // -------------------------------------
     @inlinable public var significand: Self {
@@ -214,7 +214,10 @@ public struct WideFloat<T: WideDigit>:  Hashable
         var significand = RawSignificand()
         significand.invert()
         significand.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        return Self(significandBitPattern: significand, exponent: Int.max - 1)
+        return Self(
+            significandBitPattern: significand,
+            exponent: WExp.max.intValue - 1
+        )
     }
     
     // -------------------------------------
@@ -222,7 +225,10 @@ public struct WideFloat<T: WideDigit>:  Hashable
     {
         var significand = RawSignificand()
         significand.setBit(at: RawSignificand.bitWidth - 2, to: 1)
-        return Self(significandBitPattern: significand, exponent: Int.min + 1)
+        return Self(
+            significandBitPattern: significand,
+            exponent: WExp.min.intValue + 1
+        )
     }
     
     // -------------------------------------
@@ -254,13 +260,24 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @inlinable public var int16Value: Int16 { convert(to: Int16.self) }
     @inlinable public var int8Value: Int8 { convert(to: Int8.self) }
 
+    
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal init(significandBitPattern: RawSignificand, exponent: Int)
+    internal init(significandBitPattern: RawSignificand, exponent: WExp)
     {
         self._significand = significandBitPattern
         self._exponent = exponent
         self.normalize()
+    }
+
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal init(significandBitPattern: RawSignificand, exponent: Int)
+    {
+        self.init(
+            significandBitPattern: significandBitPattern,
+            exponent: WExp(exponent)
+        )
     }
     
     // -------------------------------------
@@ -268,7 +285,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     public init()
     {
         self._significand = RawSignificand()
-        self._exponent = Int.min
+        self._exponent = WExp.min
     }
 
     // -------------------------------------
@@ -278,7 +295,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
         guard source != 0 else
         {
             self._significand = RawSignificand()
-            self._exponent = Int.min
+            self._exponent = WExp.min
             return
         }
         
@@ -318,7 +335,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
         }
         
         self._significand = RawSignificand(s)
-        self._exponent = exp
+        self._exponent = WExp(exp)
         
         // Normalize significand
         if self._significand.bit(at: RawSignificand.bitWidth - 1) {
@@ -357,7 +374,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
                     Self.extractSignificandBits(from: source),
                 exponent: 0
             )
-            _exponent = Exponent(source.exponent)
+            _exponent = WExp(Int(source.exponent))
         }
         self.negate(if: source < 0)
     }
@@ -428,17 +445,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
         if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
         if isInfinite { return isNegative ? -F.infinity : F.infinity }
         
-        if _exponent >= F.greatestFiniteMagnitude.exponent
+        if exponent >= F.greatestFiniteMagnitude.exponent
         {
-            if _exponent > F.greatestFiniteMagnitude.exponent
+            if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
                 return isNegative ? -F.infinity : F.infinity
             }
         }
-        else if _exponent <= F.leastNonzeroMagnitude.exponent
+        else if exponent <= F.leastNonzeroMagnitude.exponent
         {
-            if _exponent < F.leastNonzeroMagnitude.exponent
+            if exponent < F.leastNonzeroMagnitude.exponent
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
@@ -461,17 +478,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
         if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
         if isInfinite { return isNegative ? -F.infinity : F.infinity }
         
-        if _exponent >= F.greatestFiniteMagnitude.exponent
+        if exponent >= F.greatestFiniteMagnitude.exponent
         {
-            if _exponent > F.greatestFiniteMagnitude.exponent
+            if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
                 return isNegative ? -F.infinity : F.infinity
             }
         }
-        else if _exponent <= F.leastNonzeroMagnitude.exponent
+        else if exponent <= F.leastNonzeroMagnitude.exponent
         {
-            if _exponent < F.leastNonzeroMagnitude.exponent
+            if exponent < F.leastNonzeroMagnitude.exponent
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
@@ -494,17 +511,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
         if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
         if isInfinite { return isNegative ? -F.infinity : F.infinity }
         
-        if _exponent >= F.greatestFiniteMagnitude.exponent
+        if exponent >= F.greatestFiniteMagnitude.exponent
         {
-            if _exponent > F.greatestFiniteMagnitude.exponent
+            if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
                 return isNegative ? -F.infinity : F.infinity
             }
         }
-        else if _exponent <= F.leastNonzeroMagnitude.exponent
+        else if exponent <= F.leastNonzeroMagnitude.exponent
         {
-            if _exponent < F.leastNonzeroMagnitude.exponent
+            if exponent < F.leastNonzeroMagnitude.exponent
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
@@ -532,9 +549,9 @@ public struct WideFloat<T: WideDigit>:  Hashable
         var canBeRepresented = UInt8(!isNaN)
             & UInt8(!isInfinite)
             & (UInt8(I.isSigned) | UInt8(!self.isNegative))
-            & UInt8(_exponent <= maxRepresentableExponent)
+            & UInt8(exponent <= maxRepresentableExponent)
         
-        if canBeRepresented & UInt8(_exponent == maxRepresentableExponent) == 1
+        if canBeRepresented & UInt8(exponent == maxRepresentableExponent) == 1
         {
             if significandIsOne
             {
@@ -562,7 +579,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal mutating func addExponent(_ exponentDelta: Int)
+    internal mutating func addExponent(_ exponentDelta: WExp)
     {
         var buf = mutableFloatBuffer()
         buf.addExponent(exponentDelta)

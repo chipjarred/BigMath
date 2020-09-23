@@ -132,7 +132,7 @@ extension WideFloat: Numeric
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left._exponent == Int.max) | UInt8(right._exponent == Int.max)
+            UInt8(left._exponent.isSpecial) | UInt8(right._exponent.isSpecial)
         if hasSpecialValue == 1
         {
             if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
@@ -177,14 +177,14 @@ extension WideFloat: Numeric
         {
             if leftExponentLessThan0
             {
-                if Int.min - left._exponent > right._exponent
+                if WExp.min - left._exponent > right._exponent
                 {
                     var result = Self.zero
                     result.negate(if: left.isNegative != right.isNegative)
                     return result
                 }
             }
-            else if Int.max - left._exponent <= right._exponent
+            else if WExp.max - left._exponent <= right._exponent
             {
                 var result = Self.infinity
                 result.negate(if: left.isNegative != right.isNegative)

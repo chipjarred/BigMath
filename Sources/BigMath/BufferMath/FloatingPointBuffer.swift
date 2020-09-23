@@ -47,21 +47,21 @@ infix operator <=> : ComparisonPrecedence
 
  We do support NaN, sNaN, signed infinity and signed zeros; however, since we
  don't used offset exponents,  we can't use `-1` (all ones) to encode these as
- IEEE 754 does.  Instead, we use `Int.max` in the  exponent.  To distinquish
+ IEEE 754 does.  Instead, we use `WExp.max` in the  exponent.  To distinquish
  between them, we the two least signficant bits of the significand bits.  The
  other bits are don't care bits, except in the case of the infinity, for which
  the sign bit applies.  In the following table X indicates that the bit is not
  used, qNaN refers to *quiet* NaN (ordinary), and sNaN refers to signaling NaN
  
-                    +----------+-----------------------+
-                    | Exponent |    Significand Bits   |
-                    |   Value  | Sign  | Bit 1 | Bit 0 |
-        +-----------+----------+-------+-------+-------+
-        | +Infinity |  Int.max |   0   |   0   |   0   |
-        | -Infinity |  Int.max |   1   |   0   |   0   |
-        |   qNaN    |  Int.max |   X   |   0   |   1   |
-        |   sNaN    |  Int.max |   X   |   1   |   1   |
-        +-----------+----------+-------+-------+-------+
+                    +-----------+-----------------------+
+                    | Exponent  |    Significand Bits   |
+                    |   Value   | Sign  | Bit 1 | Bit 0 |
+        +-----------+-----------+-------+-------+-------+
+        | +Infinity |  WExp.max |   0   |   0   |   0   |
+        | -Infinity |  WExp.max |   1   |   0   |   0   |
+        |   qNaN    |  WExp.max |   X   |   0   |   1   |
+        |   sNaN    |  WExp.max |   X   |   1   |   1   |
+        +-----------+-----------+-------+-------+-------+
 
  As with IEEE 754, the significand is kept as signed magnitude rather than 2's
  compliment.
@@ -74,10 +74,10 @@ struct FloatingPointBuffer
     var exponentIndex: Int { uintBuf.endIndex - 1}
 
     @usableFromInline @inline(__always)
-    var exponent: Int
+    var exponent: WExp
     {
-        get { Int(bitPattern: uintBuf[exponentIndex]) }
-        set { uintBuf[exponentIndex] = UInt(bitPattern: newValue) }
+        get { WExp(bitPattern: uintBuf[exponentIndex]) }
+        set { uintBuf[exponentIndex] = newValue.bitPattern }
     }
     
     @usableFromInline @inline(__always)
@@ -160,7 +160,7 @@ struct FloatingPointBuffer
      `true` if the value is` +0` or` -0`; otherwise `false`
      
      It does an O(1) check by exploiting that we keep the significand
-     normalized.  If the exponent is` Int.min`, and the significand head value is `0`,
+     normalized.  If the exponent is` WExp.min`, and the significand head value is `0`,
      then the value is `0`.
      */
     @usableFromInline @inline(__always)
@@ -170,15 +170,15 @@ struct FloatingPointBuffer
             isNormalized,
             "Must be normalized for this test to work: \(dumpStr)"
         )
-        assert(exponent != Int.min || significandHeadValue == 0, "\(dumpStr)")
-        return exponent == Int.min
+        assert(exponent != WExp.min || significandHeadValue == 0, "\(dumpStr)")
+        return exponent == WExp.min
     }
     
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal mutating func setZero()
     {
-        exponent = Int.min
+        exponent = WExp.min
         significandHeadValue = 0
         let tail = significandTail
         if tail.count > 0 { zeroBuffer(tail) }
@@ -205,7 +205,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isInfinite: Bool
     {
-        if exponent == Int.max {
+        if exponent == WExp.max {
             return significand.baseAddress!.pointee & 3 == 0
         }
         
@@ -216,7 +216,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal mutating func setInfinity()
     {
-        exponent = Int.max
+        exponent = WExp.max
         var s = significand.baseAddress!.pointee
         s &= UInt.max ^ 3
         significand.baseAddress!.pointee = s
@@ -230,7 +230,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isNaN: Bool
     {
-        if exponent == Int.max {
+        if exponent == WExp.max {
             return significand.baseAddress!.pointee & 1 == 1
         }
         
@@ -241,7 +241,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal mutating func setNaN()
     {
-        exponent = Int.max
+        exponent = WExp.max
         significand.baseAddress!.pointee = 1
     }
 
@@ -253,7 +253,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isSignalingNaN: Bool
     {
-        if exponent == Int.max {
+        if exponent == WExp.max {
             return significand.baseAddress!.pointee & 3 == 3
         }
         
@@ -264,14 +264,14 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal mutating func setSignalingNaN(to set: Bool = true)
     {
-        exponent = Int.max
+        exponent = WExp.max
         significand.baseAddress!.pointee = 3
     }
     
     // -------------------------------------
     /// `true` for NaNs and infinity; otherwise `false`
     @usableFromInline @inline(__always)
-    internal var isSpecialValue: Bool { return exponent == Int.max }
+    internal var isSpecialValue: Bool { return exponent == WExp.max }
     
     // -------------------------------------
     /**
@@ -287,10 +287,10 @@ struct FloatingPointBuffer
     var isNormalized: Bool
     {
         // This handles NaN, sNaN, and +/- Infinity
-        if exponent == Int.max { return true }
+        if exponent == WExp.max { return true }
         
-        // If the significand is zero, the exponent must be Int.min
-        if significandIsZero { return exponent == Int.min }
+        // If the significand is zero, the exponent must be WExp.min
+        if significandIsZero { return exponent == WExp.min }
         
         /*
          Otherwise the 2nd most significant bit, that is the integral bit, must
@@ -350,7 +350,7 @@ struct FloatingPointBuffer
     mutating func normalize()
     {
         // NaN, sNaN and infinities are already normalized
-        if exponent == Int.max { return }
+        if exponent == WExp.max { return }
         
         // totalBits doesn't include sign bit
         let totalBits = significand.count * UInt.bitWidth - 1
@@ -360,11 +360,11 @@ struct FloatingPointBuffer
         {
             /*
              We have an all-zero significand.  That's 0.  If the exponent is not
-             zero, then we have to set it to Int.min.  We *could* conditionally
+             zero, then we have to set it to WExp.min.  We *could* conditionally
              test for that, but it's faster and has the same logical outcome
-             if we just set it to Int.min unconditionally.
+             if we just set it to WExp.min unconditionally.
              */
-            exponent = Int.min
+            exponent = WExp.min
             return
         }
         
@@ -405,14 +405,14 @@ struct FloatingPointBuffer
             
             BigMath.leftShiftKnuth(
                 s.immutable,
-                by: exponent - I.Magnitude.bitWidth + 2,
+                by: exponent.intValue - I.Magnitude.bitWidth + 2,
                 into: &resultBuf
             )
             
-            if isNegative && (exponent + 1) < I.Magnitude.bitWidth
+            if isNegative && (exponent.intValue + 1) < I.Magnitude.bitWidth
             {
                 // Convert from signed magnitude to twos complement
-                BigMath.setBit(at: exponent + 1, in: &resultBuf, to: 0)
+                BigMath.setBit(at: exponent.intValue + 1, in: &resultBuf, to: 0)
                 BigMath.arithmeticNegate(resultBuf.immutable, to: resultBuf)
             }
         }
@@ -425,15 +425,15 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     func convert(to: Float.Type) -> Float
     {
-        assert(exponent != Int.max)
+        assert(exponent != WExp.max)
         
-        if isZero || exponent < Float.leastNonzeroMagnitude.exponent
+        if isZero || exponent.intValue < Float.leastNonzeroMagnitude.exponent
         {
             var result = Float.zero
             if isNegative { result.negate() }
             return result
         }
-        if exponent > Float.greatestFiniteMagnitude.exponent
+        if exponent.intValue > Float.greatestFiniteMagnitude.exponent
         {
             var result = Float.infinity
             if isNegative { result.negate() }
@@ -453,7 +453,7 @@ struct FloatingPointBuffer
                     else: FloatingPointSign.plus.rawValue
                 )
             )!,
-            exponentBitPattern: UInt(exponent &+ 127),
+            exponentBitPattern: UInt(exponent.intValue &+ 127),
             significandBitPattern: UInt32(sigHead)
         )
     }
@@ -462,15 +462,15 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     func convert(to: Double.Type) -> Double
     {
-        assert(exponent != Int.max)
+        assert(exponent != WExp.max)
         
-        if isZero || exponent < Double.leastNonzeroMagnitude.exponent
+        if isZero || exponent.intValue < Double.leastNonzeroMagnitude.exponent
         {
             var result = Double.zero
             if isNegative { result.negate() }
             return result
         }
-        if exponent > Double.greatestFiniteMagnitude.exponent
+        if exponent.intValue > Double.greatestFiniteMagnitude.exponent
         {
             var result = Double.infinity
             if isNegative { result.negate() }
@@ -490,7 +490,7 @@ struct FloatingPointBuffer
                     else: FloatingPointSign.plus.rawValue
                 )
             )!,
-            exponentBitPattern: UInt(exponent &+ 1023),
+            exponentBitPattern: UInt(exponent.intValue &+ 1023),
             significandBitPattern: UInt64(sigHead)
         )
     }
@@ -528,7 +528,7 @@ struct FloatingPointBuffer
         )
         result *= F(
             sign: FloatingPointSign(rawValue: sign)!,
-            exponent: F.Exponent(exponent) - result.exponent,
+            exponent: F.Exponent(exponent.intValue) - result.exponent,
             significand: 1
         )
         
@@ -559,7 +559,7 @@ struct FloatingPointBuffer
         )
         result *= F(
             sign: FloatingPointSign(rawValue: sign)!,
-            exponent: F.Exponent(exponent) - result.exponent,
+            exponent: F.Exponent(exponent.intValue) - result.exponent,
             significand: 1
         )
         
@@ -582,7 +582,7 @@ struct FloatingPointBuffer
 
         buffer.baseAddress!.pointee |= (1 | (UInt(signaling) << 1))
         var result = Self(wideFloatUIntBuffer: buffer)
-        result.exponent = Int.max
+        result.exponent = WExp.max
         return result
     }
     
@@ -596,7 +596,7 @@ struct FloatingPointBuffer
 
         buffer.baseAddress!.pointee = 0
         var result = Self(wideFloatUIntBuffer: buffer)
-        result.exponent = Int.max
+        result.exponent = WExp.max
         result.signBit = UInt(isNegative)
         return result
     }
@@ -630,8 +630,8 @@ struct FloatingPointBuffer
         let leftSign = Int(left.signBit)
         let rightSign = Int(right.signBit)
 
-        let hasSpecialValue = UInt8(left.exponent == Int.max)
-            | UInt8(right.exponent == Int.max)
+        let hasSpecialValue = UInt8(left.exponent == WExp.max)
+            | UInt8(right.exponent == WExp.max)
         if hasSpecialValue == 1
         {
             if UInt8(left.isNaN) | UInt8(right.isNaN) == 1 {
@@ -678,7 +678,7 @@ struct FloatingPointBuffer
          We can start with a fast comparision of the exponents, because we
          require left and right to be normalized.
          */
-        var result = left.exponent - right.exponent
+        var result = left.exponent.intValue - right.exponent.intValue
         if result == 0
         {
             /*
@@ -744,7 +744,7 @@ struct FloatingPointBuffer
          now).
          */
         dst.exponent = self.exponent
-        dst.addExponent(shift)
+        dst.addExponent(WExp(shift))
     }
     
     // -------------------------------------
@@ -760,7 +760,7 @@ struct FloatingPointBuffer
     {
         assert(shift >= 0)
         
-        guard exponent <= Int.max &- shift else
+        guard exponent.intValue <= WExp.max.intValue &- shift else
         {
             setInfinity()
             return
@@ -772,7 +772,7 @@ struct FloatingPointBuffer
             by: shift
         )
         
-        addExponent(shift)
+        addExponent(WExp(shift))
     }
 
     // -------------------------------------
@@ -799,7 +799,7 @@ struct FloatingPointBuffer
          so that dst maintains its value.
          */
         dst.exponent = self.exponent
-        dst.addExponent(-shift)
+        dst.addExponent(WExp(-shift))
     }
     
     // -------------------------------------
@@ -883,7 +883,7 @@ struct FloatingPointBuffer
          sum, even with rounding.  z's exponent is already set, so just copy
          x's significand into z, and we're done.
          */
-        if exponentDelta > x.significand.count * UInt.bitWidth + 1
+        if exponentDelta.intValue > x.significand.count * UInt.bitWidth + 1
         {
             BigMath.copy(buffer: x.significand.immutable, to: z.significand)
             z.signBit = x.signBit
@@ -891,12 +891,12 @@ struct FloatingPointBuffer
         }
         
         var carry = roundingBit(
-            forRightShift: exponentDelta,
+            forRightShift: exponentDelta.intValue,
             of: y.significand.immutable
         )
         
         let (yDigitIndex, yShift) =
-            y.digitAndShift(forRightShift: exponentDelta)
+            y.digitAndShift(forRightShift: exponentDelta.intValue)
         
         var xPtr = x.significand.baseAddress!
         let xHeadPtr = xPtr + x.significand.count - 1
@@ -956,7 +956,7 @@ struct FloatingPointBuffer
          rightShiftForAddOrSubtract takes care of possible additional
          shift/rounding that might occur as a result of rounding carries
          propagating all the way up the sign bit.  It also handles setting
-         infinity if the exponent will be set to Int.max
+         infinity if the exponent will be set to WExp.max
          */
         while zHead & ~(UInt.max >> 1) != 0
         {
@@ -1005,7 +1005,7 @@ struct FloatingPointBuffer
          sum, even with rounding.  z's exponent is already set, so just copy
          x's significand into z, and we're done.
          */
-        if exponentDelta > x.significand.count * UInt.bitWidth + 1
+        if exponentDelta.intValue > x.significand.count * UInt.bitWidth + 1
         {
             BigMath.copy(buffer: x.significand.immutable, to: z.significand)
             z.signBit = x.signBit
@@ -1013,12 +1013,12 @@ struct FloatingPointBuffer
         }
         
         var borrow = roundingBit(
-            forRightShift: exponentDelta,
+            forRightShift: exponentDelta.intValue,
             of: y.significand.immutable
         )
         
         let (yDigitIndex, yShift) =
-            y.digitAndShift(forRightShift: exponentDelta)
+            y.digitAndShift(forRightShift: exponentDelta.intValue)
         
         var xPtr = x.significand.baseAddress!
         let xHeadPtr = xPtr + x.significand.count - 1
@@ -1241,7 +1241,7 @@ struct FloatingPointBuffer
     {
         return
             """
-               exponent = \(exponent) : 0b\(binary: exponent)
+            exponent = \(exponent.intValue) : 0b\(binary: exponent.intValue)
             significand = 0b\(binary: significand)
             """
     }
@@ -1253,25 +1253,25 @@ struct FloatingPointBuffer
         
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal mutating func addExponent(_ other: Int)
+    internal mutating func addExponent(_ other: WExp)
     {
         // -------------------------------------
         @inline(__always) func addExponents(_ x: Int, _ y: Int) -> Int
         {
             if y < 0 {
-                if Int.min &- y > x { return Int.min }
+                if WExp.min.intValue &- y > x { return WExp.min.intValue }
             }
-            else if Int.max &- y < x { return Int.max }
+            else if WExp.max.intValue &- y < x { return WExp.max.intValue }
             
             return x &+ y
         }
         
         if isSpecialValue { return }
         
-        let exp = addExponents(exponent, other)
-        exponent = exp
-        if exp == Int.max { setInfinity() }
-        else if exp == Int.min { setZero() }
+        let exp = addExponents(exponent.intValue, other.intValue)
+        if exp == WExp.max.intValue { setInfinity() }
+        else if exp == WExp.min.intValue { setZero() }
+        exponent.intValue = exp
     }
     
     // -------------------------------------

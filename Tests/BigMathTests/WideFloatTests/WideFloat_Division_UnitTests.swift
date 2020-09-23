@@ -441,7 +441,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: urandom64,
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_NewtonRaphson
@@ -460,7 +460,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: UInt256.random(in: ...),
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_NewtonRaphson
@@ -479,7 +479,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: UInt4096.random(in: ...),
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_NewtonRaphson
@@ -498,7 +498,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: urandom64,
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_KnuthD
@@ -517,7 +517,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: UInt4096.random(in: ...),
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_KnuthD
@@ -536,7 +536,7 @@ class WideFloat_Division_UnitTests: XCTestCase
         {
             let x = FloatType(
                 significandBitPattern: UInt4096.random(in: ...),
-                exponent: Int.random(in: Int.min..<Int.max)
+                exponent: Int.random(in: WExp.min.intValue..<WExp.max.intValue)
             )
             assert(x.isNormalized)
             let xInv = x.multiplicativeInverse_KnuthD

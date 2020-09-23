@@ -79,8 +79,8 @@ extension WideFloat: AdditiveArithmetic
          infinities should be unusual.  However, adding 0 is more common and
          IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        let hasSpecialValue =
-            UInt8(self._exponent == Int.max) | UInt8(other._exponent == Int.max)
+        let hasSpecialValue = UInt8(self._exponent.isSpecial)
+            | UInt8(other._exponent.isSpecial)
         if hasSpecialValue == 1
         {
             if UInt8(self.isNaN) | UInt8(other.isNaN) == 1
@@ -138,8 +138,8 @@ extension WideFloat: AdditiveArithmetic
          infinities should be unusual.  However, subtracting 0 is more common
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        let hasSpecialValue =
-            UInt8(self._exponent == Int.max) | UInt8(other._exponent == Int.max)
+        let hasSpecialValue = UInt8(self._exponent.isSpecial)
+            | UInt8(other._exponent.isSpecial)
         if hasSpecialValue == 1
         {
             if UInt8(self.isNaN) | UInt8(other.isNaN) == 1

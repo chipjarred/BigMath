@@ -29,7 +29,7 @@ extension WideFloat: FloatingPoint
     @inlinable
     public init(sign: FloatingPointSign, exponent: Int, significand: Self)
     {
-        guard significand.exponent != Int.max else
+        guard !significand._exponent.isSpecial else
         {   // Handle infinity and NaN
             self = significand.magnitude
             self.negate(if: sign == .minus)
@@ -47,7 +47,7 @@ extension WideFloat: FloatingPoint
             significandBitPattern: significand.magnitude._significand,
             exponent: significand.exponent
         )
-        self.addExponent(exponent)
+        self.addExponent(WExp(exponent))
         self.negate(if: sign == .minus)
     }
     
@@ -74,7 +74,7 @@ extension WideFloat: FloatingPoint
         var s = value.magnitude
         let shift = UInt.bitWidth
         var digitRadix = Self(1)
-        digitRadix._exponent = UInt.bitWidth
+        digitRadix._exponent = WExp(UInt.bitWidth)
         while s > 0
         {
             self *= digitRadix
@@ -100,14 +100,15 @@ extension WideFloat: FloatingPoint
     // -------------------------------------
     @inlinable public var ulp: Self
     {
-        if exponent == Int.max { return Self.nan }
+        if _exponent.isSpecial { return Self.nan }
         if isZero { return Self.leastNonzeroMagnitude }
         
         let expOffset = UInt.bitWidth - 2
-        if exponent < Int.min + expOffset { return Self.zero }
+        if exponent < WExp.min.intValue + expOffset { return Self.zero }
         
         var result = Self(1)
-        result._exponent = self._exponent - expOffset
+        result._exponent = self._exponent
+        result.addExponent(WExp(-expOffset))
         return result
     }
     
@@ -141,7 +142,7 @@ extension WideFloat: FloatingPoint
     // -------------------------------------
     @inlinable public var nextUp: Self
     {
-        if _exponent == Int.max
+        if _exponent.isSpecial
         {
             if isNaN { return Self.nan }
             if isNegative { return Self.greatestFiniteMagnitude.negated }
@@ -182,7 +183,7 @@ extension WideFloat: FloatingPoint
     
     // -------------------------------------
     @inlinable public var isNormal: Bool { return true }
-    @inlinable public var isFinite: Bool { return _exponent != Int.max}
+    @inlinable public var isFinite: Bool { return _exponent != WExp.max}
     @inlinable public var isSubnormal: Bool { return false }
     
     // -------------------------------------
@@ -521,7 +522,7 @@ extension WideFloat: FloatingPoint
 
         assert(!x.isZero)
 
-        x.addExponent(-self.exponent)
+        x.addExponent(-self._exponent)
         x.addExponent(-deltaExp)
         assert(x.isNormalized, "x.sig = \(binary: x._significand)")
 
@@ -595,7 +596,7 @@ extension WideFloat: FloatingPoint
             exponent: fInv.exponent
         )
         let deltaExp = -fSig.exponent - fInv.exponent
-        x._exponent = -self._exponent + deltaExp
+        x._exponent = -self._exponent + WExp(deltaExp)
         x.negate(if: self.isNegative)
         return x
     }
@@ -622,7 +623,7 @@ extension WideFloat: FloatingPoint
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(self._exponent == Int.max) | UInt8(right._exponent == Int.max)
+            UInt8(self._exponent.isSpecial) | UInt8(right._exponent.isSpecial)
         if hasSpecialValue == 1
         {
             if UInt8(self.isNaN) | UInt8(right.isNaN) == 1
@@ -686,14 +687,14 @@ extension WideFloat: FloatingPoint
         // Handle underflow to 0, and overflow to infinity
         if right.exponent > 0
         {
-            if Int.min + right.exponent > self.exponent
+            if WExp.min.intValue + right.exponent > self.exponent
             {
                 var result = Self.zero
                 result.negate(if: self.isNegative != right.isNegative)
                 return result
             }
         }
-        else if Int.max + right.exponent <= self.exponent
+        else if WExp.max.intValue + right.exponent <= self.exponent
         {
             var result = Self.infinity
             result.negate(if: self.isNegative != right.isNegative)
@@ -716,7 +717,7 @@ extension WideFloat: FloatingPoint
     @usableFromInline @inline(__always)
     internal var multiplicativeInverseOfSpecialValue: Self?
     {
-        if _exponent == Int.max
+        if _exponent.isSpecial
         {
             if isNaN { return Self.nan }
             if isInfinite
@@ -727,7 +728,7 @@ extension WideFloat: FloatingPoint
             }
         }
         
-        if isZero || _exponent <= Int.min + 1
+        if isZero || _exponent.intValue <= WExp.min.intValue + 1
         {
             var result = Self.infinity
             result.negate(if: isNegative)

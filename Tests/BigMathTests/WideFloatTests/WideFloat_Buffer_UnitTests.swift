@@ -39,7 +39,7 @@ class WideFloat_Buffer_UnitTests: XCTestCase
         {
             var buff = FloatingPointBuffer(wideFloatUIntBuffer: $0[...])
             buff.rightShiftForAddOrSubtract(by: shift)
-            exponent = buff.exponent
+            exponent = buff.exponent.intValue
         }
         
         return (x.dropLast(), exponent)

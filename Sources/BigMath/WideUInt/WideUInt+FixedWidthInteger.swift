@@ -111,7 +111,7 @@ extension WideUInt: FixedWidthInteger
     internal struct KnuthDRemainder<T: WideDigit> where T.Magnitude == T
     {
         public var r = T()
-        public var overflow: UInt = 0
+        public var overflow = UInt()
         
         // -------------------------------------
         @usableFromInline @inline(__always)

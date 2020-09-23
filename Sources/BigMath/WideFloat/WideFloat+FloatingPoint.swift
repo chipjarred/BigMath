@@ -271,7 +271,7 @@ extension WideFloat: FloatingPoint
     {
         var low = RawSignificand()
         @usableFromInline var r: RawSignificand
-        var extra: UInt = 0
+        var extra = UInt()
 
         @usableFromInline init() { r = RawSignificand() }
         
@@ -317,7 +317,7 @@ extension WideFloat: FloatingPoint
     internal struct Quotient
     {
         @usableFromInline var r: RawSignificand
-        var extra: UInt = 0
+        var extra = UInt()
 
         @usableFromInline init() { r = RawSignificand() }
         

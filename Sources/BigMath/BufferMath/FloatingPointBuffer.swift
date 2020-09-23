@@ -973,8 +973,6 @@ struct FloatingPointBuffer
     {
         assert(!x.isNaN && !y.isNaN)
         assert(!y.isInfinite && !y.isInfinite)
-        assert(x.significand.startIndex == 0)
-        assert(y.significand.startIndex == 0)
         assert(x.significand.count == y.significand.count)
         assert(x.significand.count == z.significand.count)
         assert(x.isNormalized && y.isNormalized)

@@ -475,6 +475,124 @@ extension WideFloat: FloatingPoint
     @usableFromInline @inline(__always)
     internal var multiplicativeInverse_NewtonRaphson_Core: Self
     {
+        typealias BiggerSig = WideUInt<RawSignificand>
+        typealias BiggerFloat = WideFloat<BiggerSig>
+        
+        /*
+         Using Newton's method to find the multiplicative inverse.  Given a good
+         starting point, it doubles the number of good bits each iteration.
+         */
+        let s = significand.magnitude
+        var x = s.multiplicativeInverse_NewtonRaphson0
+        assert(!x.isNegative)
+        let deltaExp = x._exponent + s._exponent
+
+        let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
+        var two = Self.one
+        two._exponent = 1
+        
+        var sx = BiggerFloat()
+        var twoMinusSX = Self()
+        
+        let xBuf = x.mutableFloatBuffer()
+        var sxBuf = sx.mutableFloatBuffer()
+        var twoMinusSXBuf = twoMinusSX.mutableFloatBuffer()
+        let sBuf = s.floatBuffer()
+        let twoBuf = two.floatBuffer()
+        
+        if xBuf.significand.count > karatsubaCutoff
+        {
+            var scratch1 = RawSignificand()
+            var scratch2 = RawSignificand()
+            var scratch3 = BiggerSig()
+            
+            var s1Buf = scratch1.mutableBuffer()
+            var s2Buf = scratch2.mutableBuffer()
+            var s3Buf = scratch3.mutableBuffer()
+
+            for _ in 0..<iterations
+            {
+                /*
+                 There are two formulations
+                    x = x * (2 - s * x)
+                    x = x + x * (1 - s * x)
+                 We're using the first one
+                 */
+                
+                zeroBuffer(sxBuf.significand)
+                let sxHigh = sBuf.multiply_karatsuba(
+                    by: xBuf,
+                    scratch1: &s1Buf,
+                    scratch2: &s2Buf,
+                    scratch3: &s3Buf,
+                    result: &sxBuf
+                )
+
+                assert(!sxHigh.isZero)
+                assert(!sxHigh.isNegative)
+                
+                FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
+                assert(!twoMinusSXBuf.isZero)
+
+                zeroBuffer(sxBuf.significand)
+                let xHigh = xBuf.multiply_karatsuba(
+                    by: twoMinusSXBuf,
+                    scratch1: &s1Buf,
+                    scratch2: &s2Buf,
+                    scratch3: &s3Buf,
+                    result: &sxBuf
+                )
+                assert(!xHigh.isZero)
+                copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
+            }
+        }
+        else
+        {
+            for _ in 0..<iterations
+            {
+                /*
+                 There are two formulations
+                    x = x * (2 - s * x)
+                    x = x + x * (1 - s * x)
+                 We're using the first one
+                 */
+                
+                zeroBuffer(sxBuf.significand)
+                let sxHigh = sBuf.multiply_schoolBook(by: xBuf, result: &sxBuf)
+                assert(!sxHigh.isZero)
+                assert(!sxHigh.isNegative)
+                
+                FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
+                assert(!twoMinusSXBuf.isZero)
+
+                zeroBuffer(sxBuf.significand)
+                let xHigh =
+                    xBuf.multiply_schoolBook(by: twoMinusSXBuf, result: &sxBuf)
+                assert(!xHigh.isZero)
+                copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
+            }
+        }
+
+        assert(!x.isZero)
+
+        x.addExponent(-self.exponent)
+        x.addExponent(-deltaExp)
+        assert(x.isNormalized, "x.sig = \(binary: x._significand)")
+
+        x.negate(if: isNegative)
+        return x
+    }
+    
+    // -------------------------------------
+    /**
+     Handles the core of calculating the multiplicative inverse.  Shared by
+     division method and multiplicative inverse property, which both handle
+     special cases, so this method does not, and for that reason should not be
+     called directly.
+     */
+    @usableFromInline @inline(__always)
+    internal var multiplicativeInverse_NewtonRaphson_Core_old: Self
+    {
         /*
          Using Newton's method to find the multiplicative inverse.  Given a good
          starting point, it doubles the number of good bits each iteration.
@@ -514,7 +632,7 @@ extension WideFloat: FloatingPoint
         x.negate(if: isNegative)
         return x
     }
-    
+
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal var multiplicativeInverse_NewtonRaphson0: Self

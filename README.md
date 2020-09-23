@@ -191,7 +191,7 @@ While avalailable to be called explicitly, shift-subtract division is not used t
 
 For the most part floating point arithmetic is implemented on top of the integer arithmetic already discussed.   There is necessarily some additional overhead in handling special values such as  `NaN` and `infinity`.   Additionally in some cases, the floating point calculations take longer than their equivalent integer calculations, because they have to be calculated to their full precision.  For example, integer division stops when it finds the full integer quotient.   Floating point division, on the other hand, must continue calculating until the quotient precision is filled and beyond to get proper rounding of the least significant digit.
 
-In some cases additional algorithms are available.  Some are there just because I was searching for the fastest, and the only way to know for sure was to implement them, and in others, they are available, because in some special cases, the code that uses this library might be able to employ them in special cases to get better performance than they would offer in the general case.  
+In some cases additional algorithms are available.  Some are there just because I was searching for the fastest, and the only way to know for sure was to implement them, and in others, they are available, because in some special cases, the code that uses this library might be able to employ them to get better performance than they would offer in the general case.  
 
 #### Addition and subtraction
 

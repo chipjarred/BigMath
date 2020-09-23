@@ -415,40 +415,6 @@ extension WideFloat: FloatingPoint
         return result
     }
 
-    // -------------------------------------
-    /**
-     Divide two `WideFloats` by dividing their significands using Knuth's
-     Algorithm D and then adjusting the exponents.
-     */
-    @inlinable
-    public func divide_KnuthD_saved(by divisor: Self) -> Self
-    {
-        if let result = self.divideSpecialValues(by: divisor) { return result }
-
-        var dividendSig = self._significand
-        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        var divisorSig = divisor._significand
-        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        
-        let zero = RawSignificand.zero
-        var qHigh, qLow, r: RawSignificand
-        (qHigh, r) = dividendSig.quotientAndRemainder(dividingBy: divisorSig)
-        (qLow, r) = divisorSig.dividingFullWidth((r, zero))
-        let shift = qHigh.leadingZeroBitCount - 1
-        qHigh <<= shift
-        qHigh |= qLow >> (RawSignificand.bitWidth - shift)
-        let qExpDelta = (
-            self.significand.floatValue / divisor.significand.floatValue
-        ).exponent
-        
-        var result = Self(
-            significandBitPattern: qHigh,
-            exponent: self.exponent - divisor.exponent + qExpDelta
-        )
-        result.negate(if: self.isNegative != divisor.isNegative)
-        return result
-    }
-
     // MARK:- Multiplicative inverses
     // -------------------------------------
     @inlinable
@@ -582,56 +548,6 @@ extension WideFloat: FloatingPoint
         x.negate(if: isNegative)
         return x
     }
-    
-    // -------------------------------------
-    /**
-     Handles the core of calculating the multiplicative inverse.  Shared by
-     division method and multiplicative inverse property, which both handle
-     special cases, so this method does not, and for that reason should not be
-     called directly.
-     */
-    @usableFromInline @inline(__always)
-    internal var multiplicativeInverse_NewtonRaphson_Core_old: Self
-    {
-        /*
-         Using Newton's method to find the multiplicative inverse.  Given a good
-         starting point, it doubles the number of good bits each iteration.
-         */
-        let s = significand.magnitude
-        var x = s.multiplicativeInverse_NewtonRaphson0
-        assert(!x.isNegative)
-        let deltaExp = x._exponent + s._exponent
-
-        let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
-        var two = Self.one
-        two._exponent = 1
-
-        for _ in 0..<iterations
-        {
-            /*
-             There are two formulations
-                x = x * (2 - s * x)
-                x = x + x * (1 - s * x)
-             We're using the first one
-             */
-            let sx = s.multiply_Core(x)
-            assert(!sx.isZero)
-            assert(!sx.isNegative)
-            
-            let twoMinusSX = two - sx
-            assert(!twoMinusSX.isZero)
-            x = x.multiply_Core(twoMinusSX)
-            assert(!x.isZero)
-        }
-        assert(!x.isZero)
-
-        x.addExponent(-self.exponent)
-        x.addExponent(-deltaExp)
-        assert(x.isNormalized, "x.sig = \(binary: x._significand)")
-
-        x.negate(if: isNegative)
-        return x
-    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -701,48 +617,6 @@ extension WideFloat: FloatingPoint
         let deltaExp = -fSig.exponent - fInv.exponent
         x._exponent = -self._exponent + deltaExp
         x.negate(if: self.isNegative)
-        return x
-    }
-    
-    // -------------------------------------
-    /**
-     Handles the core of calculating the multiplicative inverse.  Shared by
-     division method and multiplicative inverse property, which both handle
-     special cases, so this method does not, and for that reason should not be
-     called directly.
-     */
-    @usableFromInline @inline(__always)
-    internal var multiplicativeInverse_KnuthD_Core_saved: Self
-    {
-        let sig = significand
-        
-        var rawSig = sig._significand
-        rawSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        let zero = RawSignificand.zero
-        var one = zero
-        one.setBit(at: RawSignificand.bitWidth - 2, to: 1)
-        var qLow, qHigh, r: RawSignificand
-        (qHigh, r) = one.quotientAndRemainder(dividingBy: rawSig)
-        (qLow, r) = rawSig.dividingFullWidth((r, zero))
-
-        let shift = qHigh.leadingZeroBitCount - 1
-        qHigh <<= shift
-        qHigh |= qLow >> (RawSignificand.bitWidth - shift)
-
-        var x = Self(
-            significandBitPattern: qHigh,
-            exponent: (1 / sig.floatValue).exponent
-        )
-        assert(!x.isNegative)
-        assert(x.isNormalized)
-
-        let deltaExp = x._exponent + sig._exponent
-        
-        x._exponent = -self._exponent + deltaExp
-        
-        assert(x.isNormalized)
-        
-        x.negate(if: isNegative)
         return x
     }
     

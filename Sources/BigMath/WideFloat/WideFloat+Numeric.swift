@@ -101,53 +101,6 @@ extension WideFloat: Numeric
         return MemoryLayout<RawSignificand>.size >
             karatsubaCutoff * MemoryLayout<UInt>.size
     }
-    
-    // -------------------------------------
-    /**
-     Shared by multiplication and some division methods.
-     */
-    @usableFromInline @inline(__always)
-    internal func multiply_Core_old(_ other: Self) -> Self
-    {
-        typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
-        var wideProduct = WideProduct()
-        
-        // Compute significand product
-        var leftSig = self._significand
-        leftSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        var rightSig = other._significand
-        rightSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-
-        (wideProduct._significand.high, wideProduct._significand.low) =
-            leftSig.multipliedFullWidth(by: rightSig)
-        
-        let halfWidth = WideProduct.RawSignificand.bitWidth / 2
-        
-        wideProduct._exponent = 0
-        wideProduct.normalize()
-
-        wideProduct.roundingRightShift(
-            by: halfWidth
-                + wideProduct._significand.high.leadingZeroBitCount - 1
-        )
-        
-        if wideProduct._significand.low.signBit {
-            wideProduct.roundingRightShift(by: 1)
-        }
-        
-        // Adjust exponents
-        wideProduct.addExponent(2 - halfWidth)
-        wideProduct.addExponent(self._exponent)
-        wideProduct.addExponent(other._exponent)
-
-        var result = Self(
-            significandBitPattern: wideProduct._significand.low,
-            exponent: wideProduct._exponent
-        )
-        assert(result.isNormalized)
-        result.negate(if: self.isNegative != other.isNegative)
-        return result
-    }
 
     // -------------------------------------
     @inlinable

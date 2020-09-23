@@ -121,10 +121,10 @@ extension WideFloat: FloatingPoint
     @inlinable public var ulp: Self
     {
         if exponent == Int.max { return Self.nan }
+        if isZero { return Self.leastNonzeroMagnitude }
         
         let expOffset = UInt.bitWidth - 2
         if exponent < Int.min + expOffset { return Self.zero }
-        if isZero { return Self.leastNonzeroMagnitude }
         
         var result = Self(1)
         result._exponent = self._exponent - expOffset
@@ -481,33 +481,36 @@ extension WideFloat: FloatingPoint
          */
         let s = significand.magnitude
         var x = s.multiplicativeInverse_NewtonRaphson0
+        assert(!x.isNegative)
         let deltaExp = x._exponent + s._exponent
-        
+
         let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
-        let one = Self.one
-        
+        var two = Self.one
+        two._exponent = 1
+
         for _ in 0..<iterations
         {
             /*
              There are two formulations
                 x = x * (2 - s * x)
                 x = x + x * (1 - s * x)
-             We're using the second one
+             We're using the first one
              */
             let sx = s.multiply_Core(x)
+            assert(!sx.isZero)
+            assert(!sx.isNegative)
             
-            let oneMinusSX = one - sx
-            
-            if oneMinusSX.isZero { break }
-            let xOneMinusSX = x.multiply_Core(oneMinusSX)
-
-            x =  x + xOneMinusSX
+            let twoMinusSX = two - sx
+            assert(!twoMinusSX.isZero)
+            x = x.multiply_Core(twoMinusSX)
+            assert(!x.isZero)
         }
+        assert(!x.isZero)
 
-        x._exponent = -self._exponent - deltaExp
-        
+        x.addExponent(-self.exponent)
+        x.addExponent(-deltaExp)
         assert(x.isNormalized, "x.sig = \(binary: x._significand)")
-        
+
         x.negate(if: isNegative)
         return x
     }

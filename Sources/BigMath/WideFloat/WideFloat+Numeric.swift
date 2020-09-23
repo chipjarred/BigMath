@@ -52,12 +52,40 @@ extension WideFloat: Numeric
      Shared by multiplication and some division methods.
      */
     @usableFromInline @inline(__always)
+    internal func multiply_Core_new(_ other: Self) -> Self
+    {
+        typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
+        var z = WideProduct()
+        
+        // Compute significand product
+        let x = self.magnitude
+        let y = other.magnitude
+        
+        let xBuf = x.floatBuffer()
+        let yBuf = y.floatBuffer()
+        var zBuf = z.mutableFloatBuffer()
+        
+        let resultBuf = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)
+        
+        var result = Self(
+            significandBitPattern: z._significand.high,
+            exponent: z.exponent
+        )
+        result.negate(if: self.isNegative != other.isNegative)
+        return result
+    }
+    
+    // -------------------------------------
+    /**
+     Shared by multiplication and some division methods.
+     */
+    @usableFromInline @inline(__always)
     internal func multiply_Core(_ other: Self) -> Self
     {
         typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
         var wideProduct = WideProduct()
         
-        // Compute signficand product
+        // Compute significand product
         var leftSig = self._significand
         leftSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
         var rightSig = other._significand
@@ -68,8 +96,9 @@ extension WideFloat: Numeric
         
         let halfWidth = WideProduct.RawSignificand.bitWidth / 2
         
+        wideProduct._exponent = 0
         wideProduct.normalize()
-        
+
         wideProduct.roundingRightShift(
             by: halfWidth
                 + wideProduct._significand.high.leadingZeroBitCount - 1
@@ -80,35 +109,19 @@ extension WideFloat: Numeric
         }
         
         // Adjust exponents
-        var productExponent = self._exponent + other._exponent
-        let expUpdate = wideProduct._exponent - halfWidth + 2
-        if expUpdate > 0
-        {
-            if Int.max - expUpdate <= productExponent
-            {
-                var result = Self.infinity
-                result.negate(if: self.isNegative != other.isNegative)
-                return result
-            }
-        }
-        else if Int.min - expUpdate > productExponent
-        {
-            var result = Self.zero
-            result.negate(if: self.isNegative != other.isNegative)
-            return result
-        }
-        
-        productExponent += expUpdate
+        wideProduct.addExponent(2 - halfWidth)
+        wideProduct.addExponent(self._exponent)
+        wideProduct.addExponent(other._exponent)
 
         var result = Self(
             significandBitPattern: wideProduct._significand.low,
-            exponent: productExponent
+            exponent: wideProduct._exponent
         )
         assert(result.isNormalized)
         result.negate(if: self.isNegative != other.isNegative)
         return result
     }
-    
+
     // -------------------------------------
     @inlinable
     public static func *= (left: inout Self, right: Self) {

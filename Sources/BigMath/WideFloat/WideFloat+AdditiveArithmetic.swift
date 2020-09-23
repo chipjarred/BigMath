@@ -34,17 +34,11 @@ extension WideFloat: AdditiveArithmetic
         if let result = left.addSpecialValues(right) { return result }
         
         var result = Self()
-        result.withMutableFloatBuffer
-        {
-            var resultBuf = $0
-            left.withFloatBuffer
-            { leftBuf in
-                right.withFloatBuffer {
-                    FloatingPointBuffer.add(leftBuf, $0, into: &resultBuf)
-                }
-            }
-            $0.exponent = resultBuf.exponent
-        }
+        var resultBuf = result.mutableFloatBuffer()
+        let leftBuf = left.floatBuffer()
+        let rightBuf = right.floatBuffer()
+        
+        FloatingPointBuffer.add(leftBuf, rightBuf, into: &resultBuf)
 
         return result
     }
@@ -56,17 +50,11 @@ extension WideFloat: AdditiveArithmetic
         if let result = left.subtractSpecialValues(right) { return result }
         
         var result = Self()
-        result.withMutableFloatBuffer
-        {
-            var resultBuf = $0
-            left.withFloatBuffer
-            { leftBuf in
-                right.withFloatBuffer {
-                    FloatingPointBuffer.subtract(leftBuf, $0, into: &resultBuf)
-                }
-            }
-            $0.exponent = resultBuf.exponent
-        }
+        var resultBuf = result.mutableFloatBuffer()
+        let leftBuf = left.floatBuffer()
+        let rightBuf = right.floatBuffer()
+
+        FloatingPointBuffer.subtract(leftBuf, rightBuf, into: &resultBuf)
 
         return result
     }

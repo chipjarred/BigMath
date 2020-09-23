@@ -73,7 +73,8 @@ struct FloatingPointBuffer
     
     var exponentIndex: Int { uintBuf.endIndex - 1}
 
-    @usableFromInline var exponent: Int
+    @usableFromInline @inline(__always)
+    var exponent: Int
     {
         get { Int(bitPattern: uintBuf[exponentIndex]) }
         set { uintBuf[exponentIndex] = UInt(bitPattern: newValue) }
@@ -159,14 +160,22 @@ struct FloatingPointBuffer
      `true` if the value is` +0` or` -0`; otherwise `false`
      
      It does an O(1) check by exploiting that we keep the significand
-     normalized.  If the exponent is` 0`, and the significand head value is `0`,
+     normalized.  If the exponent is` Int.min`, and the significand head value is `0`,
      then the value is `0`.
      */
     @usableFromInline @inline(__always)
     var isZero: Bool
     {
         assert(isNormalized, "Must be normalized for this test to work")
-        return (UInt(bitPattern: exponent) | significandHeadValue) == 0
+        return (UInt(exponent != Int.min) | significandHeadValue) == 0
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal mutating func setZero()
+    {
+        exponent = Int.min
+        significandHeadValue = 0
     }
 
     // -------------------------------------
@@ -252,6 +261,11 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
+    /// `true` for NaNs and infinity; otherwise `false`
+    @usableFromInline @inline(__always)
+    internal var isSpecialValue: Bool { return exponent == Int.max }
+    
+    // -------------------------------------
     /**
      A floating point number is considered normalized if it satisfies any of
      the following conditions
@@ -267,8 +281,8 @@ struct FloatingPointBuffer
         // This handles NaN, sNaN, and +/- Infinity
         if exponent == Int.max { return true }
         
-        // If the significand is zero, the exponent must be zero
-        if significandIsZero { return exponent == 0 }
+        // If the significand is zero, the exponent must be Int.min
+        if significandIsZero { return exponent == Int.min }
         
         /*
          Otherwise the 2nd most significant bit, that is the integral bit, must
@@ -338,11 +352,11 @@ struct FloatingPointBuffer
         {
             /*
              We have an all-zero significand.  That's 0.  If the exponent is not
-             zero, then we have to set it to zero.  We *could* conditionally
+             zero, then we have to set it to Int.min.  We *could* conditionally
              test for that, but it's faster and has the same logical outcome
-             if we just set it to 0 unconditionally.
+             if we just set it to Int.min unconditionally.
              */
-            exponent = 0
+            exponent = Int.min
             return
         }
         
@@ -719,7 +733,8 @@ struct FloatingPointBuffer
          so that dst maintains its value (except that it's lost some precision
          now).
          */
-        dst.exponent = self.exponent + shift
+        dst.exponent = self.exponent
+        dst.addExponent(shift)
     }
     
     // -------------------------------------
@@ -747,7 +762,7 @@ struct FloatingPointBuffer
             by: shift
         )
         
-        exponent &+= shift
+        addExponent(shift)
     }
 
     // -------------------------------------
@@ -773,7 +788,8 @@ struct FloatingPointBuffer
          Now that the shift is done, we just need to adjust the dst exponent
          so that dst maintains its value.
          */
-        dst.exponent = self.exponent - shift
+        dst.exponent = self.exponent
+        dst.addExponent(-shift)
     }
     
     // -------------------------------------
@@ -932,7 +948,8 @@ struct FloatingPointBuffer
          propagating all the way up the sign bit.  It also handles setting
          infinity if the exponent will be set to Int.max
          */
-        while zHead & ~(UInt.max >> 1) != 0 {
+        while zHead & ~(UInt.max >> 1) != 0
+        {
             z.rightShiftForAddOrSubtract(by: 1)
             zHead = z.significandHead
         }
@@ -1061,6 +1078,162 @@ struct FloatingPointBuffer
         // Now we set the sign bit and normalize
         z.signBit = resultSign
         z.normalize()
+    }
+    
+    // -------------------------------------
+    /**
+     Multiply this `FloatingPointBuffer` by another using the school book
+     method.
+     
+     Caller must handle signs, including for infinities and zero.
+
+     - Parameters:
+        - other: Muptiplier.  Must be positive and be the same precision as the
+            receiving `FloatingPointBuffer`.
+        - result: `FloatingPoint` buffer to receive the result.  Must be twice
+            the precision of the receiving `FloatingPointBuffer`.
+
+     
+     - Returns: A `FloatingPointBuffer` referring to the upper half of `result`.
+     */
+    @usableFromInline @inline(__always)
+    internal func multiply_schoolBook(by other: Self, result: inout Self)
+        -> Self
+    {
+        assert(self.significand.count == other.significand.count)
+        assert(result.significand.count == 2 * self.significand.count)
+        
+        if UInt8(self.isSpecialValue) | UInt8(other.isSpecialValue) == 1
+        {
+            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1 {
+                result.setNaN()
+            }
+            else { result.setInfinity() }
+            
+            return result.upperHalf()
+        }
+        
+        let zSig = result.significand
+
+        let halfWidth = zSig.count / 2
+        let halfBitWidth = halfWidth &* UInt.bitWidth
+        let midIndex = zSig.startIndex &+ halfWidth
+
+        let zSigImmutable = result.significand.immutable
+        let zSigLow = zSig[..<midIndex]
+        let zSigHigh = zSig[midIndex...]
+        let zSigHighImmutable = zSigHigh.immutable
+        
+        assert(zSigLow.count == zSigHigh.count)
+        
+        BigMath.fullMultiplyBuffers_SchoolBook(
+            self.significand.immutable,
+            other.significand.immutable,
+            result: zSig
+        )
+        
+        result.exponent = 0
+        result.normalize()
+        
+        assert(!result.isNegative)
+        
+        result.setExponentForMultiplication(of: self, by: other)
+        return result.upperHalf()
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private mutating func setExponentForMultiplication(of x: Self, by y: Self)
+    {
+        assert(!x.isSpecialValue)
+        assert(!y.isSpecialValue)
+        
+        var fx = Float(x.significandHeadValue)
+        var fy = Float(y.significandHeadValue)
+        fx /= fx.binade
+        fy /= fy.binade
+        let fz = fx * fy
+        let fzExpDelta = fz.exponent - (fx.exponent + fy.exponent)
+        
+        self.exponent = x.exponent
+        self.addExponent(y.exponent)
+        self.addExponent(fzExpDelta)
+    }
+        
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal mutating func addExponent(_ other: Int)
+    {
+        // -------------------------------------
+        @inline(__always) func addExponents(_ x: Int, _ y: Int) -> Int
+        {
+            if y < 0 {
+                if Int.min &- y > x { return Int.min }
+            }
+            else if Int.max &- y < x { return Int.max }
+            
+            return x &+ y
+        }
+        
+        if isSpecialValue { return }
+        
+        exponent = addExponents(exponent, other)
+        if exponent == Int.max { setInfinity() }
+        else if exponent == Int.min { setZero() }
+    }
+    
+    // -------------------------------------
+    /*
+     Obtain a `FloatingPointBuffer` alias into the receiving
+     `FloatingPointBuffer` that is half the receiver's precision, and
+     appropriately rounded.
+     
+     The receiver must be normalized and non-negative
+     
+     - Note: the receiver is modified in the process, becuase of the aliasing!
+     */
+    @inline(__always)
+    private mutating func upperHalf() -> FloatingPointBuffer
+    {
+        assert(isNormalized)
+        assert(!isNegative)
+        
+        let halfSigWidth = (uintBuf.count &- 1) / 2
+        let midPointIndex = uintBuf.startIndex &+ halfSigWidth
+        let highBuf = uintBuf[midPointIndex...]
+        var high = FloatingPointBuffer(wideFloatUIntBuffer: highBuf)
+        
+        if UInt8(isSpecialValue) | UInt8(isZero) == 1
+        {
+            if isNaN
+            {
+                if isSignalingNaN { high.setSignalingNaN() }
+                else { high.setNaN() }
+            }
+            else if isInfinite { high.setInfinity() }
+            else if isZero { high.setZero() }
+            return high
+        }
+        
+        // With special value handling out of the way, what we need to do is
+        // round the upperhalf of the significand as though we were going to
+        // do rounding right shift.  In fact, we're just going to point past
+        // the lower half, which is faster than actually shifting.
+        let halfSigBitWidth = halfSigWidth * UInt.bitWidth
+        let highSig = high.significand
+        let highSigImmutable = highSig.immutable
+        
+        let rBit = roundingBit(
+            forRightShift: halfSigBitWidth,
+            of: significand.immutable
+        )
+        _ = addReportingCarry(highSigImmutable, rBit, result: highSig)
+        
+        // handle possible carry into the sign bit
+        if high.isNegative {  high.rightShiftForAddOrSubtract(by: 1) }
+        
+        assert(high.isNormalized)
+        return high
     }
 }
 

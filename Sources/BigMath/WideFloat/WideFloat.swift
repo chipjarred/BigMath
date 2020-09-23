@@ -40,7 +40,7 @@ import Foundation
 fileprivate func makeReallyWideFloatValueArray(_ value: UInt) -> [UInt]
 {
     let value = value << (value.leadingZeroBitCount - 1)
-    typealias FloatType = WideUInt<UInt>
+    typealias FloatType = WideFloat<UInt>
     var bigOne = [UInt](repeating: 0, count: preMadeOneSize + 1)
     bigOne.withUnsafeMutableBytes
     {
@@ -222,7 +222,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     {
         var significand = RawSignificand()
         significand.setBit(at: RawSignificand.bitWidth - 2, to: 1)
-        return Self(significandBitPattern: significand, exponent: Int.min)
+        return Self(significandBitPattern: significand, exponent: Int.min + 1)
     }
     
     // -------------------------------------
@@ -268,14 +268,19 @@ public struct WideFloat<T: WideDigit>:  Hashable
     public init()
     {
         self._significand = RawSignificand()
-        self._exponent = 0
+        self._exponent = Int.min
     }
 
     // -------------------------------------
     @inlinable
     public init<I: FixedWidthInteger>(_ source: I)
     {
-        guard source != 0 else { self = Self.zero; return }
+        guard source != 0 else
+        {
+            self._significand = RawSignificand()
+            self._exponent = Int.min
+            return
+        }
         
         var s = source.magnitude
         var exp = I.bitWidth - s.leadingZeroBitCount - 1
@@ -333,16 +338,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
         guard !source.isNaN else
         {
             self.init()
-            if source.isSignalingNaN {
-                withMutableFloatBuffer { $0.setSignalingNaN() }
-            }
-            else { withMutableFloatBuffer { $0.setNaN() } }
+            var buf = mutableFloatBuffer()
+            
+            if source.isSignalingNaN { buf.setSignalingNaN() }
+            else { buf.setNaN() }
             return
         }
         if source.isInfinite
         {
             self.init()
-            withMutableFloatBuffer { $0.setInfinity() }
+            var buf = mutableFloatBuffer()
+            buf.setInfinity()
         }
         else
         {
@@ -384,14 +390,18 @@ public struct WideFloat<T: WideDigit>:  Hashable
     
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal mutating func normalize() {
-        withMutableFloatBuffer { $0.normalize() }
+    internal mutating func normalize()
+    {
+        var buf = mutableFloatBuffer()
+        buf.normalize()
     }
     
     // -------------------------------------
     @inlinable
-    public mutating func negate() {
-        withMutableFloatBuffer { $0.signBit ^= 1 }
+    public mutating func negate()
+    {
+        var buf = mutableFloatBuffer()
+        buf.signBit ^= 1
     }
     
     // -------------------------------------
@@ -406,8 +416,10 @@ public struct WideFloat<T: WideDigit>:  Hashable
     // -------------------------------------
     /// Branchless conditional negation
     @usableFromInline @inline(__always)
-    internal mutating func negate(if doNegation: Bool) {
-        withMutableFloatBuffer { $0.signBit ^= UInt(doNegation) }
+    internal mutating func negate(if doNegation: Bool)
+    {
+        var buf = mutableFloatBuffer()
+        buf.signBit ^= UInt(doNegation)
     }
     
     // -------------------------------------
@@ -437,7 +449,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
             }
         }
         
-        return withFloatBuffer { return $0.convert(to: F.self) }
+        let buf = floatBuffer()
+        return buf.convert(to: F.self)
     }
     
     // -------------------------------------
@@ -469,7 +482,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
             }
         }
         
-        return withFloatBuffer { return $0.convert(to: F.self) }
+        let buf = floatBuffer()
+        return buf.convert(to: F.self)
     }
     
     // -------------------------------------
@@ -501,7 +515,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
             }
         }
         
-        return withFloatBuffer { return $0.convert(to: F.self) }
+        let buf = floatBuffer()
+        return buf.convert(to: F.self)
     }
 
     // -------------------------------------
@@ -541,19 +556,32 @@ public struct WideFloat<T: WideDigit>:  Hashable
             "\(self) cannot be represented by \(I.self)"
         )
         
-        return withFloatBuffer { return $0.convert(to: I.self) }
+        let buf = floatBuffer()
+        return buf.convert(to: I.self)
     }
     
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal var significandIsZero: Bool {
-        return withFloatBuffer { $0.significandIsZero }
+    internal mutating func addExponent(_ exponentDelta: Int)
+    {
+        var buf = mutableFloatBuffer()
+        buf.addExponent(exponentDelta)
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var significandIsZero: Bool
+    {
+        let buf = floatBuffer()
+        return buf.significandIsZero
     }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal var significandIsOne: Bool {
-        return withFloatBuffer { $0.significandIsOne }
+    internal var significandIsOne: Bool
+    {
+        let buf = floatBuffer()
+        return buf.significandIsOne
     }
     
     // -------------------------------------
@@ -578,17 +606,14 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @usableFromInline @inline(__always)
     internal mutating func roundingRightShift(by shift: Int)
     {
-        _exponent = withMutableFloatBuffer
-        {
-            var buf = $0
-            let saveSign = buf.signBit
-            buf.signBit = 0
-            
-            buf.rightShiftForAddOrSubtract(by: shift)
-            
-            buf.signBit = saveSign
-            return  buf.exponent
-        }
+        var buf = mutableFloatBuffer()
+        let saveSign = buf.signBit
+        buf.signBit = 0
+        
+        buf.rightShiftForAddOrSubtract(by: shift)
+        
+        buf.signBit = saveSign
+        _exponent = buf.exponent
     }
 
     // -------------------------------------

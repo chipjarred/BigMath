@@ -94,11 +94,9 @@ extension WideFloat: Comparable
     @inlinable
     public static func <=> (left: Self, right: Self) -> ComparisonResult
     {
-        return left.withFloatBuffer
-        { leftBuf in
-            return right.withFloatBuffer {
-                return Self.ComparisonResult(leftBuf <=> $0)
-            }
-        }
+        let leftBuf = left.floatBuffer()
+        let rightBuf = right.floatBuffer()
+        
+        return Self.ComparisonResult(leftBuf <=> rightBuf)
     }
 }

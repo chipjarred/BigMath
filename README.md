@@ -118,10 +118,19 @@ I haven't done a lot of real benchmarking yet, though I have done informal compa
 
 The extensions for these protocols make heavy use of `@inlinable`, as do `WideInt` and `WideUInt`.  That means the compiler can see their implementation, and even if it chooses not to actually inline them, it should generate specialized functions that can be called without the protocol/generic witness table thunking overhead that would otherwise be required.
 
-### Multiplication
-The current default algorithm for multiplication is the "school book" method, which is O(*n*^2), but has really good CPU cache characteristics.  
+### Integer Arithmetic
 
-There is a working version of Karatsuba multiplication available for `WideUInt`.  Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   For that reason most Karatsuba implementations, including mine, have a threshold for the number of digits, below which it fails over to school book.  After some experimentation, I've set mine to 8192 bits (which is based on results on one particular 64-bit Mac, so hardly the best choice for every machine this package might run on.)
+#### Addition and Subtraction
+
+These are implemented with the same straight-forward algorithm every child learns in school.  It is an O(*n*) algorithm, with very good cache characteristics.  The only improvements one might make would be micro-optimizations, and I've done the ones I can identify.
+
+#### Multiplication
+
+There are two multiplication algorithms implemented: "school book" and Karatsuba.
+
+1. The "school book" method  is O(*n*^2), but has really good CPU cache characteristics.  It is used for all multiplications for integers with a number of bits lower than a certain threshold.  That threshold is currently set at 8192 bits (128 64-bit digits)
+
+2. Karatsuba is O(*n*^log2 3) which is theoretically faster than schoolbook, but its divide and conquer approach makes it less cache-friendly.   As a result its superior complexity advantages only appear for large numbers of digits.   It is a recursive algorithm, and whenever recurision brings the number of digits below the school book threshold, it calls the school book method.
 
 The tests I've run to determine where the cross-over in performance is indicate that it's somewhere above 16384-bit integers.  The test results are below, and you can see that at 16384, school book's superior cache characteristics start to lose out to its *n*^2 complexity, so not only does it have a marked impact on its performance, but the difference between it and Karatsuba finally begins to close.  I suspect that at 32768 bits, Karatsuba would start to win out, however, the increased build-times when including integers that large became intolerable, which is fine for me - I don't need integers *that* large, but I do wish I could have actually seen the cross-over. (*Update: After many optimizations that benefited all algorithms used, you can now see the cross-over at 8192, though that may just be a statistical variation - maybe some some other process on my machine kicked in during the school book run, but you can see a bigger difference at 16384 that is too large to be explained by system "noise"*)
 
@@ -145,12 +154,16 @@ Another thing to note is that up to `UInt8192` in these tests, Karatsuba is actu
 
 I should also mention that I only created the types larger than 4096 bits for these tests.  They have been disabled to keep build times reasonable.
 
-### Division
+#### Division
 Division uses Donald Knuth's "Algorthm D" from *The Art of Computer Programming*, which assuming the divisor and dividend are similar lengths, as typically they are in this package, is O(*n*^2). 
 
-At least two of the libraries I looked at claimed that their shift-subtract algorithm was O(*n*), but on closer inspection it definitely isn't. Actually both had identical code and comments, so either one borrowed from the other or they both borrowed from a common source.  Both the shift and subtract are each O(*n*) and they are in an O(*n*) loop, making the algorithm O(*n*^2) as well, and inefficiently so, as they have to process each bit individually, whereas Knuth's algorithm does whole digit arithmetic, which for my implementation translates to native 64-bit integer arithmetic instructions (or 32-bit if you're still a on a 32-bit machine).  Bit level shift and subtract is a reasonable hardware implementation, but I don't see how it could be a good software one.  
+At least two of the libraries I looked at claimed that their shift-subtract algorithm was O(*n*), but on closer inspection it definitely isn't.  Both the shift and the subtract are each O(*n*) and they are in an O(*n*) loop, making the algorithm O(*n*^2) as well, and inefficiently so, as they have to process each bit individually, whereas Knuth's algorithm does whole digit arithmetic, which for my implementation translates to native 64-bit integer arithmetic instructions (or 32-bit if you're still a on a 32-bit machine).  Bit level shift and subtract is a reasonable hardware implementation, but I don't see how it could be a good software one.  
 
-I've implemented the shift-subtract division algorithm to benchmark it, and though I suspected it was going to be slower than Knuth's, and so was a little biased, I nonetheless did my best to give it every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divisor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were created to be used in the tests prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
+Although I believed the shift-subtract division algorithm would be slower than Knuth's, it does have some advantages, that I thought could possibly lead to better performance than I perceived:
+    - It doesn't require any additional "scratch" work space.  The Knuth algorithm requires normalizing the divisor and the dividend.  As written Knuth's algorithm does this "in-place", but that means the divisor and dividend are both modified.   One does not usually expect for an arithmetic operation to modify its operands, so they must be put in working storage for the normalization.  The way the algorithm works, the storage to receive the remainder works perfectly for the normalized dividend; however, the normalized divisor requires its own storage.   Shift-subtract can work with only the space already required to receive the quotient and remainder.
+    - It doesn't require any division or multiplication instructions.  It's literally shift and subtract.   The Knuth algorithm finds an estimated quotient digit using two-digit division, and then corrects it using two-digit multiplication, and then it does multiprecision combined multiplication and subtraction, where the multiplciation is a multiprecision number by a single digit, and it does a possible corrrective multiprecision addition if its estimated quotient turns out to be one too large.  Although I thought it very unlikely, it seemed plausible that shift-subtract just might be able to out-perform Knuth.
+    
+Since speed is king in this library, I implemented the shift-subtract division algorithm to compare it Knuth's, and though I was was a little biased, I nonetheless did my best to give it every speed advantage I could think of.   After all, I had given a lot of care optimizing Knuth's algorithm.  It wouldn't be a fair test if I hadn't done the same for shift-subtract.  I ran the test, which was full-width division, meaning the dividend is twice as wide as the divisor, on 128-bit, 256-bit, 512-bit, 1024-bit, 2048-bit and 4096-bit unsigned integer divisors.  For each test, 100,000 randomly generated dividends and divisors were created to be used in the tests prior to starting the clock, and both algorithms divided the same dividends and divisors in the same order.   The results are in, and they speak for themselves:
 
 Time in seconds to run algorithm 100,000 times :
 | Integer Type | Shift-Subtract | Knuth D | Knuth D2 | Shift-Subtract2 |  Knuth D3 |
@@ -170,6 +183,45 @@ Time in seconds to run algorithm 100,000 times :
 
 *Update: After reaching out to the owner of one of those libraries that was using shift-subtract, we adapated the Knuth algothorithm for his array-based library and he now reports a 25x speed up for division!*
 
+While avalailable to be called explicitly, shift-subtract division is not used to implement any of the normal division operations.
+
+### Floating Point Arithmetic
+
+For the most part floating point arithmetic is implemented on top of the integer arithmetic already discussed.   There is necessarily some additional overhead in handling special values such as  `NaN` and `infinity`.   Additionally in some cases, the floating point calculations take longer than their equivalent integer calculations, because they have to be calculated to their full precision.  For example, integer division stops when it finds the full integer quotient.   Floating point division, on the other hand, must continue calculating until the quotient precision is filled and beyond to get proper rounding of the least significant digit.
+
+In some cases additional algorithms are available.  Some are there just because I was searching for the fastest, and the only way to know for sure was to implement them, and in others, they are available, because in some special cases, the code that uses this library might be able to employ them in special cases to get better performance than they would offer in the general case.  
+
+#### Addition and subtraction
+
+Addition an subtraction employ an adapted version of the same O(*n*) algorithm used by integer arithmetic in order to handle differing exponents in their operands  without having to do an actual preliminary shift of the operand with the lower exponent.  They take longer to run than their integer counterpart not only because of special value checking, but also to handle shifting results due to carrying out of the high bit, and handling rounding of the least significant bit.
+
+#### Multiplication
+
+Multiplication uses the same algorithms as for integer multiplication, choosing between "school book" and Karatusba methods based on the size of the significand, using the same threshold.  Exponents are fixed up after the significand is calculated.
+
+#### Division
+
+Three different algorithms are implemented for floating point division.  
+
+The default is a slight variant of Knuth's "Algorithm D" that is used for integer division.   Although markedly slower than its integer counter part, because of the necessity to fill out the full precision of the quotient, it is nonetheless faster than the other two methods.
+
+Both of the alternative methods rely on finding the multiplicative inverse of the divisor.   Both of those methods provide a means for just getting the multiplicative inverse separate from the division.
+
+The first multiplicative inverse method is by using the Knuth algorithm to divide 1 by the divisor, then multiplying the result by the dividend.  Since it's essentially doing the same work as simply dividing using Knuth division, with the additional work of a multiplication at the end, it always underperforms the straight Knuth division.  However it is competitive with straight Knuth division, so if the application using this library needs to repeatedly divide by the same number, using this method to calculate the inverse once and then using multiplication repeatedly would achieve significantly better performance.
+
+The last method is Newton-Raphson.  Despite its quadratic convergence when calculating the multiplicative inverse, it is an order of magnitude slower than finding the multiplicative inverse using Knuth division.   I implemented it and spent quite a lot of time optimizing it in hopes of making it competitive, for the sizes this library is capable of handling, it just will never be a useful algorithm.   It may be more useful for the truly large numbers of digits that arbitrary precision libraries might handle.
+
+The following table shows their relative performance  compared to Knuth Integer division after much optimization:
+
+Time in seconds to run algorithm 100,000 times :
+| Floating Point Type | Knuth D (Integer) | Knuth D (Floating Point) | Knuth Multiplicative Inverse | Newton-Raphson | 
+|     :--:     |            --: |     --: |     --: |     --: | 
+|    `Float128`     | 0.078  | 0.354 | 0.487 |   1.425 |
+|    `Float256`     | 0.148  | 0.379 | 0.516 |   1.749 |
+|    `Float512`     | 0.159  | 0.446 | 0.609 |   2.411 |
+|    `Float1024`   | 0.175  | 0.646 | 0.882 |   4.484 |
+|    `Float2048`   | 0.209  | 1.335 | 1.802 | 12.114 |
+|    `Float4096`   | 0.297  | 3.970 | 5.297 | 44.654 |
 
 ### Memory Allocation
 Importantly, the algorithm implementations in this package do not allocate anything from the heap.  Where they need scratch buffers for intermediate computation, they are allocated on the stack.

@@ -272,7 +272,6 @@ internal func rightShift(
 @usableFromInline @inline(__always)
 internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 {
-    assert(x.startIndex == 0)
     assert(shift >= 0)
         
     // -------------------------------------
@@ -280,14 +279,13 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
     func digitAndShift(in x: UIntBuffer, forRightShift shift: Int)
         -> (digitIndex: Int, bitShift: Int)
     {
-        assert(x.startIndex == 0)
         let digitIndexShift: Int =
             MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size
             ? 6
             : 5
 
         return (
-            digitIndex: shift >> digitIndexShift,
+            digitIndex: x.startIndex + shift >> digitIndexShift,
             bitShift: shift & (UInt.bitWidth &- 1)
         )
     }
@@ -399,8 +397,6 @@ internal func roundingRightShift(
     to y: MutableUIntBuffer,
     by shift: Int)
 {
-    assert(x.startIndex == 0)
-    assert(y.startIndex == 0)
     assert(shift >= 0)
     
     let rBit = roundingBit(forRightShift: shift, of: x)

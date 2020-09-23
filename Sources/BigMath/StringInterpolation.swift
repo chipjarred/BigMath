@@ -24,6 +24,19 @@ SOFTWARE.
 public extension String.StringInterpolation
 {
     // --------------------------------------
+    internal mutating func appendInterpolation(binary buf: UIntBuffer)
+    {
+        for digit in buf.reversed() {
+            appendInterpolation(binary: digit)
+        }
+    }
+    
+    // --------------------------------------
+    internal mutating func appendInterpolation(binary buf: MutableUIntBuffer) {
+        appendInterpolation(binary: buf.immutable)
+    }
+
+    // --------------------------------------
     mutating func appendInterpolation<T: FixedWidthInteger>(binary x: T)
     {
         var s = ""

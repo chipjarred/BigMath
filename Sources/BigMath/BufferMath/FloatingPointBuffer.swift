@@ -167,7 +167,8 @@ struct FloatingPointBuffer
     var isZero: Bool
     {
         assert(isNormalized, "Must be normalized for this test to work")
-        return (UInt(exponent != Int.min) | significandHeadValue) == 0
+        assert(exponent != Int.min || significandHeadValue == 0)
+        return exponent == Int.min
     }
     
     // -------------------------------------
@@ -176,6 +177,8 @@ struct FloatingPointBuffer
     {
         exponent = Int.min
         significandHeadValue = 0
+        let tail = significandTail
+        if tail.count > 0 { zeroBuffer(tail) }
     }
 
     // -------------------------------------
@@ -200,7 +203,7 @@ struct FloatingPointBuffer
     var isInfinite: Bool
     {
         if exponent == Int.max {
-            return significand[0] & 3 == 0
+            return significand.baseAddress!.pointee & 3 == 0
         }
         
         return false
@@ -211,7 +214,9 @@ struct FloatingPointBuffer
     internal mutating func setInfinity()
     {
         exponent = Int.max
-        significand[0] &= UInt.max << 2
+        var s = significand.baseAddress!.pointee
+        s &= UInt.max ^ 3
+        significand.baseAddress!.pointee = s
     }
 
     // -------------------------------------
@@ -223,7 +228,7 @@ struct FloatingPointBuffer
     var isNaN: Bool
     {
         if exponent == Int.max {
-            return significand[0] & 1 == 1
+            return significand.baseAddress!.pointee & 1 == 1
         }
         
         return false
@@ -234,7 +239,7 @@ struct FloatingPointBuffer
     internal mutating func setNaN()
     {
         exponent = Int.max
-        significand[0] = 1
+        significand.baseAddress!.pointee = 1
     }
 
     // -------------------------------------
@@ -246,7 +251,7 @@ struct FloatingPointBuffer
     var isSignalingNaN: Bool
     {
         if exponent == Int.max {
-            return significand[0] & 3 == 3
+            return significand.baseAddress!.pointee & 3 == 3
         }
         
         return false
@@ -257,7 +262,7 @@ struct FloatingPointBuffer
     internal mutating func setSignalingNaN(to set: Bool = true)
     {
         exponent = Int.max
-        significand[0] = 3
+        significand.baseAddress!.pointee = 3
     }
     
     // -------------------------------------
@@ -1112,17 +1117,14 @@ struct FloatingPointBuffer
             
             return result.upperHalf()
         }
-        
+                
         let zSig = result.significand
 
         let halfWidth = zSig.count / 2
-        let halfBitWidth = halfWidth &* UInt.bitWidth
         let midIndex = zSig.startIndex &+ halfWidth
 
-        let zSigImmutable = result.significand.immutable
         let zSigLow = zSig[..<midIndex]
         let zSigHigh = zSig[midIndex...]
-        let zSigHighImmutable = zSigHigh.immutable
         
         assert(zSigLow.count == zSigHigh.count)
         
@@ -1132,13 +1134,41 @@ struct FloatingPointBuffer
             result: zSig
         )
         
-        result.exponent = 0
+        result.exponent = 2
         result.normalize()
-        
+        result.addExponent(self.exponent)
+        result.addExponent(other.exponent)
+        result.assertNormalized()
+
         assert(!result.isNegative)
-        
-        result.setExponentForMultiplication(of: self, by: other)
+        result.assertNormalized()
         return result.upperHalf()
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private func assertNormalized()
+    {
+        #if DEBUG
+        if isNormalized { return }
+        
+        assertionFailure("FloatingPointBuffer not normalized!!!\n\(dumpStr)")
+        #endif
+    }
+    
+    // -------------------------------------
+    private var dumpStr: String
+    {
+        return
+            """
+               exponent = \(exponent) : 0b\(binary: exponent)
+            significand = 0b\(binary: significand)
+            """
+    }
+    
+    // -------------------------------------
+    private func dump(){
+        print(dumpStr)
     }
     
     // -------------------------------------
@@ -1148,16 +1178,11 @@ struct FloatingPointBuffer
         assert(!x.isSpecialValue)
         assert(!y.isSpecialValue)
         
-        var fx = Float(x.significandHeadValue)
-        var fy = Float(y.significandHeadValue)
-        fx /= fx.binade
-        fy /= fy.binade
-        let fz = fx * fy
-        let fzExpDelta = fz.exponent - (fx.exponent + fy.exponent)
-        
-        self.exponent = x.exponent
+        print("exponent = \(binary: self.exponent)")
+        self.addExponent(x.exponent)
+        print("exponent = \(binary: self.exponent)")
         self.addExponent(y.exponent)
-        self.addExponent(fzExpDelta)
+        print("exponent = \(binary: self.exponent)")
     }
         
     // -------------------------------------

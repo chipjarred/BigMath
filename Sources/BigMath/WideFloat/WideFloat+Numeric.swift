@@ -52,7 +52,7 @@ extension WideFloat: Numeric
      Shared by multiplication and some division methods.
      */
     @usableFromInline @inline(__always)
-    internal func multiply_Core_new(_ other: Self) -> Self
+    internal func multiply_Core(_ other: Self) -> Self
     {
         typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
         var z = WideProduct()
@@ -65,7 +65,7 @@ extension WideFloat: Numeric
         let yBuf = y.floatBuffer()
         var zBuf = z.mutableFloatBuffer()
         
-        let resultBuf = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)
+        _ = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)
         
         var result = Self(
             significandBitPattern: z._significand.high,
@@ -80,7 +80,7 @@ extension WideFloat: Numeric
      Shared by multiplication and some division methods.
      */
     @usableFromInline @inline(__always)
-    internal func multiply_Core(_ other: Self) -> Self
+    internal func multiply_Core_old(_ other: Self) -> Self
     {
         typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
         var wideProduct = WideProduct()

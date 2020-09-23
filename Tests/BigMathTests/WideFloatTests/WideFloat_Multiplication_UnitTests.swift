@@ -793,7 +793,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
     func test_product_of_finite_numbers_with_same_sign()
     {
         typealias FloatType = WideFloat<UInt64>
-        for _ in 0..<1000
+        for _ in 0..<100
         {
             let x0 = abs(randomDouble)
             let y0 = abs(randomDouble)
@@ -809,6 +809,17 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             let x = FloatType(x0)
             let y = FloatType(y0)
             var product = x * y
+            
+            if abs(product.doubleValue - expected) > tolerance
+            {
+                let radix = pow(Double(2), 62)
+                let expectedSig = UInt64(expected.significand * radix)
+                print(" product exp = \(product.exponent)")
+                print("expected exp = \(expected.exponent)")
+                print(" product sig = \(binary: product._significand)")
+                print("expected sig = \(binary: expectedSig)")
+            }
+            
             XCTAssertLessThanOrEqual(
                 abs(product.doubleValue - expected), tolerance
             )

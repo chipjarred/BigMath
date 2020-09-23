@@ -166,8 +166,11 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var isZero: Bool
     {
-        assert(isNormalized, "Must be normalized for this test to work")
-        assert(exponent != Int.min || significandHeadValue == 0)
+        assert(
+            isNormalized,
+            "Must be normalized for this test to work: \(dumpStr)"
+        )
+        assert(exponent != Int.min || significandHeadValue == 0, "\(dumpStr)")
         return exponent == Int.min
     }
     
@@ -365,7 +368,9 @@ struct FloatingPointBuffer
             return
         }
         
-        self.leftShift(into: &self, by: leadingZeros)
+        if leadingZeros != 0 {
+            self.leftShift(into: &self, by: leadingZeros)
+        }
         
         assert(isNormalized)
     }
@@ -1263,9 +1268,10 @@ struct FloatingPointBuffer
         
         if isSpecialValue { return }
         
-        exponent = addExponents(exponent, other)
-        if exponent == Int.max { setInfinity() }
-        else if exponent == Int.min { setZero() }
+        let exp = addExponents(exponent, other)
+        exponent = exp
+        if exp == Int.max { setInfinity() }
+        else if exp == Int.min { setZero() }
     }
     
     // -------------------------------------

@@ -43,31 +43,11 @@ extension WideFloat: FloatingPoint
             return
         }
         
-        let sigExponent = significand.exponent
-        
-        if exponent != 0
-        {
-            if exponent > 0
-            {
-                if Int.max - exponent <= sigExponent
-                {
-                    self = Self.infinity
-                    self.negate(if: significand.isNegative)
-                    return
-                }
-            }
-            else if Int.min - exponent > sigExponent
-            {
-                self = Self.zero
-                self.negate(if: significand.isNegative)
-                return
-            }
-        }
-        
         self.init(
             significandBitPattern: significand.magnitude._significand,
-            exponent: significand.exponent + exponent
+            exponent: significand.exponent
         )
+        self.addExponent(exponent)
         self.negate(if: sign == .minus)
     }
     

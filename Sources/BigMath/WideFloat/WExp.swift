@@ -21,6 +21,11 @@ SOFTWARE.
 */
 
 // -------------------------------------
+/*
+ Custom type for exponents that also encodes the significand's sign bit.
+ 
+ The significand sign bit is stored in the least significant bit.
+ */
 @usableFromInline
 internal struct WExp:
     Hashable,
@@ -30,23 +35,48 @@ internal struct WExp:
 {
     @usableFromInline internal typealias IntegerLiteralType = Int
     
-    @usableFromInline internal static let max: Self = Self(Int.max)
-    @usableFromInline internal static let min: Self = Self(Int.min)
+    private static let intMax = Int.max >> 1
+    private static let intMin = -intMax
+    @usableFromInline internal static let max: Self = Self(intMax)
+    @usableFromInline internal static let min: Self = Self(intMin)
+    @usableFromInline internal static let validRange = intMin...intMax
+    
+    private static let sigSignMask: UInt = 1
+    private static let expMask = ~sigSignMask
 
-    private var rawValue: Int
+    private var rawValue: UInt
     
     // -------------------------------------
     @usableFromInline @inline(__always) internal var intValue: Int
     {
-        get { rawValue }
-        set { rawValue = newValue }
+        get { Int(bitPattern: rawValue) >> 1 }
+        set
+        {
+            assert(
+                Self.validRange.contains(newValue),
+                "\(newValue) not in range, \(Self.intMin)...\(Self.intMax)"
+            )
+            rawValue &= Self.sigSignMask
+            rawValue |= UInt(bitPattern: newValue << 1)
+        }
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always) internal var sigSignBit: UInt
+    {
+        get { return rawValue & Self.sigSignMask }
+        set
+        {
+            assert((0...1).contains(newValue))
+            rawValue.setBit(at: 1, to: newValue)
+        }
     }
     
     // -------------------------------------
     @usableFromInline @inline(__always) internal var bitPattern: UInt
     {
-        get { UInt(bitPattern: rawValue) }
-        set { rawValue = Int(bitPattern: newValue) }
+        get { rawValue }
+        set { rawValue = newValue }
     }
     
     @usableFromInline @inline(__always) internal var isSpecial: Bool {
@@ -55,11 +85,18 @@ internal struct WExp:
 
     // -------------------------------------
     @usableFromInline @inline(__always)
-    init(_ source: Int) { self.rawValue = source }
+    init(_ source: Int)
+    {
+        assert(
+            Self.validRange.contains(source),
+            "\(source) not in range, \(Self.intMin)...\(Self.intMax)"
+        )
+        rawValue = UInt(bitPattern: source << 1)
+    }
     
     // -------------------------------------
     @usableFromInline @inline(__always)
-    init(bitPattern: UInt) { self.init(Int(bitPattern: bitPattern)) }
+    init(bitPattern: UInt) { self.rawValue = bitPattern }
     
     // -------------------------------------
     @usableFromInline @inline(__always)

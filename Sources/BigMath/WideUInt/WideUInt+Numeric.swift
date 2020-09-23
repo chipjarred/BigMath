@@ -84,8 +84,20 @@ extension WideUInt: Numeric
     public func multipliedFullWidth(by other: Self)
         -> (high: Self, low: Self.Magnitude)
     {
-        return multipliedFullWidth_schoolbook(by: other)
+        return useKaratsuba
+            ? multipliedFullWidth_karatsuba(by: other)
+            : multipliedFullWidth_schoolbook(by: other)
     }
+    
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always)
+    internal var useKaratsuba: Bool
+    {
+        return MemoryLayout<Self>.size >
+            karatsubaCutoff * MemoryLayout<UInt>.size
+    }
+
     
     // -------------------------------------
     /**

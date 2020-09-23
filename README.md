@@ -195,7 +195,7 @@ In some cases additional algorithms are available.  Some are there just because 
 
 #### Addition and subtraction
 
-Addition an subtraction employ an adapted version of the same O(*n*) algorithm used by integer arithmetic in order to handle differing exponents in their operands  without having to do an actual preliminary shift of the operand with the lower exponent.  They take longer to run than their integer counterpart not only because of special value checking, but also to handle shifting results due to carrying out of the high bit, and handling rounding of the least significant bit.
+Addition and subtraction employ an adapted version of the same O(*n*) algorithm used by integer arithmetic in order to handle differing exponents in their operands  without having to do an actual preliminary shift of the operand with the lower exponent.  They take longer to run than their integer counterpart not only because of special value checking, but also to handle shifting results due to carrying out of the high bit, and handling rounding of the least significant bit.
 
 #### Multiplication
 
@@ -211,9 +211,9 @@ Both of the alternative methods rely on finding the multiplicative inverse of th
 
 The first multiplicative inverse method is by using the Knuth algorithm to divide 1 by the divisor, then multiplying the result by the dividend.  Since it's essentially doing the same work as simply dividing using Knuth division, with the additional work of a multiplication at the end, it always underperforms the straight Knuth division.  However it is competitive with straight Knuth division, so if the application using this library needs to repeatedly divide by the same number, using this method to calculate the inverse once and then using multiplication repeatedly would achieve significantly better performance.
 
-The last method is Newton-Raphson.  Despite its quadratic convergence when calculating the multiplicative inverse, it is an order of magnitude slower than finding the multiplicative inverse using Knuth division.   I implemented it and spent quite a lot of time optimizing it in hopes of making it competitive, but for the sizes this library is capable of handling, it just will never be a useful algorithm.   It may be more useful for the truly large numbers of digits that arbitrary precision libraries might handle.
+The last method is Newton-Raphson.  Despite its quadratic convergence when calculating the multiplicative inverse, it is an order of magnitude slower than finding the multiplicative inverse using Knuth division, even in the 128-bit case when the initial estimate for the inverse already has 64 good bits, because I "cheat" and use `Float80` to get the initial estimate.   I implemented it, and spent quite a lot of time optimizing it in hopes of making it competitive, but for the sizes this library is capable of handling, it will never be a useful algorithm.   It may be more useful for the truly large numbers of digits that arbitrary precision libraries might handle.
 
-The following table shows their relative performance  compared to Knuth Integer division after much optimization:
+The following table shows their relative performance compared to Knuth integer division after much optimization:
 
 Time in seconds to run algorithm 100,000 times :
 | Floating Point Type | Knuth D (Integer) | Knuth D (Floating Point) | Knuth Multiplicative Inverse | Newton-Raphson | 

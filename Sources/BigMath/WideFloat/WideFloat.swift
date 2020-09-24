@@ -42,6 +42,15 @@ fileprivate func makeReallyWideFloatValueArray(_ value: UInt) -> [UInt]
     let value = value << (value.leadingZeroBitCount - 1)
     typealias FloatType = WideFloat<UInt>
     var bigOne = [UInt](repeating: 0, count: preMadeOneSize + 1)
+    
+    var fValue = FloatType(value)
+    if value == 0 { fValue._exponent.setMin() }
+    else
+    {
+        let exp = UInt.bitWidth - value.leadingZeroBitCount - 2
+        fValue._exponent.intValue = exp
+    }
+    
     bigOne.withUnsafeMutableBytes
     {
         let byteOffset = $0.count - MemoryLayout<FloatType>.size
@@ -175,8 +184,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     }
     
     // -------------------------------------
-    @inlinable public static var zero: Self { return makeWideFloatZero() }
-    @inlinable public static var one: Self { return makeWideFloatOne() }
+    @inlinable public static var zero: Self { return Self(0) }
+    @inlinable public static var one: Self { return Self(1) }
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -296,6 +305,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
         {
             self._significand = RawSignificand()
             self._exponent = WExp.min
+            assert(self.isZero)
             return
         }
         
@@ -418,7 +428,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     public mutating func negate()
     {
         var buf = mutableFloatBuffer()
-        buf.signBit ^= 1
+        buf.negate()
     }
     
     // -------------------------------------
@@ -436,7 +446,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
     internal mutating func negate(if doNegation: Bool)
     {
         var buf = mutableFloatBuffer()
-        buf.signBit ^= UInt(doNegation)
+        buf.negate(if: doNegation)
     }
     
     // -------------------------------------

@@ -350,7 +350,7 @@ class WideFloat_Addition_UnitTests: XCTestCase
             let other = FloatType(randomDouble)
             var sum = FloatType.zero + other
             XCTAssertEqual(sum, other)
-            
+
             sum = other + FloatType.zero
             XCTAssertEqual(sum, other)
 
@@ -360,13 +360,13 @@ class WideFloat_Addition_UnitTests: XCTestCase
             sum = other + FloatType.zero.negated
             XCTAssertEqual(sum, other)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(urandom64)
             var sum = FloatType.zero + other
             XCTAssertEqual(sum, other)
-            
+
             sum = other + FloatType.zero
             XCTAssertEqual(sum, other)
 
@@ -376,13 +376,13 @@ class WideFloat_Addition_UnitTests: XCTestCase
             sum = other + FloatType.zero.negated
             XCTAssertEqual(sum, other)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(random64)
             var sum = FloatType.zero + other
             XCTAssertEqual(sum, other)
-            
+
             sum = other + FloatType.zero
             XCTAssertEqual(sum, other)
 

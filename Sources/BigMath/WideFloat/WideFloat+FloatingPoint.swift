@@ -107,7 +107,7 @@ extension WideFloat: FloatingPoint
         if exponent < WExp.min.intValue + expOffset { return Self.zero }
         
         var result = Self(1)
-        result._exponent = self._exponent
+        result._exponent.intValue = self.exponent
         result.addExponent(WExp(-expOffset))
         return result
     }
@@ -183,7 +183,7 @@ extension WideFloat: FloatingPoint
     
     // -------------------------------------
     @inlinable public var isNormal: Bool { return true }
-    @inlinable public var isFinite: Bool { return _exponent != WExp.max}
+    @inlinable public var isFinite: Bool { return _exponent.isSpecial }
     @inlinable public var isSubnormal: Bool { return false }
     
     // -------------------------------------

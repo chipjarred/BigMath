@@ -24,7 +24,12 @@ SOFTWARE.
 /*
  Custom type for exponents that also encodes the significand's sign bit.
  
- The significand sign bit is stored in the least significant bit.
+ The significand sign bit is stored in the least significant bit.  The main
+ reason for putting in the least significant bit instead of the most significant
+ bit is because if we put in the most significant bit, then we have to manually
+ do sign extension when getting the exponent as an integer.  By putting it in
+ the least significant bit, its just a cast and shift to get it, and a shift
+ and mask to set it.
  */
 @usableFromInline
 internal struct WExp:
@@ -62,13 +67,33 @@ internal struct WExp:
     }
     
     // -------------------------------------
+    @usableFromInline @inline(__always) internal var isMax: Bool {
+        return intValue == Self.intMax
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always) internal var isMin: Bool {
+        return intValue == Self.intMin
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always) internal mutating func setMax() {
+        intValue = Self.intMax
+    }
+    
+    // -------------------------------------
+    @usableFromInline @inline(__always) internal mutating func setMin() {
+        intValue = Self.intMin
+    }
+
+    // -------------------------------------
     @usableFromInline @inline(__always) internal var sigSignBit: UInt
     {
         get { return rawValue & Self.sigSignMask }
         set
         {
             assert((0...1).contains(newValue))
-            rawValue.setBit(at: 1, to: newValue)
+            rawValue.setBit(at: 0, to: newValue)
         }
     }
     
@@ -79,9 +104,7 @@ internal struct WExp:
         set { rawValue = newValue }
     }
     
-    @usableFromInline @inline(__always) internal var isSpecial: Bool {
-        self.intValue == Self.max.intValue
-    }
+    @usableFromInline @inline(__always) internal var isSpecial: Bool { isMax }
 
     // -------------------------------------
     @usableFromInline @inline(__always)

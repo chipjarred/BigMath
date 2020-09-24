@@ -105,6 +105,16 @@ class WideFloat_Misc_UnitTests: XCTestCase
                 continue
             }
             
+            if ulpX != expected
+            {
+                print("  actual ulp.exponent = \(ulpX.exponent)")
+                print("expected ulp.exponent = \(expected.exponent)")
+                print("   actual ulp.signBit = \(ulpX._exponent.sigSignBit)")
+                print(" expected ulp.signBit = \(expected._exponent.sigSignBit)")
+                print("       actual ulp.sig = \(binary: ulpX._significand)")
+                print("     expected ulp.sig = \(binary: expected._significand)")
+            }
+            
             XCTAssertEqual(ulpX, expected)
         }
     }

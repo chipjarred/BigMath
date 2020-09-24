@@ -128,17 +128,6 @@ struct FloatingPointBuffer
     
     // -------------------------------------
     /**
-     Magnitude of the most signficant `UInt` of the signficand.
-     */
-    @inline(__always)
-    private var significandHeadValue: UInt
-    {
-        get { significandHead }
-        set { significandHead = newValue }
-    }
-    
-    // -------------------------------------
-    /**
      `true` if all bits of the signficand except the sign bit, are `0`;
      otherwise, `false`.
      */
@@ -163,7 +152,7 @@ struct FloatingPointBuffer
             "Must be normalized for this test to work: \(dumpStr)"
         )
         assert(
-            !exponent.isMin || significandHeadValue == 0,
+            !exponent.isMin || significandHead == 0,
             "\(dumpStr)\n"
             + "exponent.isMin = \(exponent.isMin)\n"
             + "WExp.min.intValue = \(WExp.min.intValue)"
@@ -213,7 +202,7 @@ struct FloatingPointBuffer
     var isInfinite: Bool
     {
         if exponent.isMax {
-            return significand.baseAddress!.pointee & 3 == 0
+            return significandHead & 3 == 0
         }
         
         return false
@@ -223,9 +212,9 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal mutating func setInfinity()
     {
-        var s = significand.baseAddress!.pointee
+        var s = significandHead
         s &= UInt.max ^ 3
-        significand.baseAddress!.pointee = s
+        significandHead = s
         exponent.setMax()
     }
 
@@ -238,7 +227,7 @@ struct FloatingPointBuffer
     var isNaN: Bool
     {
         if exponent.isMax {
-            return significand.baseAddress!.pointee & 1 == 1
+            return significandHead & 1 == 1
         }
         
         return false
@@ -249,7 +238,7 @@ struct FloatingPointBuffer
     internal mutating func setNaN()
     {
         exponent.setMax()
-        significand.baseAddress!.pointee = 1
+        significandHead = 1
     }
 
     // -------------------------------------
@@ -261,7 +250,7 @@ struct FloatingPointBuffer
     var isSignalingNaN: Bool
     {
         if exponent.isMax {
-            return significand.baseAddress!.pointee & 3 == 3
+            return significandHead & 3 == 3
         }
         
         return false
@@ -272,7 +261,7 @@ struct FloatingPointBuffer
     internal mutating func setSignalingNaN(to set: Bool = true)
     {
         exponent.setMax()
-        significand.baseAddress!.pointee = 3
+        significandHead = 3
     }
     
     // -------------------------------------
@@ -595,33 +584,6 @@ struct FloatingPointBuffer
         ).bindMemory(to: WExp.self, capacity: 1)
             
         self.significand = buf[..<expIndex]
-    }
-    
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    static func makeNaN(signaling: Bool, with buffer: MutableUIntBuffer) -> Self
-    {
-        assert(buffer.count > 0, "Must have room for at least one digit.")
-
-        buffer.baseAddress!.pointee |= (1 | (UInt(signaling) << 1))
-        var result = Self(wideFloatUIntBuffer: buffer)
-        result.exponent.setMax()
-        return result
-    }
-    
-    // -------------------------------------
-    @usableFromInline @inline(__always)
-    static func makeInfinity(
-        isNegative: Bool,
-        with buffer: MutableUIntBuffer) -> Self
-    {
-        assert(buffer.count > 0, "Must have room for at least one digit.")
-
-        buffer.baseAddress!.pointee = 0
-        var result = Self(wideFloatUIntBuffer: buffer)
-        result.exponent.setMax()
-        result.signBit = UInt(isNegative)
-        return result
     }
     
     // MARK:-

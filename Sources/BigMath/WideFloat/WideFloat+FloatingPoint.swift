@@ -426,7 +426,7 @@ extension WideFloat: FloatingPoint
          */
         let s = significand
         var x = self.multiplicativeInverse_NewtonRaphson0
-        let deltaExp = WExp(x.exponent + s.exponent)
+        let deltaExp = WExp(x.exponent)
 
         let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
         var two = Self.one
@@ -532,8 +532,7 @@ extension WideFloat: FloatingPoint
         assert(!isZero)
         assert(!isInfinite)
         
-        let sig = self.significand
-        let f80Value = sig.float80Value
+        let f80Value = self.floatBuffer().floatSignificand
         let f80Inverse = 1 / f80Value
         
         return Self(f80Inverse)
@@ -564,21 +563,21 @@ extension WideFloat: FloatingPoint
         var q = Quotient()
         var r = Remainder()
         
-        let divisorBuf = self._significand.buffer()
+        let divisorBuf = self.floatBuffer()
         let dividendBuf = dividendSig.mutableBuffer().immutable
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
 
         floatDivide_KnuthD(
             dividendBuf,
-            by: divisorBuf,
+            by: divisorBuf.significand.immutable,
             quotient: qBuf,
             remainder: rBuf
         )
         
         q.adjust()
         
-        let fSig = self.floatBuffer().floatSignificand
+        let fSig = divisorBuf.floatSignificand
         let fInv = 1 / fSig
         var x = Self(
             significandBitPattern: q.r,

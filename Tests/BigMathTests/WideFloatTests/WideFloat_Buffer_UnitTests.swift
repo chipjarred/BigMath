@@ -1329,6 +1329,19 @@ class WideFloat_Buffer_UnitTests: XCTestCase
             (
                 x:
                 [
+                    0b11111111_11111111_11111111_11111111__11111111_11111111_11111111_11111111, // Least significant
+                ],
+                exponent: 0,
+                shift: 1,
+                expected:
+                [
+                    0b10000000_00000000_00000000_00000000__00000000_00000000_00000000_00000000, // Least significant
+                ],
+                expectedExponent: 1
+            ),
+            (
+                x:
+                [
                     0b01111111_11111111_11111111_11111111__11111111_11111111_11111111_11111111, // Least significant
                 ],
                 exponent: 0,
@@ -1777,7 +1790,7 @@ class WideFloat_Buffer_UnitTests: XCTestCase
                 expectedExponent: 1
             ),
 
-            
+
             // Two digit cases, rounding most signficant digit
             (
                 x:
@@ -2199,7 +2212,7 @@ class WideFloat_Buffer_UnitTests: XCTestCase
                 ],
                 expectedExponent: 67
             ),
-            
+
             // Two digit cases, rounding most signficant digit with bits
             // crossing digit boundary
             (
@@ -2397,6 +2410,21 @@ class WideFloat_Buffer_UnitTests: XCTestCase
                 ],
                 expectedExponent: 1
             ),
+            (
+                x:
+                [
+                    0b11111111_11111111_11111111_11111111__11111111_11111111_11111111_11111111, // Least significant
+                    0b11111111_11111111_11111111_11111111__11111111_11111111_11111111_11111111, // Most significant
+                ],
+                exponent: 0,
+                shift: 1,
+                expected:
+                [
+                    0b00000000_00000000_00000000_00000000__00000000_00000000_00000000_00000000, // Least significant
+                    0b10000000_00000000_00000000_00000000__00000000_00000000_00000000_00000000, // Most significant
+                ],
+                expectedExponent: 1
+            ),
         ]
         
         for (x, exponent, shift, expected, expectedExponent) in testCases
@@ -2406,6 +2434,12 @@ class WideFloat_Buffer_UnitTests: XCTestCase
                 exponent: exponent,
                 shift: shift
             )
+            
+            if y != expected
+            {
+                print("y = \(y)")
+                print("expected = \(expected)")
+            }
             
             XCTAssertEqual(y, expected)
             XCTAssertEqual(yExponent, expectedExponent)

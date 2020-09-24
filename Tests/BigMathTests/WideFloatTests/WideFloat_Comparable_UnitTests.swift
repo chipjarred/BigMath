@@ -61,7 +61,7 @@ class WideFloat_Comparable_UnitTests: XCTestCase
         for _ in 0..<100
         {
             let other = FloatType(randomDouble)
-            
+
             XCTAssertFalse(FloatType.nan == other)
             XCTAssertFalse(FloatType.nan != other)
             XCTAssertFalse(FloatType.nan > other)
@@ -69,11 +69,11 @@ class WideFloat_Comparable_UnitTests: XCTestCase
             XCTAssertFalse(FloatType.nan < other)
             XCTAssertFalse(FloatType.nan <= other)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(urandom64)
-            
+
             XCTAssertFalse(FloatType.nan == other)
             XCTAssertFalse(FloatType.nan != other)
             XCTAssertFalse(FloatType.nan > other)
@@ -81,11 +81,11 @@ class WideFloat_Comparable_UnitTests: XCTestCase
             XCTAssertFalse(FloatType.nan < other)
             XCTAssertFalse(FloatType.nan <= other)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(random64)
-            
+
             XCTAssertFalse(FloatType.nan == other)
             XCTAssertFalse(FloatType.nan != other)
             XCTAssertFalse(FloatType.nan > other)
@@ -278,6 +278,8 @@ class WideFloat_Comparable_UnitTests: XCTestCase
         let testCases =
         [
             (x: -6.632804489126267e+18, y: 186509121110083e+17),
+            (x: 4.02757294920914e+18, y: 5.056763693166687e+18),
+            (x: 3.850933609328316e+17, y: 4.83893331713415e+18),
         ]
         
         for (x, y) in testCases
@@ -290,6 +292,9 @@ class WideFloat_Comparable_UnitTests: XCTestCase
                 print("\n-------- Failing case")
                 print("    x: \(x)")
                 print("    y: \(y)")
+                print("   wX: \(binary: wX._significand)")
+                print("   wY: \(binary: wY._significand)")
+                print(" \(wX < wY)")
             }
             
             XCTAssertEqual(x < y, wX < wY)

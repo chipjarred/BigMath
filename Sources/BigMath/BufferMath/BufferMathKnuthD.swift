@@ -569,13 +569,11 @@ internal func floatDivide_KnuthD(
     assert(n > 0, "Divisor must have at least one digit")
     assert(
         dividend.reduce(0, | ) == 0
-        || dividend.last!.bit(at: digitWidth - 2),
+        || dividend.last!.bit(at: digitWidth - 1),
         "Dividend not normalized, dividend.last = \(binary: dividend.last!)"
     )
-    assert(!dividend.last!.bit(at: digitWidth - 1), "Dividend is negative")
     assert(divisor.reduce(0) { $0 | $1 } != 0, "Division by 0")
-    assert(divisor.last!.bit(at: digitWidth - 2), "Divisor not normalized")
-    assert(!divisor.last!.bit(at: digitWidth - 1), "Divisor is negative")
+    assert(divisor.last!.bit(at: digitWidth - 1), "Divisor not normalized")
     assert(m >= n, "Dividend must have at least as many digits as the divisor")
     assert(quotient.count >= m,
         "Must have space for the number of digits in the dividend"
@@ -652,49 +650,6 @@ internal func floatDivide_KnuthD(
         quotientPtr -= 1
         j -= 1
     }
-//
-//    while quotientPtr >= quotientStart
-//    {
-//        let jPlusN = j &+ n
-//        
-//        uWindow = u[j...jPlusN]
-//        let ujPlusN = uWindow[uWindow.endIndex - 1]
-//        let ujPlusNMinus1 = uWindow[uWindow.endIndex - 2]
-//        let ujPlusNMinus2 = uWindow[uWindow.endIndex - 3]
-//
-//        let dividendHead: TwoDigits = (high: ujPlusN, low: ujPlusNMinus1)
-//        
-//        // These are tuple arithemtic operations.  `/%` is custom combined
-//        // division and remainder operator.  See TupleMath.swift
-//        var (q̂, r̂) = dividendHead /% vLast
-//        var partialProduct = q̂ * vNextToLast
-//        var partialDividend:TwoDigits = (high: r̂.low, low: ujPlusNMinus2)
-//        
-//        while true
-//        {
-//            if (UInt8(q̂.high != 0) | (partialProduct > partialDividend)) == 1
-//            {
-//                q̂ -= 1
-//                r̂ += vLast
-//                partialProduct -= vNextToLast
-//                partialDividend += partialDividendDelta
-//                
-//                if r̂.high == 0 { continue }
-//            }
-//            break
-//        }
-//
-//        quotientPtr.pointee = q̂.low
-//        
-//        if subtractReportingBorrowKnuth(v, times: q̂.low, from: &uWindow)
-//        {
-//            quotientPtr.pointee &-= 1
-//            uWindow += v // digit collection addition!
-//        }
-//        
-//        quotientPtr -= 1
-//        j -= 1
-//    }
 
     // Since we require a dividend and divisor to be already normalized, we
     // don't need to denormalize the remainder

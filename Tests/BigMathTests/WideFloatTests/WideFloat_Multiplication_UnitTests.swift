@@ -32,6 +32,16 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         let x = Float.random(in: bigRange)
         return  x * Float.random(in: littleRange)
     }
+    
+    // -------------------------------------
+    var randomFloat80: Float80
+    {
+        let bigLimit = Float80(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float80.leastNormalMagnitude...1
+        let x = Float80.random(in: bigRange)
+        return  x * Float80.random(in: littleRange)
+    }
 
     var random64: Int64 { Int64.random(in: Int64.min...Int64.max) }
     var urandom64: UInt64 { UInt64.random(in: UInt64.min...UInt64.max) }
@@ -617,13 +627,13 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             product = other.negated * FloatType(1)
             XCTAssertEqual(product, other.negated)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(abs(randomDouble))
             var product = FloatType(1) * other
             XCTAssertEqual(product, other)
-            
+
             product = other * FloatType(1)
             XCTAssertEqual(product, other)
 
@@ -639,7 +649,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             let other = FloatType(urandom64)
             var product = FloatType(1) * other
             XCTAssertEqual(product, other)
-            
+
             product = other * FloatType(1)
             XCTAssertEqual(product, other)
 
@@ -655,7 +665,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             let other = FloatType(abs(random64))
             var product = FloatType(1) * other
             XCTAssertEqual(product, other)
-            
+
             product = other * FloatType(1)
             XCTAssertEqual(product, other)
 
@@ -682,24 +692,40 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         for other in otherValues
         {
             var product = FloatType(1).negated * other
-            XCTAssertEqual(product, other.negated)
             
+            if product != other.negated
+            {
+                print("------- Failing Case:")
+                print("    x: \(FloatType(1).negated)")
+                print("    y: \(other)")
+            }
+            
+            XCTAssertEqual(product.sign, other.negated.sign)
+            XCTAssertEqual(product._significand, other.negated._significand)
+            XCTAssertEqual(product.exponent, other.exponent)
+
             product = other * FloatType(1).negated
-            XCTAssertEqual(product, other.negated)
+            XCTAssertEqual(product.sign, other.negated.sign)
+            XCTAssertEqual(product._significand, other.negated._significand)
+            XCTAssertEqual(product.exponent, other.exponent)
 
             product = FloatType(1).negated * other.negated
-            XCTAssertEqual(product, other)
+            XCTAssertEqual(product.sign, other.sign)
+            XCTAssertEqual(product._significand, other.negated._significand)
+            XCTAssertEqual(product.exponent, other.exponent)
 
             product = other.negated * FloatType(1).negated
-            XCTAssertEqual(product, other)
+            XCTAssertEqual(product.sign, other.sign)
+            XCTAssertEqual(product._significand, other.negated._significand)
+            XCTAssertEqual(product.exponent, other.exponent)
         }
-        
+
         for _ in 0..<100
         {
             let other = FloatType(abs(randomDouble))
             var product = FloatType(1).negated * other
             XCTAssertEqual(product, other.negated)
-            
+
             product = other * FloatType(1).negated
             XCTAssertEqual(product, other.negated)
 
@@ -715,7 +741,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             let other = FloatType(urandom64)
             var product = FloatType(1).negated * other
             XCTAssertEqual(product, other.negated)
-            
+
             product = other * FloatType(1).negated
             XCTAssertEqual(product, other.negated)
 
@@ -731,7 +757,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             let other = FloatType(abs(random64))
             var product = FloatType(1).negated * other
             XCTAssertEqual(product, other.negated)
-            
+
             product = other * FloatType(1).negated
             XCTAssertEqual(product, other.negated)
 
@@ -795,6 +821,24 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         typealias FloatType = WideFloat<UInt64>
         for _ in 0..<100
         {
+            let x0 = urandom64
+            let y0 = urandom64
+            
+            let f80x = Float80(x0)
+            let f80y = Float80(y0)
+            let expected = f80x * f80y
+
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var product = x * y
+            XCTAssertEqual(product.float80Value, expected)
+
+            product = y * x
+            XCTAssertEqual(product.float80Value, expected)
+        }
+        
+        for _ in 0..<100
+        {
             let x0 = abs(randomDouble)
             let y0 = abs(randomDouble)
             let expected = x0 * y0
@@ -829,8 +873,8 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
                 abs(product.doubleValue - expected), tolerance
             )
         }
-        
-        for _ in 0..<1000
+
+        for _ in 0..<100
         {
             let x0 = -abs(randomDouble)
             let y0 = -abs(randomDouble)
@@ -853,6 +897,32 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             product = y * x
             XCTAssertLessThanOrEqual(
                 abs(product.doubleValue - expected), tolerance
+            )
+        }
+        
+        for _ in 0..<100
+        {
+            let x0 = -abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
+            let expected = x0 * y0
+            
+            // We allow a tolerance because WideFloat has more precision than
+            // Double
+            let tolerance = Float80(
+                sign: .plus,
+                exponent: expected.exponent - 63,
+                significand: 1)
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var product = x * y
+            XCTAssertLessThanOrEqual(
+                abs(product.float80Value - expected), tolerance
+            )
+            
+            product = y * x
+            XCTAssertLessThanOrEqual(
+                abs(product.float80Value - expected), tolerance
             )
         }
     }
@@ -886,6 +956,32 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
                 abs(product.doubleValue - expected), tolerance
             )
         }
+        
+        for _ in 0..<1000
+        {
+            let x0 = abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
+            let expected = x0 * y0
+            
+            // We allow a tolerance because WideFloat has more precision than
+            // Double
+            let tolerance = Float80(
+                sign: .plus,
+                exponent: expected.exponent - 63,
+                significand: 1)
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var product = x * y
+            XCTAssertLessThanOrEqual(
+                abs(product.float80Value - expected), tolerance
+            )
+            
+            product = y * x
+            XCTAssertLessThanOrEqual(
+                abs(product.float80Value - expected), tolerance
+            )
+        }
     }
     
     // -------------------------------------
@@ -901,9 +997,21 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             (
                 xSig: 5729532217080934400,   xExp: 60,
                 ySig: 7423868869837347414,   yExp: -61,
-                zSig: 0x4000_0000_0000_0000, zExp: 0
-            )
+                zSig: 0xffff_ffff_ffff_ffff, zExp: -3
+            ),
         ]
+        
+        func makeFloat80(sig: UInt64, exp: Int) -> Float80
+        {
+            let sigLeadingZeros = sig.leadingZeroBitCount
+            let temp = Float80(sig)
+            let r = Float80(
+                sign: .plus,
+                exponent: exp - sigLeadingZeros,
+                significand: temp.significand
+            )
+            return r
+        }
         
         for (xSig, xExp, ySig, yExp, zSig, zExp) in testCases
         {
@@ -913,7 +1021,19 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
                 FloatType(significandBitPattern: zSig, exponent: zExp)
             
             let z = x * y
+            
+            let f80x = makeFloat80(sig: xSig, exp: xExp)
+            let f80y = makeFloat80(sig: ySig, exp: yExp)
+            
+            let f80z = f80x * f80y
+            var f80zWExp = WExp(f80z.exponent)
+            f80zWExp.sigSignBit = UInt(f80z.sign == .minus)
+            
+            XCTAssertEqual(z.sign, expected.sign)
+            XCTAssertEqual(z._significand, expected._significand)
+            XCTAssertEqual(z.exponent, expected.exponent)
             XCTAssertEqual(z, expected)
+            XCTAssertEqual(z.float80Value, f80z)
         }
     }
 }

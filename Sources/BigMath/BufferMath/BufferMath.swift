@@ -222,9 +222,6 @@ internal func rightShift(
         copy(buffer: src, to: dst)
         fillBuffer(dst[(dst.startIndex + src.count)...], with: signBits)
     }
-//    else if shift >= src.count * UInt.bitWidth {
-//        fillBuffer(dst, with: signBits)
-//    }
 
     
     let d = fastMin(digitShift(for: shift), src.count)
@@ -405,7 +402,7 @@ internal func roundingRightShift(
     let rBit = roundingBit(forRightShift: shift, of: x)
     
     rightShift(from: x, to: y,  by: shift)
-    
+
     // Now we do the rounding
     if rBit != 0 { _ = addReportingCarry(x, 1, result: y) }
 }

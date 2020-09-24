@@ -100,10 +100,6 @@ struct FloatingPointBuffer
         {
             assert(newValue == 0 || newValue == 1)
             exponent.sigSignBit = newValue
-            significand[significand.endIndex - 1].setBit(
-                at: UInt.bitWidth - 1,
-                to: newValue
-            )
         }
     }
 
@@ -123,13 +119,6 @@ struct FloatingPointBuffer
         self.signBit = self.signBit ^ UInt(condition)
     }
 
-    
-    // -------------------------------------
-    @inline(__always)
-    private var significandTail: MutableUIntBuffer {
-        return significand[..<(significand.endIndex - 1)]
-    }
-    
     // -------------------------------------
     /**
      The value of most signficant `UInt` of the signficand including its sign
@@ -149,13 +138,8 @@ struct FloatingPointBuffer
     @inline(__always)
     private var significandHeadValue: UInt
     {
-        get { significandHead & (UInt.max >> 1)}
-        set
-        {
-            assert(newValue & ~(UInt.max >> 1) == 0)
-            
-            significandHead = newValue | (significandHead & ~(UInt.max >> 1))
-        }
+        get { significandHead }
+        set { significandHead = newValue }
     }
     
     // -------------------------------------
@@ -165,7 +149,7 @@ struct FloatingPointBuffer
      */
     @usableFromInline @inline(__always)
     internal var significandIsZero: Bool {
-        return significandTail.reduce(significandHeadValue) { $0 | $1 } == 0
+        return significand.reduce(0) { $0 | $1 } == 0
     }
     
     // -------------------------------------
@@ -196,9 +180,7 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal mutating func setZero()
     {
-        significandHeadValue = 0
-        let tail = significandTail
-        if tail.count > 0 { zeroBuffer(tail) }
+        zeroBuffer(significand)
         exponent.setMin()
     }
 
@@ -210,9 +192,21 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     internal var significandIsOne: Bool
     {
-        let mask: UInt = 1 << (UInt.bitWidth - Int(2))
-        return significandHeadValue & mask == mask
-            && significandTail.reduce(0) { $0 | $1 } == 0
+        let highBit: UInt = 1 << (UInt.bitWidth - Int(1))
+        let sig = significand
+        let start = sig.baseAddress!
+        var ptr = start + sig.count - 1
+        
+        if ptr.pointee != highBit { return false }
+        ptr -= 1
+        
+        while ptr >= start
+        {
+            guard ptr.pointee == 0 else { return false }
+            ptr -= 1
+        }
+        
+        return true
     }
     
     // -------------------------------------
@@ -310,39 +304,14 @@ struct FloatingPointBuffer
         // If the significand is zero, the exponent must be WExp.min
         if significandIsZero { return exponent.isMin }
         
-        /*
-         Otherwise the 2nd most significant bit, that is the integral bit, must
-         be one.
-         */
         let sigHead = significandHead
-        return sigHead.bit(at:UInt.bitWidth - 2)
+        return sigHead.bit(at:UInt.bitWidth - 1)
     }
     
     // -------------------------------------
-    /*
-     Ignores sign bit when counting leading zeros.
-     */
     @inline(__always)
-    private var leadingSignficandZeroBitCount: Int
-    {
-        let sigHead = significandHeadValue
-        assert(sigHead.leadingZeroBitCount > 0)
-        var leadingZeros = sigHead.leadingZeroBitCount - 1
-        if sigHead == 0 // head is +0 or -0
-        {
-            for digit in significandTail.reversed()
-            {
-                guard digit == 0 else
-                {
-                    leadingZeros += digit.leadingZeroBitCount
-                    break
-                }
-                
-                leadingZeros += UInt.bitWidth
-            }
-        }
-        
-        return leadingZeros
+    private var leadingSignficandZeroBitCount: Int {
+        return BigMath.countLeadingZeroBits(significand.immutable)
     }
     
     // -------------------------------------
@@ -350,17 +319,8 @@ struct FloatingPointBuffer
      Ignores sign bit when counting non-zero bits.
      */
     @inline(__always)
-    private var nonZeroSignificandBitCount: Int
-    {
-        let sigHead = significandHeadValue
-
-        var leadingZeros = sigHead.nonzeroBitCount
-        
-        for digit in significandTail.reversed() {
-            leadingZeros += digit.nonzeroBitCount
-        }
-
-        return leadingZeros
+    private var nonZeroSignificandBitCount: Int {
+        return BigMath.countNonzeroBits(significand.immutable)
     }
 
     // -------------------------------------
@@ -370,8 +330,7 @@ struct FloatingPointBuffer
         // NaN, sNaN and infinities are already normalized
         if exponent.isSpecial { return }
         
-        // totalBits doesn't include sign bit
-        let totalBits = significand.count * UInt.bitWidth - 1
+        let totalBits = significand.count * UInt.bitWidth
         let leadingZeros = leadingSignficandZeroBitCount
         
         if leadingZeros == totalBits
@@ -411,6 +370,8 @@ struct FloatingPointBuffer
     func convert<I: FixedWidthInteger>(to: I.Type) -> I
     {
         assert(!isNaN && !isInfinite)
+        assertNormalized()
+        
         guard exponent >= 0 else { return I() }
 
         var result = I.Magnitude()
@@ -420,12 +381,16 @@ struct FloatingPointBuffer
             var resultBuf = $0
             let commonLen = min(significand.count, resultBuf.count)
             let s = significand[..<(significand.startIndex + commonLen)]
+            let significandBits = significand.count * UInt.bitWidth
             
-            BigMath.leftShiftKnuth(
-                s.immutable,
-                by: exponent.intValue - I.Magnitude.bitWidth + 2,
-                into: &resultBuf
-            )
+            let shift = significandBits - exponent.intValue - 1
+            
+            if shift >= 0 {
+                BigMath.rightShift(from: s.immutable, to: resultBuf, by: shift)
+            }
+            else {
+                BigMath.leftShift(from: s.immutable, to: resultBuf, by: -shift)
+            }
             
             if isNegative && (exponent.intValue + 1) < I.Magnitude.bitWidth
             {
@@ -460,8 +425,8 @@ struct FloatingPointBuffer
         
         let shift = Float.significandBitCount
         var sigHead = significandHead
-        sigHead &= (UInt.max >> 2)
-        sigHead.roundingRightShift(by: (UInt.bitWidth - 2) - shift)
+        sigHead &= (UInt.max >> 1)
+        sigHead.roundingRightShift(by: (UInt.bitWidth - 1) - shift)
         
         return Float(
             sign: FloatingPointSign(rawValue:
@@ -497,8 +462,8 @@ struct FloatingPointBuffer
         
         let shift = Double.significandBitCount
         var sigHead = significandHead
-        sigHead &= (UInt.max >> 2)
-        sigHead.roundingRightShift(by: (UInt.bitWidth - 2) - shift)
+        sigHead &= (UInt.max >> 1)
+        sigHead.roundingRightShift(by: (UInt.bitWidth - 1) - shift)
 
         return Double(
             sign: FloatingPointSign(rawValue:
@@ -531,13 +496,11 @@ struct FloatingPointBuffer
         )
         
         var result: F = 0
-        for digit in significandTail
+        for digit in significand
         {
             result /= radix
             result += F(digit)
         }
-        
-        result += F(significandHeadValue)
 
         let sign = select(
             if: isNegative,
@@ -562,9 +525,9 @@ struct FloatingPointBuffer
             exponent: F.Exponent(UInt.bitWidth),
             significand: 1
         )
-        var result = F(significandHeadValue)
+        var result: F = 0
         
-        for digit in significandTail.reversed()
+        for digit in significand.reversed()
         {
             result *= radix
             result += F(digit)
@@ -642,7 +605,8 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     static func <=> (left: Self, right: Self) -> ComparisonResult
     {
-        assert(left.isNormalized && right.isNormalized)
+        left.assertNormalized()
+        right.assertNormalized()
         assert(left.significand.count == right.significand.count)
         
         let leftSign = Int(left.signBit)
@@ -701,21 +665,13 @@ struct FloatingPointBuffer
         {
             /*
              With exponents the same, we have no choice but to do the O(n)
-             check of the signficands.  Because the most significant digit
-             contains the sign bit we have to handle it separately from the
-             tail.
+             check of the signficands.
              */
             result =
-                Int(left.significandHeadValue) - Int(right.significandHeadValue)
-            if result == 0
-            {
-                result = compareBuffers(
-                    left.significandTail,
-                    right.significandTail).rawValue
-            }
-            
+                compareBuffers(left.significand, right.significand).rawValue
+
         }
-        
+
         /*
          The only thing left to do is to fix up for when both are negative.
          We have to invert the result if they are.  For example 10 > 9 but
@@ -733,22 +689,15 @@ struct FloatingPointBuffer
         assert(dst.significand.count == self.significand.count)
         assert(shift >= 0)
                 
-        // Save the sign bit in case dst aliases self
-        let savedSignBit = dst.signBit
-        
         /*
          Zeroing the sign bit unconditionally then restoring it makes the logic
          simpler.
          */
-        dst.signBit = 0
-
-        BigMath.rightShift(
+         BigMath.rightShift(
             from: self.significand.immutable,
             to: dst.significand,
             by: shift
         )
-        
-        dst.signBit = savedSignBit
 
         /*
          Now that the shift is done, we just need to adjust the dst exponent
@@ -772,11 +721,8 @@ struct FloatingPointBuffer
     {
         assert(shift >= 0)
         
-        guard exponent.intValue <= WExp.max.intValue &- shift else
-        {
-            setInfinity()
-            return
-        }
+        addExponent(WExp(shift))
+        if isInfinite { return }
         
         BigMath.roundingRightShift(
             from: self.significand.immutable,
@@ -784,7 +730,6 @@ struct FloatingPointBuffer
             by: shift
         )
         
-        addExponent(WExp(shift))
     }
 
     // -------------------------------------
@@ -794,17 +739,11 @@ struct FloatingPointBuffer
         assert(dst.significand.count == self.significand.count)
         assert(shift >= 0)
         
-        // Save the sign bit in case dst aliases self
-        let savedSignBit = self.signBit
-                
         BigMath.leftShift(
             from: self.significand.immutable,
             to: dst.significand,
             by: shift
         )
-        
-        // We just shifted the sign bit away, so we have to restore it.
-        dst.signBit = savedSignBit
 
         /*
          Now that the shift is done, we just need to adjust the dst exponent
@@ -911,28 +850,23 @@ struct FloatingPointBuffer
             y.digitAndShift(forRightShift: exponentDelta.intValue)
         
         var xPtr = x.significand.baseAddress!
-        let xHeadPtr = xPtr + x.significand.count - 1
+        let xEnd = xPtr + x.significand.count
         
         let yStart = y.significand.baseAddress!
         let yEnd = yStart + y.significand.count
-        let yHeadPtr = yEnd - 1
         var yPtr = yStart + yDigitIndex
         
         var zPtr = z.significand.baseAddress!
         
-        var yDigitLow = yPtr < yEnd
-            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-            :   0
+        var yDigitLow = yPtr < yEnd ? yPtr.pointee : 0
         
         yPtr += 1
         
-        while xPtr < xHeadPtr
+        while xPtr < xEnd
         {
             let xDigit = xPtr.pointee
             
-            let yDigitHigh = yPtr < yEnd
-                ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-                :   0
+            let yDigitHigh = yPtr < yEnd ? yPtr.pointee : 0
             let yDigit =
                 (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
             yDigitLow = yDigitHigh
@@ -947,33 +881,12 @@ struct FloatingPointBuffer
             zPtr += 1
         }
         
-        let xHead = x.significandHeadValue
-        
-        let yDigitHigh = yPtr < yEnd
-            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-            :   0
-
-        let yHead =
-            (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
-        
-        var (zHead, _) = xHead.addingReportingCarry(carry)
-        _ = zHead.addToSelfReportingCarry(yHead)
-        z.significandHead = zHead
-
-        /*
-         zHead has room for sign bit, and any carry would have propagated to
-         it.  Since we haven't set the sign yet, if it's 1, then we need
-         to right shift z by 1.
-         
-         rightShiftForAddOrSubtract takes care of possible additional
-         shift/rounding that might occur as a result of rounding carries
-         propagating all the way up the sign bit.  It also handles setting
-         infinity if the exponent will be set to WExp.max
-         */
-        while zHead & ~(UInt.max >> 1) != 0
-        {
+        // If there was a carry, we need to right shift z by 1.
+        zPtr -= 1
+        let carryBit = ~(UInt.max >> 1)
+        while carry != 0 {
             z.rightShiftForAddOrSubtract(by: 1)
-            zHead = z.significandHead
+            carry = zPtr.pointee.addToSelfReportingCarry(carryBit)
         }
         
         // Now we set the sign bit and normalize
@@ -1033,28 +946,23 @@ struct FloatingPointBuffer
             y.digitAndShift(forRightShift: exponentDelta.intValue)
         
         var xPtr = x.significand.baseAddress!
-        let xHeadPtr = xPtr + x.significand.count - 1
+        let xEnd = xPtr + x.significand.count
         
         let yStart = y.significand.baseAddress!
         let yEnd = yStart + y.significand.count
-        let yHeadPtr = yEnd - 1
         var yPtr = yStart + yDigitIndex
         
         var zPtr = z.significand.baseAddress!
         
-        var yDigitLow = yPtr < yEnd
-            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-            :   0
+        var yDigitLow = yPtr < yEnd ? yPtr.pointee : 0
         
         yPtr += 1
         
-        while xPtr < xHeadPtr
+        while xPtr < xEnd
         {
             let xDigit = xPtr.pointee
             
-            let yDigitHigh = yPtr < yEnd
-                ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-                :   0
+            let yDigitHigh = yPtr < yEnd ? yPtr.pointee : 0
             let yDigit =
                 (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
             yDigitLow = yDigitHigh
@@ -1069,27 +977,12 @@ struct FloatingPointBuffer
             zPtr += 1
         }
         
-        let xHead = x.significandHeadValue
-
-        let yDigitHigh = yPtr < yEnd
-            ?   (yPtr == yHeadPtr ? y.significandHeadValue : yPtr.pointee)
-            :   0
-
-        let yHead =
-            (yDigitLow >> yShift) | (yDigitHigh << (UInt.bitWidth - yShift))
-        var (zHead, _) = xHead.subtractingReportingBorrow(borrow)
-        _ = zHead.subtractFromSelfReportingBorrow(yHead)
-        z.significandHead = zHead
-
         /*
-         zHead has room for sign bit, and any borrow would have propagated to
-         it.  Since we haven't set the sign yet, if it's 1, then
-         subtracting y from x gives the opposite sign of x, so we need to
-         invert resultSign, and our result is now in 2's complement form, which
-         means we need to arithmetically negate it to put it back into signed
-         magnitude form.
+         If there's a borrw, we need to invert resultSign, and our result is
+         now in 2's complement form, which  means we need to arithmetically
+         negate it to put it back into signed magnitude form.
          */
-        if zHead & ~(UInt.max >> 1) != 0
+        if borrow != 0
         {
             resultSign ^= 1
             BigMath.arithmeticNegate(z.significand.immutable, to: z.significand)
@@ -1148,8 +1041,8 @@ struct FloatingPointBuffer
             other.significand.immutable,
             result: zSig
         )
-        
-        result.exponent = 2
+
+        result.exponent = 1
         result.normalize()
         result.addExponent(self.exponent)
         result.addExponent(other.exponent)
@@ -1226,7 +1119,7 @@ struct FloatingPointBuffer
             result: zSig
         )
         
-        result.exponent = 2
+        result.exponent = 1
         result.normalize()
         result.addExponent(self.exponent)
         result.addExponent(other.exponent)
@@ -1325,7 +1218,7 @@ struct FloatingPointBuffer
         // do rounding right shift.  In fact, we're just going to point past
         // the lower half, which is faster than actually shifting.
         let halfSigBitWidth = halfSigWidth * UInt.bitWidth
-        let highSig = high.significand
+        var highSig = high.significand
         let highSigImmutable = highSig.immutable
         
         let rBit = roundingBit(
@@ -1333,11 +1226,16 @@ struct FloatingPointBuffer
             of: significand.immutable
         )
         high.assertNormalized()
-        _ = addReportingCarry(highSigImmutable, rBit, result: highSig)
+        var carry = addReportingCarry(highSigImmutable, rBit, result: highSig)
 
-        // handle possible carry into the sign bit
-        if high.significandHead.bit(at: UInt.bitWidth - 1) {
+        // handle possible carry out of the high bit
+        if carry == 1
+        {
+            let highBitIndex = highSig.count * UInt.bitWidth - 1
             high.rightShiftForAddOrSubtract(by: 1)
+            setBit(at: highBitIndex, in: &highSig, to: 1)
+            carry = high.significandHead.addToSelfReportingCarry(carry)
+            assert(carry != 1)
         }
         
         high.assertNormalized()

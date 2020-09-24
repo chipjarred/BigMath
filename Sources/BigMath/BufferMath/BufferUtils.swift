@@ -452,11 +452,14 @@ internal func setBit(
     to value: UInt)
 {
     assert(value == 0 || value == 1)
-    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
+    var digitIndex: Int
+    let bIndex: Int
+    (digitIndex, bIndex) = digitAndBitIndex(for: bitIndex)
+    digitIndex += buff.startIndex
     
     assert(buff.indices.contains(digitIndex))
     
-    buff[digitIndex].setBit(at: bitIndex, to: value)
+    buff[digitIndex].setBit(at: bIndex, to: value)
 }
 
 // -------------------------------------
@@ -468,11 +471,14 @@ internal func toggleBit(
     at bitIndex: Int,
     in buff: inout MutableUIntBuffer)
 {
-    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
-    
+    var digitIndex: Int
+    let bIndex: Int
+    (digitIndex, bIndex) = digitAndBitIndex(for: bitIndex)
+    digitIndex += buff.startIndex
+
     assert(buff.indices.contains(digitIndex))
     
-    buff[digitIndex].toggleBit(at: bitIndex)
+    buff[digitIndex].toggleBit(at: bIndex)
 }
 
 // -------------------------------------
@@ -482,10 +488,14 @@ Retrieve the value of a bit at a bit index relative to a buffer.
 @usableFromInline @inline(__always)
 internal func getBit(at bitIndex: Int, from buff: UIntBuffer) -> UInt
 {
-    let (digitIndex, bitIndex) = digitAndBitIndex(for: bitIndex)
+    var digitIndex: Int
+    let bIndex: Int
+    (digitIndex, bIndex) = digitAndBitIndex(for: bitIndex)
+    digitIndex += buff.startIndex
+
     assert(buff.indices.contains(digitIndex))
 
-    return buff[digitIndex].getBit(at: bitIndex)
+    return buff[digitIndex].getBit(at: bIndex)
 }
 
 // -------------------------------------

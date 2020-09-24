@@ -345,7 +345,7 @@ extension WideFloat: FloatingPoint
 
             let leadZeros = countLeadingZeroBits(buf.immutable)
             
-            let rightShift = UInt.bitWidth - leadZeros + 1
+            let rightShift = UInt.bitWidth - leadZeros
             if rightShift < 0 { leftShift(buffer: buf, by: -rightShift) }
             else { BigMath.rightShift(buffer: buf, by: rightShift) }
         }
@@ -371,9 +371,6 @@ extension WideFloat: FloatingPoint
         let dividendBuf = dividendSig.mutableBuffer().immutable
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
-
-        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
-        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
 
         floatDivide_KnuthD(
             dividendBuf,
@@ -567,7 +564,7 @@ extension WideFloat: FloatingPoint
     {
         let sig = self.significand
         var dividendSig = RawSignificand.zero
-        dividendSig.setBit(at: RawSignificand.bitWidth - 2, to: 1)
+        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 1)
         var divisorSig = sig._significand
                 
         var q = Quotient()
@@ -577,8 +574,6 @@ extension WideFloat: FloatingPoint
         let dividendBuf = dividendSig.mutableBuffer().immutable
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
-
-        divisorSig.setBit(at: RawSignificand.bitWidth - 1, to: 0)
 
         floatDivide_KnuthD(
             dividendBuf,

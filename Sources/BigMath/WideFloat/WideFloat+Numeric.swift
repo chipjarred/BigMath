@@ -57,12 +57,9 @@ extension WideFloat: Numeric
         typealias WideProduct = WideFloat<WideUInt<RawSignificand>>
         var z = WideProduct()
         
-        // Compute significand product
-        let x = self.magnitude
-        let y = other.magnitude
-        
-        let xBuf = x.floatBuffer()
-        let yBuf = y.floatBuffer()
+        // Compute significand product        
+        let xBuf = self.floatBuffer()
+        let yBuf = other.floatBuffer()
         var zBuf = z.mutableFloatBuffer()
         
         if useKaratsuba

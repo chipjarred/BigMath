@@ -361,29 +361,27 @@ extension WideFloat: FloatingPoint
     {
         if let result = self.divideSpecialValues(by: divisor) { return result }
 
-        var dividendSig = self._significand
-        var divisorSig = divisor._significand
-                
         var q = Quotient()
         var r = Remainder()
         
-        let divisorBuf = divisorSig.mutableBuffer().immutable
-        let dividendBuf = dividendSig.mutableBuffer().immutable
+        let divisorBuf = divisor.floatBuffer()
+        let dividendBuf = self.floatBuffer()
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
 
         floatDivide_KnuthD(
-            dividendBuf,
-            by: divisorBuf,
+            dividendBuf.significand.immutable,
+            by: divisorBuf.significand.immutable,
             quotient: qBuf,
             remainder: rBuf
         )
         
         q.adjust()
         
-        let qExpDelta = (
-            self.significand.floatValue / divisor.significand.floatValue
-        ).exponent
+        let dividendFloatSig = dividendBuf.floatSignificand
+        let divisorFloatSig = divisorBuf.floatSignificand
+        
+        let qExpDelta = (dividendFloatSig / divisorFloatSig).exponent
         
         var result = Self(
             significandBitPattern: q.r,
@@ -426,10 +424,9 @@ extension WideFloat: FloatingPoint
          Using Newton's method to find the multiplicative inverse.  Given a good
          starting point, it doubles the number of good bits each iteration.
          */
-        let s = significand.magnitude
-        var x = s.multiplicativeInverse_NewtonRaphson0
-        assert(!x.isNegative)
-        let deltaExp = x._exponent + s._exponent
+        let s = significand
+        var x = self.multiplicativeInverse_NewtonRaphson0
+        let deltaExp = WExp(x.exponent + s.exponent)
 
         let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
         var two = Self.one
@@ -534,7 +531,6 @@ extension WideFloat: FloatingPoint
         assert(!isNaN)
         assert(!isZero)
         assert(!isInfinite)
-        assert(!isNegative)
         
         let sig = self.significand
         let f80Value = sig.float80Value
@@ -562,15 +558,13 @@ extension WideFloat: FloatingPoint
     @usableFromInline @inline(__always)
     internal var multiplicativeInverse_KnuthD_Core: Self
     {
-        let sig = self.significand
-        var dividendSig = RawSignificand.zero
+        var dividendSig = RawSignificand()
         dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 1)
-        var divisorSig = sig._significand
                 
         var q = Quotient()
         var r = Remainder()
         
-        let divisorBuf = divisorSig.mutableBuffer().immutable
+        let divisorBuf = self._significand.buffer()
         let dividendBuf = dividendSig.mutableBuffer().immutable
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
@@ -584,7 +578,7 @@ extension WideFloat: FloatingPoint
         
         q.adjust()
         
-        let fSig = sig.floatValue
+        let fSig = self.floatBuffer().floatSignificand
         let fInv = 1 / fSig
         var x = Self(
             significandBitPattern: q.r,

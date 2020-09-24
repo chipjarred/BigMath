@@ -245,11 +245,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     }
     
     // -------------------------------------
-    @inlinable public var magnitude: Self
-    {
-        var result = self
-        result.negate(if: isNegative)
-        return result
+    @inlinable public var magnitude: Self {
+        return isNegative ? self.negated : self
     }
 
     @inlinable public var float80Value: Float80 { convert(to: Float80.self) }

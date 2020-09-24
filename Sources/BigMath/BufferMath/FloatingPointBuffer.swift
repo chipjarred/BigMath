@@ -547,6 +547,45 @@ struct FloatingPointBuffer
         return result
     }
     
+    // -------------------------------------
+    /*
+     Obtains significand as Float - used in a couple of places as a "cheat" to
+     fix up exponents.
+     */
+    @usableFromInline @inline(__always)
+    var floatSignificand: Float
+    {
+        if exponent.isSpecial
+        {
+            if isNaN {
+                return isSignalingNaN ? Float.signalingNaN : Float.nan
+            }
+            return isNegative ? -Float.infinity : Float.infinity
+        }
+        else if isZero
+        {
+            var result = Float.zero
+            if isNegative { result.negate() }
+            return result
+        }
+        
+        let shift = Float.significandBitCount
+        var sigHead = significandHead
+        sigHead &= (UInt.max >> 1)
+        sigHead.roundingRightShift(by: (UInt.bitWidth - 1) - shift)
+        
+        return Float(
+            sign: FloatingPointSign(rawValue:
+                select(
+                    if: isNegative,
+                    then: FloatingPointSign.minus.rawValue,
+                    else: FloatingPointSign.plus.rawValue
+                )
+            )!,
+            exponentBitPattern: UInt(127),
+            significandBitPattern: UInt32(sigHead)
+        )
+    }
 
     // MARK:- Initializers
     // -------------------------------------

@@ -414,7 +414,7 @@ extension WideFloat: FloatingPoint
      special cases, so this method does not, and for that reason should not be
      called directly.
      */
-    @usableFromInline @inline(__always)
+    @usableFromInline
     internal var multiplicativeInverse_NewtonRaphson_Core: Self
     {
         typealias BiggerSig = WideUInt<RawSignificand>
@@ -424,13 +424,13 @@ extension WideFloat: FloatingPoint
          Using Newton's method to find the multiplicative inverse.  Given a good
          starting point, it doubles the number of good bits each iteration.
          */
-        let s = significand
         var x = self.multiplicativeInverse_NewtonRaphson0
-        let deltaExp = WExp(x.exponent)
 
         let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
-        var two = Self.one
-        two._exponent = 1
+        let two = Self()
+        var twoBuf = two.floatBuffer()
+        setBit(at: RawSignificand.bitWidth - 1, in: &twoBuf.significand, to: 1)
+        twoBuf.exponent.intValue = 1
         
         var sx = BiggerFloat()
         var twoMinusSX = Self()
@@ -438,8 +438,7 @@ extension WideFloat: FloatingPoint
         let xBuf = x.mutableFloatBuffer()
         var sxBuf = sx.mutableFloatBuffer()
         var twoMinusSXBuf = twoMinusSX.mutableFloatBuffer()
-        let sBuf = s.floatBuffer()
-        let twoBuf = two.floatBuffer()
+        let sBuf = self.floatBuffer()
         
         if xBuf.significand.count > karatsubaCutoff
         {
@@ -516,8 +515,6 @@ extension WideFloat: FloatingPoint
 
         assert(!x.isZero)
 
-        x.addExponent(-self._exponent)
-        x.addExponent(-deltaExp)
         assert(x.isNormalized, "x.sig = \(binary: x._significand)")
 
         x.negate(if: isNegative)
@@ -535,7 +532,9 @@ extension WideFloat: FloatingPoint
         let f80Value = self.floatBuffer().floatSignificand
         let f80Inverse = 1 / f80Value
         
-        return Self(f80Inverse)
+        var inv = Self(f80Inverse)
+        inv.addExponent(-WExp(self.exponent))
+        return inv
     }
 
     // -------------------------------------
@@ -558,18 +557,18 @@ extension WideFloat: FloatingPoint
     internal var multiplicativeInverse_KnuthD_Core: Self
     {
         var dividendSig = RawSignificand()
-        dividendSig.setBit(at: RawSignificand.bitWidth - 1, to: 1)
+        var dividendBuf = dividendSig.mutableBuffer()
+        setBit(at: RawSignificand.bitWidth - 1, in: &dividendBuf, to: 1)
                 
         var q = Quotient()
         var r = Remainder()
         
         let divisorBuf = self.floatBuffer()
-        let dividendBuf = dividendSig.mutableBuffer().immutable
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
 
         floatDivide_KnuthD(
-            dividendBuf,
+            dividendBuf.immutable,
             by: divisorBuf.significand.immutable,
             quotient: qBuf,
             remainder: rBuf

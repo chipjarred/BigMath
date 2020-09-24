@@ -76,20 +76,15 @@ struct FloatingPointBuffer
     @usableFromInline @inline(__always)
     var exponent: WExp
     {
-        get { WExp(bitPattern: uintBuf[exponentIndex]) }
-        set { uintBuf[exponentIndex] = newValue.bitPattern }
+        get { return exponentPtr.pointee }
+        set { exponentPtr.pointee = newValue }
     }
     
-    @usableFromInline @inline(__always)
-    var significand: MutableUIntBuffer
-    {
-        get { uintBuf[..<exponentIndex] }
-        set
-        {
-            assert(newValue.count == uintBuf[..<exponentIndex].count)
-            uintBuf[..<exponentIndex] = newValue
-        }
-    }
+    // exponentSlice keeps exponentPtr valid.  We don't want the overhead of
+    // the subscript operator thunking, which is why we use a pointer.
+    private var exponentSlice: MutableUIntBuffer
+    private var exponentPtr: UnsafeMutablePointer<WExp>
+    @usableFromInline var significand: MutableUIntBuffer
 
     // -------------------------------------
     @usableFromInline @inline(__always)
@@ -590,8 +585,16 @@ struct FloatingPointBuffer
     // MARK:- Initializers
     // -------------------------------------
     @usableFromInline @inline(__always)
-    internal init(wideFloatUIntBuffer: MutableUIntBuffer) {
-        self.uintBuf = wideFloatUIntBuffer
+    internal init(wideFloatUIntBuffer buf: MutableUIntBuffer)
+    {
+        let expIndex = buf.endIndex - 1
+        self.uintBuf = buf
+        self.exponentSlice = buf[expIndex...expIndex]
+        self.exponentPtr = UnsafeMutableRawPointer(
+            exponentSlice.baseAddress!
+        ).bindMemory(to: WExp.self, capacity: 1)
+            
+        self.significand = buf[..<expIndex]
     }
     
     // -------------------------------------

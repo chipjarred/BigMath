@@ -160,9 +160,12 @@ internal func leftShift(
         if sameBuffer(src, dst) { return }
         copy(buffer: src, to: dst)
         fillBuffer(dst[(dst.startIndex + src.count)...], with: 0)
+        return
     }
-    else if shift >= src.count * UInt.bitWidth {
+    else if shift >= src.count * UInt.bitWidth
+    {
         fillBuffer(dst, with: 0)
+        return
     }
     
     let d = fastMin(digitShift(for: shift), src.count)
@@ -182,10 +185,9 @@ internal func leftShift(
         
         while UInt8(srcPtr >= srcBase) & UInt8(dstPtr >= dstBase) == 1
         {
-            let curDigit = prevDigit
+            let dstDigit = prevDigit << lShift
             prevDigit = srcPtr.pointee
-
-            dstPtr.pointee = (curDigit << lShift) | (prevDigit >> rShift)
+            dstPtr.pointee = dstDigit | (prevDigit >> rShift)
 
             dstPtr -= 1
             srcPtr -= 1
@@ -221,8 +223,8 @@ internal func rightShift(
         if sameBuffer(src, dst) { return }
         copy(buffer: src, to: dst)
         fillBuffer(dst[(dst.startIndex + src.count)...], with: signBits)
+        return
     }
-
     
     let d = fastMin(digitShift(for: shift), src.count)
     let rShift = shift & (uintBitWidth - 1)
@@ -237,21 +239,20 @@ internal func rightShift(
         let srcEnd = srcBase + src.count
         var srcPtr = srcBase + d
         
-        var nextDigit = srcPtr.pointee
+        var srcDigit = srcPtr.pointee
         srcPtr += 1
 
         while srcPtr < srcEnd
         {
-            let curDigit = nextDigit
-            nextDigit = srcPtr.pointee
-            
-            dstPtr.pointee = (curDigit >> rShift) | (nextDigit << lShift)
+            let dstDigit = srcDigit >> rShift
+            srcDigit = srcPtr.pointee
+            dstPtr.pointee = dstDigit | (srcDigit << lShift)
 
             dstPtr += 1
             srcPtr += 1
         }
         
-        dstPtr.pointee = (nextDigit >> rShift) | (signBits << lShift)
+        dstPtr.pointee = (srcDigit >> rShift) | (signBits << lShift)
         dstPtr += 1
     }
     
@@ -782,17 +783,24 @@ internal func subtractReportingBorrow(
         at index 0 (little endian)
     - zBuf: result buffer.  It's size must be the sum of the sizes of
         `xBuf` and `yBuf`.
+    - needToZeroResult: Set to `true` if `zBuf` is not already zeroed.
+        Defaults to `false`.  When set to `true`, only the portions of `zBuf` that need to be zeroed
+        to guarantee a correct product will be zeroed.
  */
 @usableFromInline @inline(__always)
 internal func fullMultiplyBuffers_SchoolBook(
     _ xBuf: UIntBuffer,
     _ yBuf: UIntBuffer,
-    result zBuf: MutableUIntBuffer)
+    result zBuf: MutableUIntBuffer,
+    needToZeroResult: Bool = false)
 {
     assert(xBuf.count > 0, "xBuf: empty buffer")
     assert(yBuf.count > 0, "yBuf: empty buffer")
-    assert(zBuf.count >= xBuf.count+yBuf.count, "Result buffer: wrong size")
-    assert(0 == zBuf.reduce(0) { $0 | $1 }, "Result buffer: not zeroed")
+    assert(zBuf.count == xBuf.count+yBuf.count, "Result buffer: wrong size")
+    assert(
+        needToZeroResult || 0 == zBuf.reduce(0) { $0 | $1 },
+        "Result buffer: not zeroed"
+    )
     
     var carry: UInt = 0
     
@@ -801,7 +809,20 @@ internal func fullMultiplyBuffers_SchoolBook(
     let yEnd = yBuf.baseAddress! + yBuf.count
     var zNext = zBuf.baseAddress!
     var zPtr = zNext
+    let zEnd = zPtr + zBuf.count
 
+    if needToZeroResult
+    {
+        /*
+         To save time, we zero just the part of zBuf where the first partial
+         product will go.  The carries out of high position in each partial
+         product overwrite the next position, which essentially takes care of
+         initializing the rest of zBuf as the multiplication progresses.
+         */
+        let headEnd = zBuf.startIndex + max(xBuf.count, yBuf.count)
+        zeroBuffer(zBuf[..<headEnd])
+    }
+    
     repeat
     {
         let x = xPtr.pointee
@@ -826,6 +847,13 @@ internal func fullMultiplyBuffers_SchoolBook(
         zNext += 1
     }
     while xPtr < xEnd
+    
+    zPtr += 1
+    while zPtr < zEnd
+    {
+        zPtr.pointee = 0
+        zPtr += 1
+    }
 }
 
 // -------------------------------------
@@ -871,8 +899,12 @@ internal func fullMultiplyBuffers_Karatsuba(
     
     guard xBuf.count > karatsubaCutoff else
     {
-        zeroBuffer(zBuf)
-        fullMultiplyBuffers_SchoolBook(xBuf, yBuf, result: zBuf)
+        fullMultiplyBuffers_SchoolBook(
+            xBuf,
+            yBuf,
+            result: zBuf,
+            needToZeroResult: true
+        )
         return
     }
     

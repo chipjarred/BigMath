@@ -1014,8 +1014,10 @@ struct FloatingPointBuffer
      - Returns: A `FloatingPointBuffer` referring to the upper half of `result`.
      */
     @usableFromInline @inline(__always)
-    internal func multiply_schoolBook(by other: Self, result: inout Self)
-        -> Self
+    internal func multiply_schoolBook(
+        by other: Self,
+        result: inout Self,
+        needToZeroResult: Bool = false) -> Self
     {
         assert(self.significand.count == other.significand.count)
         assert(result.significand.count == 2 * self.significand.count)
@@ -1043,7 +1045,8 @@ struct FloatingPointBuffer
         BigMath.fullMultiplyBuffers_SchoolBook(
             self.significand.immutable,
             other.significand.immutable,
-            result: zSig
+            result: zSig,
+            needToZeroResult: needToZeroResult
         )
 
         result.exponent = 1

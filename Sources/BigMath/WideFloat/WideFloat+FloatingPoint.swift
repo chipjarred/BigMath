@@ -459,7 +459,6 @@ extension WideFloat: FloatingPoint
                  We're using the first one
                  */
                 
-                zeroBuffer(sxBuf.significand)
                 let sxHigh = sBuf.multiply_karatsuba(
                     by: xBuf,
                     scratch1: &s1Buf,
@@ -474,7 +473,6 @@ extension WideFloat: FloatingPoint
                 FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
                 assert(!twoMinusSXBuf.isZero)
 
-                zeroBuffer(sxBuf.significand)
                 let xHigh = xBuf.multiply_karatsuba(
                     by: twoMinusSXBuf,
                     scratch1: &s1Buf,
@@ -497,17 +495,27 @@ extension WideFloat: FloatingPoint
                  We're using the first one
                  */
                 
-                zeroBuffer(sxBuf.significand)
-                let sxHigh = sBuf.multiply_schoolBook(by: xBuf, result: &sxBuf)
+                let sxHigh = sBuf.multiply_schoolBook(
+                    by: xBuf,
+                    result: &sxBuf,
+                    needToZeroResult: true
+                )
                 assert(!sxHigh.isZero)
                 assert(!sxHigh.isNegative)
                 
-                FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
+                FloatingPointBuffer.subtract(
+                    twoBuf,
+                    sxHigh,
+                    into: &twoMinusSXBuf
+                )
                 assert(!twoMinusSXBuf.isZero)
 
-                zeroBuffer(sxBuf.significand)
                 let xHigh =
-                    xBuf.multiply_schoolBook(by: twoMinusSXBuf, result: &sxBuf)
+                    xBuf.multiply_schoolBook(
+                        by: twoMinusSXBuf,
+                        result: &sxBuf,
+                        needToZeroResult: true
+                )
                 assert(!xHigh.isZero)
                 copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
             }

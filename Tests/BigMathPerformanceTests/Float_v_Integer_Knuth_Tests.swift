@@ -9,13 +9,42 @@ import XCTest
 import BigMath
 import Foundation
 
+// ------------------------------------------
+extension UInt32
+{
+    fileprivate static var rngState:UInt32 = UInt32.random(in: 0...UInt32.max)
+    
+    @inline(__always)
+    static func fastRandom() -> Self
+    {
+        Self.rngState = UInt32(UInt64(Self.rngState) * 48271 % 0x7fffffff)
+        return .rngState
+    }
+}
+
+// ------------------------------------------
+extension UInt
+{
+    @inline(__always)
+    static func fastRandom() -> Self
+    {
+        return MemoryLayout<UInt>.size == MemoryLayout<UInt32>.size
+            ? UInt(UInt32.fastRandom())
+            : UInt(UInt32.fastRandom()) << 32 | UInt(UInt32.fastRandom())
+    }
+}
+
 
 // -------------------------------------
 fileprivate func setWithRandomBytes<T>(_ dst: inout T)
 {
-    withUnsafeMutableBytes(of: &dst) {
-        for i in $0.indices {
-            $0[i] = UInt8.random(in: 0...UInt8.max)
+    assert(MemoryLayout<T>.size >= MemoryLayout<UInt>.size)
+
+    withUnsafeMutableBytes(of: &dst)
+    {
+        let uintBuf = $0.bindMemory(to: UInt.self)
+        for i in uintBuf.indices {
+            uintBuf[i] = UInt.fastRandom()
         }
     }
 }

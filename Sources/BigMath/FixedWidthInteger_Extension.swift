@@ -31,17 +31,16 @@ extension FixedWidthInteger
     internal func addingReportingCarry(_ other: Self)
         -> (partialValue: Self, carry: Self)
     {
-        let result = self.addingReportingOverflow(other)
-        return (result.partialValue, Self(result.overflow))
+        let result = self &+ other
+        return (result, Self(result < other))
     }
     
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal mutating func addToSelfReportingCarry(_ other: Self) -> Self
     {
-        let carry: Self
-        (self, carry) = self.addingReportingCarry(other)
-        return carry
+        self &+= other
+        return Self(self < other)
     }
     
     // -------------------------------------
@@ -49,8 +48,8 @@ extension FixedWidthInteger
     internal func subtractingReportingBorrow(_ other: Self)
         -> (partialValue: Self, borrow: Self)
     {
-        let result = self.subtractingReportingOverflow(other)
-        return (result.partialValue, Self(result.overflow))
+        let result = self &- other
+        return (result, Self(result > self))
     }
 
     // -------------------------------------
@@ -58,8 +57,8 @@ extension FixedWidthInteger
     internal mutating func subtractFromSelfReportingBorrow(
         _ other: Self) -> Self
     {
-        let borrow: Self
-        (self, borrow) = self.subtractingReportingBorrow(other)
+        let borrow = Self(self < other)
+        self &-= other
         return borrow
     }
     

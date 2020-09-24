@@ -46,20 +46,25 @@ func subtractReportingBorrowKnuth(
     var xPtr = x.baseAddress!
     let xEnd = xPtr + x.count
     var yPtr = y.baseAddress!
-
+    var yVal: UInt
+    
     var borrow: UInt = 0
-    while xPtr < xEnd
+    repeat
     {
-        borrow = yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
+        yVal = yPtr.pointee
+        let b = UInt(borrow > yVal)
+        yVal &-= borrow
         let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
-        borrow &+= pHi
-        borrow &+= yPtr.pointee.subtractFromSelfReportingBorrow(pLo)
+        borrow = b &+ pHi &+ UInt(pLo > yVal)
+        yPtr.pointee = yVal &- pLo
         
         xPtr += 1
         yPtr += 1
-    }
+    } while xPtr < xEnd
     
-    return 0 != yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
+    let b = (borrow > yPtr.pointee)
+    yPtr.pointee &-= borrow
+    return b
 }
 
 // -------------------------------------
@@ -88,20 +93,25 @@ func subtractReportingBorrowKnuth(
     var xPtr = x.baseAddress!
     let xEnd = xPtr + x.count
     var yPtr = y.baseAddress!
-
+    var yVal: UInt
+    
     var borrow: UInt = 0
-    while xPtr < xEnd
+    repeat
     {
-        borrow = yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
+        yVal = yPtr.pointee
+        let b = UInt(borrow > yVal)
+        yVal &-= borrow
         let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
-        borrow &+= pHi
-        borrow &+= yPtr.pointee.subtractFromSelfReportingBorrow(pLo)
+        borrow = b &+ pHi &+ UInt(pLo > yVal)
+        yPtr.pointee = yVal &- pLo
         
         xPtr += 1
         yPtr += 1
-    }
+    } while xPtr < xEnd
     
-    return 0 != yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
+    let b = (borrow > yPtr.pointee)
+    yPtr.pointee &-= borrow
+    return b
 }
 
 // -------------------------------------
@@ -124,15 +134,18 @@ func += (left: inout MutableUIntBuffer, right: MutableUIntBuffer )
     var xPtr = right.baseAddress!
     let xEnd = xPtr + right.count
     var yPtr = left.baseAddress!
-    
-    while xPtr < xEnd
+    var yVal: UInt
+    repeat
     {
-        carry = yPtr.pointee.addToSelfReportingCarry(carry)
-        carry &+= yPtr.pointee.addToSelfReportingCarry(xPtr.pointee)
+        yVal = yPtr.pointee &+ carry
+        carry = UInt(yVal < yPtr.pointee)
+        yVal &+= xPtr.pointee
+        carry &+= UInt(yVal < xPtr.pointee)
+        yPtr.pointee = yVal
         
         xPtr += 1
         yPtr += 1
-    }
+    } while xPtr < xEnd
     
     yPtr.pointee &+= carry
 }
@@ -157,15 +170,18 @@ func += (left: inout MutableUIntBuffer, right: UIntBuffer )
     var xPtr = right.baseAddress!
     let xEnd = xPtr + right.count
     var yPtr = left.baseAddress!
-    
-    while xPtr < xEnd
+    var yVal: UInt
+    repeat
     {
-        carry = yPtr.pointee.addToSelfReportingCarry(carry)
-        carry &+= yPtr.pointee.addToSelfReportingCarry(xPtr.pointee)
+        yVal = yPtr.pointee &+ carry
+        carry = UInt(yVal < yPtr.pointee)
+        yVal &+= xPtr.pointee
+        carry &+= UInt(yVal < xPtr.pointee)
+        yPtr.pointee = yVal
         
         xPtr += 1
         yPtr += 1
-    }
+    } while xPtr < xEnd
     
     yPtr.pointee &+= carry
 }

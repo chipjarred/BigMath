@@ -111,27 +111,27 @@ public struct WideFloat<T: WideDigit>:  Hashable
     
     // -------------------------------------
     @inlinable public var isNaN: Bool {
-        return withFloatBuffer { return $0.isNaN }
+        return floatBuffer().isNaN
     }
     
     // -------------------------------------
     @inlinable public var isSignalingNaN: Bool {
-        return withFloatBuffer { return $0.isSignalingNaN }
+        return floatBuffer().isSignalingNaN
     }
     
     // -------------------------------------
     @inlinable public var isInfinite: Bool {
-        return withFloatBuffer { return $0.isInfinite }
+        return floatBuffer().isInfinite
     }
     
     // -------------------------------------
     @inlinable public var isNegative: Bool {
-        return withFloatBuffer { return $0.isNegative }
+        return floatBuffer().isNegative
     }
     
     // -------------------------------------
     @inlinable public var isZero: Bool {
-        return withFloatBuffer { return $0.isZero }
+        return floatBuffer().isZero
     }
     
     // -------------------------------------

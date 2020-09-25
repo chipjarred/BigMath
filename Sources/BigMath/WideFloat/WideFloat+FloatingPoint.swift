@@ -427,10 +427,8 @@ extension WideFloat: FloatingPoint
         var x = self.multiplicativeInverse_NewtonRaphson0
 
         let iterations = Int(log2(Double(RawSignificand.bitWidth))) - 4
-        let two = Self()
-        var twoBuf = two.floatBuffer()
-        setBit(at: RawSignificand.bitWidth - 1, in: &twoBuf.significand, to: 1)
-        twoBuf.exponent.intValue = 1
+        let two = Self.two
+        let twoBuf = two.floatBuffer()
         
         var sx = BiggerFloat()
         var twoMinusSX = Self()

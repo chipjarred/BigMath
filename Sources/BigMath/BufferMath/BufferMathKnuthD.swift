@@ -51,20 +51,16 @@ func subtractReportingBorrowKnuth(
     var borrow: UInt = 0
     repeat
     {
-        yVal = yPtr.pointee
-        let b = UInt(borrow > yVal)
-        yVal &-= borrow
         let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
-        borrow = b &+ pHi &+ UInt(pLo > yVal)
-        yPtr.pointee = yVal &- pLo
-        
+        (yVal, borrow) = yPtr.pointee.subtractingReportingBorrow(borrow)
+        borrow &+= pHi
+        (yPtr.pointee, borrow) = yVal.subtractingReportingBorrow(pLo)
+
         xPtr += 1
         yPtr += 1
     } while xPtr < xEnd
     
-    let b = (borrow > yPtr.pointee)
-    yPtr.pointee &-= borrow
-    return b
+    return 0 != yPtr.pointee.subtractFromSelfReportingBorrow(borrow)
 }
 
 // -------------------------------------

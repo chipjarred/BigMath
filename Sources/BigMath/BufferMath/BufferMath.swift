@@ -156,7 +156,45 @@ internal func rightShift(
     signExtend: Bool = false
 )
 {
-    rightShift(from: x.immutable, to: x, by: shift, signExtend: signExtend)
+    if shift == 0 { return }
+    
+    let signBits = select(if: signExtend, then: UInt.max, else: 0)
+
+    if shift >= x.count * UInt.bitWidth
+    {
+        fillBuffer(x, with: signBits)
+        return
+    }
+        
+    let d = fastMin(digitShift(for: shift), x.count)
+    let rShift = shift & (uintBitWidth - 1)
+    let lShift = uintBitWidth - rShift
+
+    var dstPtr = x.baseAddress!
+    let xEnd = dstPtr + x.count
+    var srcPtr = dstPtr + d
+    
+    var srcDigit = srcPtr.pointee
+    srcPtr += 1
+
+    while srcPtr < xEnd
+    {
+        let dstDigit = srcDigit >> rShift
+        srcDigit = srcPtr.pointee
+        dstPtr.pointee = dstDigit | (srcDigit << lShift)
+
+        dstPtr += 1
+        srcPtr += 1
+    }
+    
+    dstPtr.pointee = (srcDigit >> rShift) | (signBits << lShift)
+    dstPtr += 1
+
+    while dstPtr < xEnd
+    {
+        dstPtr.pointee = signBits
+        dstPtr += 1
+    }
 }
 
 // -------------------------------------
@@ -420,6 +458,28 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 
     // round up if there were lower 1 bits; otherwise, round down
     return UInt(accumulatedBits != 0)
+}
+
+// -------------------------------------
+/**
+ Performs right shift, but rounds the non-truncated bits based on the
+ shifted-out bits using "bankers'" rounding.  The ordinary right-shift simply
+ shifts out the truncated bits.
+ */
+@usableFromInline @inline(__always)
+internal func roundingRightShift(
+    buffer x: MutableUIntBuffer,
+    by shift: Int)
+{
+    assert(shift >= 0)
+    if shift == 0 { return }
+    
+    let rBit = roundingBit(forRightShift: shift, of: x.immutable)
+    
+    rightShift(buffer: x,  by: shift)
+
+    // Now we do the rounding
+    if rBit != 0 { _ = addReportingCarry(x.immutable, 1, result: x) }
 }
 
 // -------------------------------------

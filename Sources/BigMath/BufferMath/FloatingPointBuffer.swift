@@ -728,12 +728,7 @@ struct FloatingPointBuffer
         addExponent(WExp(shift))
         if isInfinite { return }
         
-        BigMath.roundingRightShift(
-            from: self.significand.immutable,
-            to: self.significand,
-            by: shift
-        )
-        
+        BigMath.roundingRightShift(buffer: self.significand, by: shift)
     }
     
     // -------------------------------------

@@ -69,53 +69,6 @@ func subtractReportingBorrowKnuth(
 
 // -------------------------------------
 /**
- Compute `y = y - x * k`
- 
- - Parameters:
-    - x: A multiprecision number with the least signficant digit
-        stored at index 0 (ie. little endian).  It is multiplied by the "digit",
-        `k`, with the resulting product being subtracted from `y`
-    - k: Scalar multiple to apply to `x` prior to subtraction
-    - y: Both the number being subtracted from, and the storage for the result,
-        represented as a collection of digits with the least signficant digits
-        at index 0.
- 
- - Returns: The borrow out of the most signficant digit of `y`.
- */
-@usableFromInline @inline(__always)
-func subtractReportingBorrowKnuth(
-    _ x: UIntBuffer,
-    times k: UInt,
-    from y: inout MutableUIntBuffer) -> Bool
-{
-    assert(x.count + 1 <= y.count)
-    
-    var xPtr = x.baseAddress!
-    let xEnd = xPtr + x.count
-    var yPtr = y.baseAddress!
-    var yVal: UInt
-    
-    var borrow: UInt = 0
-    repeat
-    {
-        yVal = yPtr.pointee
-        let b = UInt(borrow > yVal)
-        yVal &-= borrow
-        let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
-        borrow = b &+ pHi &+ UInt(pLo > yVal)
-        yPtr.pointee = yVal &- pLo
-        
-        xPtr += 1
-        yPtr += 1
-    } while xPtr < xEnd
-    
-    let b = (borrow > yPtr.pointee)
-    yPtr.pointee &-= borrow
-    return b
-}
-
-// -------------------------------------
-/**
  Add two multiprecision numbers.
  
  - Parameters:
@@ -212,34 +165,6 @@ func leftShiftKnuth(
         y[i] = (x[i] << shift) | (x[i - 1] >> (bitWidth - shift))
     }
     y[0] = x[0] << shift
-}
-
-// -------------------------------------
-/**
- Shift the multiprecision unsigned integer,`x`, right by `shift` bits.
- 
- - Parameters:
-    - x: The mutliprecision unsigned integer to be right-shfited, stored as a
-        collection of digits with the least signficant digit stored at index 0.
-        (ie. little endian)
-    - shift: the number of bits to shift `x` by.
-    - y: Storage for the resulting shift of `x`.  May alias `x`.
- */
-@usableFromInline @inline(__always)
-func rightShiftKnuth(
-    _ x: MutableUIntBuffer,
-    by shift: Int,
-    into y: inout MutableUIntBuffer)
-{
-    assert(y.count == x.count)
-    assert(y.startIndex == x.startIndex)
-    let bitWidth = MemoryLayout<UInt>.size * 8
-    
-    let lastElemIndex = x.count - 1
-    for i in 0..<lastElemIndex {
-        y[i] = (x[i] >> shift) | (x[i + 1] << (bitWidth - shift))
-    }
-    y[lastElemIndex] = x[lastElemIndex] >> shift
 }
 
 // -------------------------------------
@@ -475,7 +400,7 @@ internal func fullWidthDivide_KnuthD(
         }
     }
     
-    rightShiftKnuth(u[0..<n], by: shift, into: &u[0..<n])
+    rightShift(buffer: u[0..<n], by: shift)
 }
 
 // -------------------------------------
@@ -517,25 +442,30 @@ internal func floatDivide(
         zPtr -= 1
     }
     
+    
+    // Need to round least signifcant digit, so we need to do another division.
     let truncDigit: UInt
     (truncDigit, r) = y.dividingFullWidth((r, 0))
 
-    
-    // Need to round least signifcant digit
     let halfDigit = (UInt.max >> 1) &+ 1
     if truncDigit >= halfDigit
     {
         zPtr += 1
-        if r > halfDigit || r == halfDigit && (zPtr.pointee & 1 == 1)
+        let roundUp =
+            UInt8(truncDigit > halfDigit) | UInt8(zPtr.pointee & 1 == 1) == 1
+        
+        if roundUp
         {
             let carry = addReportingCarry(z.immutable, 1, result: z)
             if carry == 1
             {
                 var z = z
-                roundingRightShift(from: z.immutable, to: z, by: 1)
+                roundingRightShift(buffer: z, by: 1)
                 assert(
                     getBit(at: z.count * UInt.bitWidth - 1, from: z.immutable)
-                        == 0
+                        == 0,
+                    "Rounding right shift carried 1 into high bit!! No place to"
+                    + " put our rounding bit."
                 )
                 setBit(at: z.count * UInt.bitWidth - 1, in: &z, to: 1)
             }
@@ -610,7 +540,15 @@ internal func floatDivide_KnuthD(
         return
     }
 
-    let v = divisor
+    /*
+     We don't really mutate v.  We get a `MutableUIntBuffer` so that we can
+     call the same subtract method used by the integer version.  Otherwise it's
+     just an alias for divisor.
+     
+     Note we don't need to normalize, because our floating point numbers are
+     already normalized.
+     */
+    let v = divisor.mutable
     var u = remainder
     copy(buffer: dividend, to: u[1...])
     u[0] = 0

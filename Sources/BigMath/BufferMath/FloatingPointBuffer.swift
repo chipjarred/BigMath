@@ -330,7 +330,7 @@ struct FloatingPointBuffer
         }
         
         if leadingZeros != 0 {
-            self.leftShift(into: &self, by: leadingZeros)
+            self.leftShift(by: leadingZeros)
         }
         
         assert(isNormalized)
@@ -735,7 +735,22 @@ struct FloatingPointBuffer
         )
         
     }
+    
+    // -------------------------------------
+    @inline(__always)
+    private mutating func leftShift(by shift: Int)
+    {
+        assert(shift >= 0)
+        
+        BigMath.leftShift(buffer: significand, by: shift)
 
+        /*
+         Now that the shift is done, we just need to adjust the dst exponent
+         so that dst maintains its value.
+         */
+        addExponent(WExp(-shift))
+    }
+    
     // -------------------------------------
     @inline(__always)
     private func leftShift(into dst: inout Self, by shift: Int)
@@ -756,7 +771,7 @@ struct FloatingPointBuffer
         dst.exponent = self.exponent
         dst.addExponent(WExp(-shift))
     }
-    
+
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal static func add(_ x: Self, _ y: Self, into z: inout Self)

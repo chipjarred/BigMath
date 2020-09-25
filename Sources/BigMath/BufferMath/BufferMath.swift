@@ -108,8 +108,44 @@ internal func compareBuffers(
 // MARK:- Bitwise operations
 // -------------------------------------
 @usableFromInline @inline(__always)
-internal func leftShift(buffer x: MutableUIntBuffer, by shift: Int) {
-    leftShift(from: x.immutable, to: x, by: shift)
+internal func leftShift(buffer x: MutableUIntBuffer, by shift: Int)
+{
+    if shift == 0 { return }
+    else if shift >= x.count * UInt.bitWidth
+    {
+        zeroBuffer(x)
+        return
+    }
+    
+    let d = fastMin(digitShift(for: shift), x.count)
+    let lShift = shift & (uintBitWidth - 1)
+    let rShift = uintBitWidth - lShift
+    
+    let xStart = x.baseAddress!
+    var dstPtr = xStart.advanced(by: x.count - 1)
+    var srcPtr = xStart.advanced(by: x.count - d - 1)
+
+    var prevDigit = srcPtr.pointee
+    srcPtr -= 1
+
+    while srcPtr >= xStart
+    {
+        let dstDigit = prevDigit << lShift
+        prevDigit = srcPtr.pointee
+        dstPtr.pointee = dstDigit | (prevDigit >> rShift)
+
+        dstPtr -= 1
+        srcPtr -= 1
+    }
+
+    dstPtr.pointee = prevDigit << lShift
+    dstPtr -= 1
+
+    while dstPtr >= xStart
+    {
+        dstPtr.pointee = 0
+        dstPtr -= 1
+    }
 }
 
 // -------------------------------------

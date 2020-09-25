@@ -199,13 +199,8 @@ struct FloatingPointBuffer
      and significand set to `0`.
      */
     @usableFromInline @inline(__always)
-    var isInfinite: Bool
-    {
-        if exponent.isMax {
-            return significandHead & 3 == 0
-        }
-        
-        return false
+    var isInfinite: Bool {
+        return UInt8(exponent.isMax) & UInt8(significandHead & 3 == 0) == 1
     }
     
     // -------------------------------------
@@ -224,13 +219,8 @@ struct FloatingPointBuffer
      non--zero value for signficand.
      */
     @usableFromInline @inline(__always)
-    var isNaN: Bool
-    {
-        if exponent.isMax {
-            return significandHead & 1 == 1
-        }
-        
-        return false
+    var isNaN: Bool {
+        return UInt8(exponent.isMax) & UInt8(significandHead & 1) == 1
     }
     
     // -------------------------------------
@@ -247,13 +237,8 @@ struct FloatingPointBuffer
      and non--zero value for signficand.
      */
     @usableFromInline @inline(__always)
-    var isSignalingNaN: Bool
-    {
-        if exponent.isMax {
-            return significandHead & 3 == 3
-        }
-        
-        return false
+    var isSignalingNaN: Bool {
+        return UInt8(exponent.isMax) & UInt8(significandHead & 3 == 3) == 1
     }
     
     // -------------------------------------

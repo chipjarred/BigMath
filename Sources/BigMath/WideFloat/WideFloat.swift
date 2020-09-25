@@ -22,80 +22,31 @@ SOFTWARE.
 
 import Foundation
 
-@usableFromInline let preMadeOneSize = 4096
+@usableFromInline @inline(__always)
+internal var usePremadeWideFloats: Bool { false }
 
-/*
- Generics like WideFloat can't have static storage, which is a bummer, because
- that means, following Swift's rules, we have to actually initialize big
- constant values whenever we need them.  That truly sucks, and it's a
- significant performance drain.  So we're cheating to get around it.  At least
- up to a really big size, we're basically construct an array to hold our
- "constant" for any WideFloat up to that size, and then cast its bytes to the
- right type.  That still copies the value, which is less than ideal, but at
- least it's not going through all the overhead of initialization.
- 
- This way we only take the initialization hit on the first access.
- */
-// -------------------------------------
-fileprivate func makeReallyWideFloatValueArray(_ value: UInt) -> [UInt]
-{
-    let value = value << (value.leadingZeroBitCount - 1)
-    typealias FloatType = WideFloat<UInt>
-    var bigOne = [UInt](repeating: 0, count: preMadeOneSize + 1)
-    
-    var fValue = FloatType(value)
-    if value == 0 { fValue._exponent.setMin() }
-    else
-    {
-        let exp = UInt.bitWidth - value.leadingZeroBitCount - 2
-        fValue._exponent.intValue = exp
-    }
-    
-    bigOne.withUnsafeMutableBytes
-    {
-        let byteOffset = $0.count - MemoryLayout<FloatType>.size
-        $0.baseAddress!.advanced(by: byteOffset)
-            .bindMemory(to: FloatType.self, capacity: 1)
-            .pointee = FloatType(value)
-    }
-    
-    return bigOne
-}
+fileprivate let lotsOfZerosSize = usePremadeWideFloats ? 4096 : 0
 
-@usableFromInline let preMadeZeroUInts = makeReallyWideFloatValueArray(0)
-@usableFromInline let preMadeOneUInts = makeReallyWideFloatValueArray(1)
+fileprivate let lotsOfZeros = [UInt](
+    repeating: 0,
+    count: lotsOfZerosSize
+)
 
 // -------------------------------------
 @usableFromInline @inline(__always)
-internal func makeWideFloatZero<T>() -> WideFloat<T>
+internal func preallcoatedWideFloat<T>() -> WideFloat<T>
     where T: WideDigit
 {
     typealias FloatType = WideFloat<T>
+    let preallocateThreshold = 8
     
-    if MemoryLayout<FloatType.RawSignificand>.size > preMadeOneSize {
+    if MemoryLayout<FloatType.RawSignificand>.size < preallocateThreshold
+        || MemoryLayout<FloatType.RawSignificand>.size > lotsOfZerosSize
+    {
         return FloatType(0)
     }
 
-    return preMadeZeroUInts.withUnsafeBytes
-    {
-        let byteOffset = $0.count - MemoryLayout<FloatType>.size
-        return $0.baseAddress!.advanced(by: byteOffset)
-            .bindMemory(to: FloatType.self, capacity: 1).pointee
-    }
-}
-
-// -------------------------------------
-@usableFromInline @inline(__always)
-internal func makeWideFloatOne<T>() -> WideFloat<T>
-    where T: WideDigit
-{
-    typealias FloatType = WideFloat<T>
-    
-    if MemoryLayout<FloatType.RawSignificand>.size > preMadeOneSize {
-        return FloatType(1)
-    }
-    
-    return preMadeOneUInts.withUnsafeBytes
+    return lotsOfZeros.withUnsafeBytes
     {
         let byteOffset = $0.count - MemoryLayout<FloatType>.size
         return $0.baseAddress!.advanced(by: byteOffset)
@@ -184,8 +135,42 @@ public struct WideFloat<T: WideDigit>:  Hashable
     }
     
     // -------------------------------------
-    @inlinable public static var zero: Self { return Self(0) }
-    @inlinable public static var one: Self { return Self(1) }
+    @inlinable public static var zero: Self
+    {
+        if usePremadeWideFloats
+        {
+            var result: Self = preallcoatedWideFloat()
+            result._exponent = WExp.min
+            return result
+        }
+        else { return Self() }
+    }
+    
+    // -------------------------------------
+    @inlinable public static var one: Self
+    {
+        var result: Self = usePremadeWideFloats
+            ? preallcoatedWideFloat()
+            : Self()
+
+        result._exponent.intValue = 0
+        result._significand.setBit(at: RawSignificand.bitWidth - 1, to: 1)
+
+        return result
+    }
+    
+    // -------------------------------------
+    @inlinable public static var two: Self
+    {
+        var result: Self = usePremadeWideFloats
+            ? preallcoatedWideFloat()
+            : Self()
+        
+        result._exponent.intValue = 0
+        result._significand.setBit(at: RawSignificand.bitWidth - 1, to: 1)
+
+        return result
+    }
 
     // -------------------------------------
     @usableFromInline @inline(__always)

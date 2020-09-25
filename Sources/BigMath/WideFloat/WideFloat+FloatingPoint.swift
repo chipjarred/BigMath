@@ -611,6 +611,9 @@ extension WideFloat: FloatingPoint
     @usableFromInline @inline(__always)
     internal func divideSpecialValues(by right:Self) -> Self?
     {
+        let selfBuf = floatBuffer()
+        let rightBuf = right.floatBuffer()
+        
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally dividing NaNs and
@@ -618,13 +621,13 @@ extension WideFloat: FloatingPoint
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(self._exponent.isSpecial) | UInt8(right._exponent.isSpecial)
+            UInt8(selfBuf.isSpecialValue) | UInt8(rightBuf.isSpecialValue)
         if hasSpecialValue == 1
         {
-            if UInt8(self.isNaN) | UInt8(right.isNaN) == 1
+            if UInt8(selfBuf.isNaN) | UInt8(rightBuf.isNaN) == 1
             {
                 let hasSignalingNaN =
-                    UInt8(self.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                    UInt8(selfBuf.isSignalingNaN) | UInt8(rightBuf.isSignalingNaN)
                 
                 if hasSignalingNaN == 1 {
                     Self.handleSignalingNaN(self, right)
@@ -634,48 +637,48 @@ extension WideFloat: FloatingPoint
                 return Self.nan
             }
             
-            if self.isInfinite
+            if selfBuf.isInfinite
             {
-                if right.isInfinite { return Self.nan }
+                if rightBuf.isInfinite { return Self.nan }
                 
-                if right.isZero
+                if rightBuf.isZero
                 {
                     var result = Self.infinity
-                    result.negate(if: self.isNegative != right.isNegative)
+                    result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                     return result
                 }
                 
                 var result = Self.zero
-                result.negate(if: self.isNegative != right.isNegative)
+                result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                 return result
             }
-            else if right.isInfinite
+            else if rightBuf.isInfinite
             {
-                if self.isZero
+                if selfBuf.isZero
                 {
                     var result = Self.zero
-                    result.negate(if: self.isNegative != right.isNegative)
+                    result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                     return result
                 }
                 
                 var result = Self.zero
-                result.negate(if: self.isNegative != right.isNegative)
+                result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                 return result
             }
         }
         
-        if self.isZero
+        if selfBuf.isZero
         {
-            if right.isZero { return Self.nan }
+            if rightBuf.isZero { return Self.nan }
             
             var result = Self.zero
-            result.negate(if: self.isNegative != right.isNegative)
+            result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
             return result
         }
         else if right.isZero
         {
             var result = Self.infinity
-            result.negate(if: self.isNegative != right.isNegative)
+            result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
             return result
         }
         
@@ -685,14 +688,14 @@ extension WideFloat: FloatingPoint
             if WExp.min.intValue + right.exponent > self.exponent
             {
                 var result = Self.zero
-                result.negate(if: self.isNegative != right.isNegative)
+                result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                 return result
             }
         }
         else if WExp.max.intValue + right.exponent <= self.exponent
         {
             var result = Self.infinity
-            result.negate(if: self.isNegative != right.isNegative)
+            result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
             return result
         }
         
@@ -712,21 +715,23 @@ extension WideFloat: FloatingPoint
     @usableFromInline @inline(__always)
     internal var multiplicativeInverseOfSpecialValue: Self?
     {
-        if _exponent.isSpecial
+        let selfBuf = floatBuffer()
+        
+        if selfBuf.isSpecialValue
         {
-            if isNaN { return Self.nan }
-            if isInfinite
+            if selfBuf.isNaN { return Self.nan }
+            if selfBuf.isInfinite
             {
                 var result = Self.zero
-                result.negate(if: isNegative)
+                result.negate(if: selfBuf.isNegative)
                 return result
             }
         }
         
-        if isZero || _exponent.intValue <= WExp.min.intValue + 1
+        if selfBuf.isZero || _exponent.intValue <= WExp.min.intValue + 1
         {
             var result = Self.infinity
-            result.negate(if: isNegative)
+            result.negate(if: selfBuf.isNegative)
             return result
         }
         

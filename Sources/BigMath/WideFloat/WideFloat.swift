@@ -175,14 +175,15 @@ public struct WideFloat<T: WideDigit>:  Hashable
     // -------------------------------------
     @usableFromInline @inline(__always)
     internal var isNormalized: Bool {
-        return withFloatBuffer { return $0.isNormalized }
+        return floatBuffer().isNormalized
     }
     
     // -------------------------------------
     @inlinable static public var infinity: Self
     {
         var result = Self()
-        result.withMutableFloatBuffer { $0.setInfinity() }
+        var resultBuf = result.mutableFloatBuffer()
+        resultBuf.setInfinity()
         return result
     }
     
@@ -190,7 +191,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @inlinable static public var nan: Self
     {
         var result = Self()
-        result.withMutableFloatBuffer { $0.setNaN() }
+        var resultBuf = result.mutableFloatBuffer()
+        resultBuf.setNaN()
         return result
     }
 
@@ -198,7 +200,8 @@ public struct WideFloat<T: WideDigit>:  Hashable
     @inlinable static public var signalingNaN: Self
     {
         var result = Self()
-        result.withMutableFloatBuffer { $0.setSignalingNaN() }
+        var resultBuf = result.mutableFloatBuffer()
+        resultBuf.setSignalingNaN()
         return result
     }
     
@@ -428,15 +431,16 @@ public struct WideFloat<T: WideDigit>:  Hashable
     // -------------------------------------
     @inlinable public func convert<F: BinaryFloatingPoint>(to: F.Type) -> F
     {
-        if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
-        if isInfinite { return isNegative ? -F.infinity : F.infinity }
+        let buf = floatBuffer()
+        if buf.isNaN { return buf.isSignalingNaN ? F.signalingNaN : F.nan }
+        if buf.isInfinite { return buf.isNegative ? -F.infinity : F.infinity }
         
         if exponent >= F.greatestFiniteMagnitude.exponent
         {
             if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
-                return isNegative ? -F.infinity : F.infinity
+                return buf.isNegative ? -F.infinity : F.infinity
             }
         }
         else if exponent <= F.leastNonzeroMagnitude.exponent
@@ -445,14 +449,13 @@ public struct WideFloat<T: WideDigit>:  Hashable
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
-                    sign: isNegative ? .minus : .plus,
+                    sign: buf.isNegative ? .minus : .plus,
                     exponent: 0,
                     significand: 0
                 )
             }
         }
         
-        let buf = floatBuffer()
         return buf.convert(to: F.self)
     }
     
@@ -461,15 +464,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
     {
         typealias F = Float
         
-        if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
-        if isInfinite { return isNegative ? -F.infinity : F.infinity }
+        let buf = floatBuffer()
+
+        if buf.isNaN { return buf.isSignalingNaN ? F.signalingNaN : F.nan }
+        if buf.isInfinite { return buf.isNegative ? -F.infinity : F.infinity }
         
         if exponent >= F.greatestFiniteMagnitude.exponent
         {
             if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
-                return isNegative ? -F.infinity : F.infinity
+                return buf.isNegative ? -F.infinity : F.infinity
             }
         }
         else if exponent <= F.leastNonzeroMagnitude.exponent
@@ -478,14 +483,13 @@ public struct WideFloat<T: WideDigit>:  Hashable
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
-                    sign: isNegative ? .minus : .plus,
+                    sign: buf.isNegative ? .minus : .plus,
                     exponent: 0,
                     significand: 0
                 )
             }
         }
         
-        let buf = floatBuffer()
         return buf.convert(to: F.self)
     }
     
@@ -494,15 +498,17 @@ public struct WideFloat<T: WideDigit>:  Hashable
     {
         typealias F = Double
         
-        if isNaN { return isSignalingNaN ? F.signalingNaN : F.nan }
-        if isInfinite { return isNegative ? -F.infinity : F.infinity }
+        let buf = floatBuffer()
+
+        if buf.isNaN { return buf.isSignalingNaN ? F.signalingNaN : F.nan }
+        if buf.isInfinite { return buf.isNegative ? -F.infinity : F.infinity }
         
         if exponent >= F.greatestFiniteMagnitude.exponent
         {
             if exponent > F.greatestFiniteMagnitude.exponent
                 || Self(F.greatestFiniteMagnitude) < self.magnitude
             {
-                return isNegative ? -F.infinity : F.infinity
+                return buf.isNegative ? -F.infinity : F.infinity
             }
         }
         else if exponent <= F.leastNonzeroMagnitude.exponent
@@ -511,14 +517,13 @@ public struct WideFloat<T: WideDigit>:  Hashable
                 || Self(F.leastNonzeroMagnitude) < self.magnitude
             {
                 return F(
-                    sign: isNegative ? .minus : .plus,
+                    sign: buf.isNegative ? .minus : .plus,
                     exponent: 0,
                     significand: 0
                 )
             }
         }
         
-        let buf = floatBuffer()
         return buf.convert(to: F.self)
     }
 
@@ -527,14 +532,16 @@ public struct WideFloat<T: WideDigit>:  Hashable
     {
         let maxRepresentableExponent = I.bitWidth - Int(I.isSigned)
         
+        let buf = floatBuffer()
+
         /*
          All of these tests are fast O(1) tests, so we use bitwise ops instead
          of booleans to avoid the hidden conditional branches in boolean
          short-circuit evaluation
          */
-        var canBeRepresented = UInt8(!isNaN)
+        var canBeRepresented = UInt8(!buf.isNaN)
             & UInt8(!isInfinite)
-            & (UInt8(I.isSigned) | UInt8(!self.isNegative))
+            & (UInt8(I.isSigned) | UInt8(!buf.isNegative))
             & UInt8(exponent <= maxRepresentableExponent)
         
         if canBeRepresented & UInt8(exponent == maxRepresentableExponent) == 1
@@ -547,7 +554,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
                  we would round it up to our currrent value, so we allow
                  conversion back to that maximum magnitude.
                  */
-                return UInt8(I.isSigned) & UInt8(isNegative) == 1
+                return UInt8(I.isSigned) & UInt8(buf.isNegative) == 1
                     ? I.min
                     : I.max
             }
@@ -559,7 +566,6 @@ public struct WideFloat<T: WideDigit>:  Hashable
             "\(self) cannot be represented by \(I.self)"
         )
         
-        let buf = floatBuffer()
         return buf.convert(to: I.self)
     }
     

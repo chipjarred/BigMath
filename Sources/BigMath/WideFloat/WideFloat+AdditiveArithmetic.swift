@@ -73,49 +73,52 @@ extension WideFloat: AdditiveArithmetic
     @usableFromInline @inline(__always)
     internal func addSpecialValues(_ other:Self) -> Self?
     {
+        let selfBuf = self.floatBuffer()
+        let otherBuf = other.floatBuffer()
+        
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally adding NaNs and
          infinities should be unusual.  However, adding 0 is more common and
          IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        let hasSpecialValue = UInt8(self._exponent.isSpecial)
-            | UInt8(other._exponent.isSpecial)
+        let hasSpecialValue =
+            UInt8(selfBuf.isSpecialValue) | UInt8(otherBuf.isSpecialValue)
         if hasSpecialValue == 1
         {
-            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1
+            if UInt8(selfBuf.isNaN) | UInt8(otherBuf.isNaN) == 1
             {
-                let hasSignalingNaN =
-                    UInt8(self.isSignalingNaN) | UInt8(other.isSignalingNaN)
+                let hasSignalingNaN = UInt8(selfBuf.isSignalingNaN)
+                    | UInt8(otherBuf.isSignalingNaN)
                 
                 if hasSignalingNaN == 1 { Self.handleSignalingNaN(self, other) }
                 
                 // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            if self.isInfinite
+            if selfBuf.isInfinite
             {
-                let differentSigns = self.isNegative != other.isNegative
-                if UInt8(other.isInfinite) & UInt8(differentSigns) == 1 {
+                let differentSigns = selfBuf.isNegative != otherBuf.isNegative
+                if UInt8(otherBuf.isInfinite) & UInt8(differentSigns) == 1 {
                     return Self.nan
                 }
                 return self
             }
-            else if other.isInfinite { return other }
+            else if otherBuf.isInfinite { return other }
         }
         
-        if self.isZero
+        if selfBuf.isZero
         {
-            if other.isZero
+            if otherBuf.isZero
             {
                 // We have to take into account special signed 0 rules
-                return self.isNegative == other.isNegative
+                return selfBuf.isNegative == otherBuf.isNegative
                     ? self
                     : self.magnitude
             }
             return other
         }
-        if other.isZero { return self }
+        if otherBuf.isZero { return self }
         return nil
     }
 
@@ -132,49 +135,52 @@ extension WideFloat: AdditiveArithmetic
     @usableFromInline @inline(__always)
     internal func subtractSpecialValues(_ other:Self) -> Self?
     {
+        let selfBuf = self.floatBuffer()
+        let otherBuf = other.floatBuffer()
+        
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally subtracting NaNs and
          infinities should be unusual.  However, subtracting 0 is more common
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
-        let hasSpecialValue = UInt8(self._exponent.isSpecial)
-            | UInt8(other._exponent.isSpecial)
+        let hasSpecialValue =
+            UInt8(selfBuf.isSpecialValue) | UInt8(otherBuf.isSpecialValue)
         if hasSpecialValue == 1
         {
-            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1
+            if UInt8(selfBuf.isNaN) | UInt8(otherBuf.isNaN) == 1
             {
-                let hasSignalingNaN =
-                    UInt8(self.isSignalingNaN) | UInt8(other.isSignalingNaN)
+                let hasSignalingNaN = UInt8(selfBuf.isSignalingNaN)
+                    | UInt8(otherBuf.isSignalingNaN)
                 
                 if hasSignalingNaN == 1 { Self.handleSignalingNaN(self, other) }
                 
                 // sNaNs are converted to qNaNs after being handled per IEEE 754
                 return Self.nan
             }
-            if self.isInfinite
+            if selfBuf.isInfinite
             {
-                let sameSigns = self.isNegative == other.isNegative
-                if UInt8(other.isInfinite) & UInt8(sameSigns) == 1 {
+                let sameSigns = selfBuf.isNegative == otherBuf.isNegative
+                if UInt8(otherBuf.isInfinite) & UInt8(sameSigns) == 1 {
                     return Self.nan
                 }
                 return self
             }
-            else if other.isInfinite { return other.negated }
+            else if otherBuf.isInfinite { return other.negated }
         }
         
-        if self.isZero
+        if selfBuf.isZero
         {
-            if other.isZero
+            if otherBuf.isZero
             {
                 // We have to take into account special signed 0 rules
-                return self.isNegative == other.isNegative
+                return selfBuf.isNegative == otherBuf.isNegative
                     ? self.magnitude
                     : self
             }
             return other.negated
         }
-        if other.isZero { return self }
+        if otherBuf.isZero { return self }
 
         return nil
     }

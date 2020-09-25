@@ -54,7 +54,8 @@ func subtractReportingBorrowKnuth(
         let (pHi, pLo) = k.multipliedFullWidth(by: xPtr.pointee)
         (yVal, borrow) = yPtr.pointee.subtractingReportingBorrow(borrow)
         borrow &+= pHi
-        (yPtr.pointee, borrow) = yVal.subtractingReportingBorrow(pLo)
+        borrow &+= yVal.subtractFromSelfReportingBorrow(pLo)
+        yPtr.pointee = yVal
 
         xPtr += 1
         yPtr += 1

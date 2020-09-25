@@ -122,6 +122,9 @@ extension WideFloat: Numeric
         _ left: Self,
         _ right:Self) -> Self?
     {
+        let leftBuf = left.floatBuffer()
+        let rightBuf = right.floatBuffer()
+        
         /*
          Ugh - all this conditional branching sucks.  Most of the conditions
          should be fairly predictable, though, as ideally multiplying NaNs and
@@ -129,13 +132,13 @@ extension WideFloat: Numeric
          and IEEE 754 has special rules for signed 0s that we have to handle.
          */
         let hasSpecialValue =
-            UInt8(left._exponent.isSpecial) | UInt8(right._exponent.isSpecial)
+            UInt8(leftBuf.isSpecialValue) | UInt8(rightBuf.isSpecialValue)
         if hasSpecialValue == 1
         {
-            if UInt8(left.isNaN) | UInt8(right.isNaN) == 1
+            if UInt8(leftBuf.isNaN) | UInt8(rightBuf.isNaN) == 1
             {
                 let hasSignalingNaN =
-                    UInt8(left.isSignalingNaN) | UInt8(right.isSignalingNaN)
+                    UInt8(leftBuf.isSignalingNaN) | UInt8(rightBuf.isSignalingNaN)
                 
                 if hasSignalingNaN == 1 { handleSignalingNaN(left, right) }
                 
@@ -143,28 +146,28 @@ extension WideFloat: Numeric
                 return Self.nan
             }
             
-            if left.isInfinite
+            if leftBuf.isInfinite
             {
-                if right.isZero { return Self.nan }
+                if rightBuf.isZero { return Self.nan }
 
                 var result = Self.infinity
-                result.negate(if: left.isNegative != right.isNegative)
+                result.negate(if: leftBuf.isNegative != rightBuf.isNegative)
                 return result
             }
-            else if right.isInfinite
+            else if rightBuf.isInfinite
             {
-                if left.isZero { return Self.nan }
+                if leftBuf.isZero { return Self.nan }
                 
                 var result = Self.infinity
-                result.negate(if: left.isNegative != right.isNegative)
+                result.negate(if: leftBuf.isNegative != rightBuf.isNegative)
                 return result
             }
         }
         
-        if UInt8(left.isZero) | UInt8(right.isZero) == 1
+        if UInt8(leftBuf.isZero) | UInt8(rightBuf.isZero) == 1
         {
             var result = Self.zero
-            result.negate(if: left.isNegative != right.isNegative)
+            result.negate(if: leftBuf.isNegative != rightBuf.isNegative)
             return result
         }
         
@@ -177,14 +180,14 @@ extension WideFloat: Numeric
                 if WExp.min - left._exponent > right._exponent
                 {
                     var result = Self.zero
-                    result.negate(if: left.isNegative != right.isNegative)
+                    result.negate(if: leftBuf.isNegative != rightBuf.isNegative)
                     return result
                 }
             }
             else if WExp.max - left._exponent <= right._exponent
             {
                 var result = Self.infinity
-                result.negate(if: left.isNegative != right.isNegative)
+                result.negate(if: leftBuf.isNegative != rightBuf.isNegative)
                 return result
             }
         }

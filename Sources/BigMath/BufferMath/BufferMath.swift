@@ -337,6 +337,22 @@ internal func rightShift(
     }
 }
 
+// -------------------------------------
+@inline(__always)
+fileprivate func digitAndShift(in x: UIntBuffer, forRightShift shift: Int)
+    -> (digitIndex: Int, bitShift: Int)
+{
+    let digitIndexShift: Int =
+        MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size
+        ? 6
+        : 5
+
+    return (
+        digitIndex: x.startIndex + shift >> digitIndexShift,
+        bitShift: shift & (UInt.bitWidth &- 1)
+    )
+}
+
 
 // -------------------------------------
 /**
@@ -349,22 +365,6 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 {
     assert(shift >= 0)
         
-    // -------------------------------------
-    @inline(__always)
-    func digitAndShift(in x: UIntBuffer, forRightShift shift: Int)
-        -> (digitIndex: Int, bitShift: Int)
-    {
-        let digitIndexShift: Int =
-            MemoryLayout<UInt>.size == MemoryLayout<UInt64>.size
-            ? 6
-            : 5
-
-        return (
-            digitIndex: x.startIndex + shift >> digitIndexShift,
-            bitShift: shift & (UInt.bitWidth &- 1)
-        )
-    }
-    
     if shift > x.count * UInt.bitWidth &+ 1 { return 0 }
     
     let (digitIndex, bitShift) = digitAndShift(in: x, forRightShift: shift &- 1)
@@ -411,6 +411,8 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
     xPtr -= 1
     digit = validXRange.contains(xPtr) ? xPtr.pointee : 0
     shiftedDigit |= digit >> bitShift
+    
+    
 
     /*
      Do the truncated bits form at least half of the least non-truncated bit
@@ -442,12 +444,23 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      
      The code after the guard statement does the check of the lower bits.
      */
-        
-    guard shiftedDigit & 0b10 == 0b10 else {
-        return UInt(shiftedDigit & 0b01 == 0b01)
+    
+    #warning("DEBUGGING")
+    switch shiftedDigit & 0b11
+    {
+        case 0b00: return 0
+        case 0b01: break
+        case 0b10: return 0
+        case 0b11: return 1
+        default: fatalError("Unreachable")
     }
+        
+//    guard shiftedDigit & 0b11 == 0b01 else {
+//        return UInt(shiftedDigit & 0b11 == 0b11)
+//    }
 
     // We have to check lower bits
+    #warning("DEBUGGING")
     var accumulatedBits: UInt = digit << highShift
     xPtr -= 1
     
@@ -459,6 +472,74 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
 
     // round up if there were lower 1 bits; otherwise, round down
     return UInt(accumulatedBits != 0)
+}
+
+// -------------------------------------
+/**
+ - Returns: a `UInt` containing rounding information about the bits in `x` that
+    would be shifted out as a result of applying a right shift of `shift` bits.
+    The information is contained in the two least significant bits:
+ 
+    - Bit 1 is known as the "guard" bit, and contains the most significant
+        shifted out bit.
+    - Bit 0 is the "sticky" bit, and is `0` only if *all* of the other
+        shifted-out bits are `0`.  If any of the other shifted-out bits are `1`
+        , bit 0 is set to `1` if *any* of the bits lower than the guard bit are
+        `1`, then the sticky bit is `1`, which is how it gets it's name.  Once
+        it's 1, its value "sticks" to `1`.
+    
+    This information is useful for applying bankers' rounding after an
+    arithmetic operation.  If bit 1 is `0`, then round the result down.
+    If bit 1 is `1`, then bit 0 is used to determine whether or not to round up
+    based for an even non-truncated bit.
+ */
+@usableFromInline @inline(__always)
+internal func guardAndStickyBits(forRightShift shift: Int, of x: UIntBuffer) -> UInt
+{
+    assert(shift >= 0)
+            
+    if shift > x.count * UInt.bitWidth &+ 1 { return 0 }
+    
+    let (digitIndex, bitShift) = digitAndShift(in: x, forRightShift: shift &- 1)
+    
+    let xStart = x.baseAddress!
+    let xEnd = xStart + x.count
+    var xPtr = xStart + (digitIndex &+ 1)
+    let validXRange = xStart..<xEnd
+    
+    let highShift = UInt.bitWidth &- bitShift
+
+    var digit = xPtr < xEnd ? xPtr.pointee : 0
+    var shiftedDigit = digit << highShift
+    xPtr -= 1
+    digit = validXRange.contains(xPtr) ? xPtr.pointee : 0
+    shiftedDigit |= digit >> bitShift
+    
+    let guardBit = (shiftedDigit & 1) << 1
+    
+    /*
+     If we could assume that the right-shift for which we're currently
+     calculating guard and sticky bits is the only shift to be applied, we
+     could skip the O(n)  check if the lower bits below when we know that the
+     guard bit (result bit 1) is 0. But if more shifts might be applied (for
+     example, making room for a carry out of a floating point significand's
+     high bit resulting from addition), those shifts will compute a new guard
+     bit, and then our lower bits will matter for rounding.  The upshot of
+     which is we can't skip checking the lower bits.
+     */
+
+    // Calculate sticky bit
+    var accumulatedBits: UInt = digit << highShift
+    xPtr -= 1
+    
+    while UInt8(xPtr >= xStart) & UInt8(accumulatedBits == 0) == 1
+    {
+        accumulatedBits |= xPtr.pointee
+        xPtr -= 1
+    }
+
+    // round up if there were lower 1 bits; otherwise, round down
+    return guardBit | UInt(accumulatedBits != 0)
 }
 
 // -------------------------------------

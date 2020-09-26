@@ -14,6 +14,16 @@ class WideFloat_Subtraction_UnitTests: XCTestCase
     typealias FloatType = WideFloat<UInt64>
     
     // -------------------------------------
+    var randomFloat80: Float80
+    {
+        let bigLimit = Float80(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float80.leastNormalMagnitude...1
+        let x = Float80.random(in: bigRange)
+        return  x * Float80.random(in: littleRange)
+    }
+
+    // -------------------------------------
     var randomDouble: Double
     {
         let bigLimit = Double(UInt64.max) / 2
@@ -301,7 +311,7 @@ class WideFloat_Subtraction_UnitTests: XCTestCase
         
         for _ in 0..<100
         {
-            let other = FloatType(randomDouble)
+            let other = FloatType(randomFloat80)
             var difference =  FloatType.zero - other
             XCTAssertEqual(difference, -other)
             
@@ -309,6 +319,16 @@ class WideFloat_Subtraction_UnitTests: XCTestCase
             XCTAssertEqual(difference, -other)
         }
         
+        for _ in 0..<100
+        {
+            let other = FloatType(randomDouble)
+            var difference =  FloatType.zero - other
+            XCTAssertEqual(difference, -other)
+            
+            difference = FloatType.zero.negated - other
+            XCTAssertEqual(difference, -other)
+        }
+
         for _ in 0..<100
         {
             let other = FloatType(urandom64)
@@ -334,6 +354,75 @@ class WideFloat_Subtraction_UnitTests: XCTestCase
     func test_difference_of_finite_numbers_with_same_sign()
     {
         typealias FloatType = WideFloat<UInt64>
+        
+        typealias TestCase = (x: Float80, y: Float80, expected: Float80)
+        let testCases: [TestCase] =
+        [
+            (
+                x:        -3519362886109200388.5,
+                y:        -1404720213004215800.1,
+                expected: -2114642673104984588.4
+            ),
+            (
+                x:         -977919184040800286.3,
+                y:        -1977799499079525268.5,
+                expected:   999880315038724982.2
+            ),
+        ]
+        
+        for (x80, y80, expected) in testCases
+        {
+            let x = FloatType(x80)
+            let y = FloatType(y80)
+            var difference = x - y
+            
+            if difference.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x80)")
+                print("           y = \(y80)")
+                print("    expected = \(expected)")
+                print("      actual = \(difference.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: difference._significand)")
+            }
+            
+            XCTAssertEqual(difference.float80Value, expected)
+            
+            difference = y - x
+            XCTAssertEqual(difference.float80Value, -expected)
+
+        }
+        
+        for _ in 0..<100
+        {
+            let x0 = -abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
+            let expected = x0 - y0
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var difference = x - y
+            
+            if difference.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x0)")
+                print("           y = \(y0)")
+                print("    expected = \(expected)")
+                print("      actual = \(difference.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: difference._significand)")
+            }
+            
+            XCTAssertEqual(difference.float80Value, expected)
+            
+            difference = y - x
+            XCTAssertEqual(difference.float80Value, -expected)
+        }
+
         for _ in 0..<100
         {
             let x0 = abs(randomDouble)
@@ -369,6 +458,34 @@ class WideFloat_Subtraction_UnitTests: XCTestCase
     func test_difference_of_finite_numbers_with_opposite_sign()
     {
         typealias FloatType = WideFloat<UInt64>
+        for _ in 0..<100
+        {
+            let x0 = abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
+            let expected = x0 - y0
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var difference = x - y
+
+            if difference.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x0)")
+                print("           y = \(y0)")
+                print("    expected = \(expected)")
+                print("      actual = \(difference.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: difference._significand)")
+            }
+
+            XCTAssertEqual(difference.float80Value, expected)
+            
+            difference = y - x
+            XCTAssertEqual(difference.float80Value, -expected)
+        }
+        
         for _ in 0..<100
         {
             let x0 = abs(randomDouble)

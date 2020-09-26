@@ -14,6 +14,16 @@ class WideFloat_Addition_UnitTests: XCTestCase
     typealias FloatType = WideFloat<UInt64>
     
     // -------------------------------------
+    var randomFloat80: Float80
+    {
+        let bigLimit = Float80(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float80.leastNormalMagnitude...1
+        let x = Float80.random(in: bigRange)
+        return  x * Float80.random(in: littleRange)
+    }
+
+    // -------------------------------------
     var randomDouble: Double
     {
         let bigLimit = Double(UInt64.max) / 2
@@ -398,7 +408,7 @@ class WideFloat_Addition_UnitTests: XCTestCase
     func test_sum_of_finite_numbers_with_same_sign()
     {
         typealias FloatType = WideFloat<UInt64>
-        typealias TestCase = (x0: Double, y0: Double)
+        typealias TestCase = (x0: Float80, y0: Float80)
         let testCases: [TestCase] =
         [
             (x0: 3.3438754589069757e+18, y0: 2.795557076356147e+18),
@@ -406,6 +416,22 @@ class WideFloat_Addition_UnitTests: XCTestCase
             (x0: 2.2895838338253545e+18, y0: 2.9239756590262385e+18),
             (x0: 1.8092123572663117e+18, y0: 1.1119899223666446e+18),
             (x0: 8.42251154309711e+18,   y0: 5.395464610752836e+18),
+            (x0: 3921743530623635028.8,   y0: 1092253370383467619.94),
+            (x0: 2851439503983713699.8,   y0: 952720862328428043.6),
+            (x0: 2.8034860905709696e+18,   y0: 1.0205570019754467e+18),
+            (x0: 1526421666639781302.9,   y0: 3386992225624293455.0),
+            (x0: 134393340826317853.414,   y0: 1963223591734300717.2),
+            (x0: 1309043367877125907.6,   y0: 5280139609368010186.5),
+            (x0: 2511758828445179212.2,   y0: 1140181425425421054.3),
+            (x0: 6698532561063717367.5,   y0: 3000880569321499534.0),
+            (x0: 616248215178195591.56,   y0: 327258896326224357.16),
+            (x0: 301417465114347094.2,   y0: 1538662939856881797.6),
+            (x0: 4310542092340702001.2,   y0: 2275436354807565290.0),
+            (x0: 113068835571150011.305, y0: 247303356556640836.9),
+            (x0: 2020963336285143181.4, y0: 461385513443127542.0),
+            
+            (x0: 3835190162924033424.8,   y0: 953279103336728802.56),
+            (x0: 1823454549263605025.5, y0: 557209340990989702.62),
         ]
         
         for (x0, y0) in testCases
@@ -416,10 +442,47 @@ class WideFloat_Addition_UnitTests: XCTestCase
             let y = FloatType(y0)
             
             var sum = x + y
-            XCTAssertEqual(sum.doubleValue, expected)
+
+            if sum.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x0)")
+                print("           y = \(y0)")
+                print("    expected = \(expected)")
+                print("      actual = \(sum.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: sum._significand)")
+            }
+
+
+            XCTAssertEqual(sum.float80Value, expected)
             
             sum = y + x
-            XCTAssertEqual(sum.doubleValue, expected)
+            XCTAssertEqual(sum.float80Value, expected)
+        }
+        
+        for _ in 0..<100
+        {
+            let x0 = abs(randomFloat80)
+            let y0 = abs(randomFloat80)
+            let expected = x0 + y0
+
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var sum = x + y
+
+            if sum.float80Value != expected
+            {
+                print("\n -------- Failing case")
+                print("    x: \(x0)")
+                print("    y: \(y0)")
+            }
+
+            XCTAssertEqual(sum.float80Value, expected)
+
+            sum = y + x
+            XCTAssertEqual(sum.float80Value, expected)
         }
         
         for _ in 0..<100
@@ -447,17 +510,17 @@ class WideFloat_Addition_UnitTests: XCTestCase
         
         for _ in 0..<100
         {
-            let x0 = -abs(randomDouble)
-            let y0 = -abs(randomDouble)
+            let x0 = -abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
             let expected = x0 + y0
 
             let x = FloatType(x0)
             let y = FloatType(y0)
             var sum = x + y
-            XCTAssertEqual(sum.doubleValue, expected)
+            XCTAssertEqual(sum.float80Value, expected)
 
             sum = y + x
-            XCTAssertEqual(sum.doubleValue, expected)
+            XCTAssertEqual(sum.float80Value, expected)
         }
     }
     
@@ -465,6 +528,21 @@ class WideFloat_Addition_UnitTests: XCTestCase
     func test_sum_of_finite_numbers_with_opposite_signs()
     {
         typealias FloatType = WideFloat<UInt64>
+        for _ in 0..<100
+        {
+            let x0 = -abs(randomFloat80)
+            let y0 = abs(randomFloat80)
+            let expected = x0 + y0
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var sum = x + y
+            XCTAssertEqual(sum.float80Value, expected)
+            
+            sum = y + x
+            XCTAssertEqual(sum.float80Value, expected)
+        }
+        
         for _ in 0..<100
         {
             let x0 = -abs(randomDouble)

@@ -14,6 +14,16 @@ class WideFloat_Initialization_UnitTests: XCTestCase
     typealias FloatType = WideFloat<UInt64>
     
     // -------------------------------------
+    var randomFloat80: Float80
+    {
+        let bigLimit = Float80(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float80.leastNormalMagnitude...1
+        let x = Float80.random(in: bigRange)
+        return  x * Float80.random(in: littleRange)
+    }
+
+    // -------------------------------------
     var randomDouble: Double
     {
         let bigLimit = Double(UInt64.max) / 2
@@ -366,6 +376,19 @@ class WideFloat_Initialization_UnitTests: XCTestCase
         }
     }
     #endif
+    
+    // -------------------------------------
+    func test_64_bit_WideFloat_inititalized_with_Float_80_can_recover_the_Float80()
+    {
+        for _ in 0..<100
+        {
+            let expected = randomFloat80
+            let x = FloatType(expected)
+            let x80 = x.float80Value
+            
+            XCTAssertEqual(x80, expected)
+        }
+    }
     
     // -------------------------------------
     func test_init_with_sign_exponent_and_significand()

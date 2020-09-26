@@ -528,15 +528,66 @@ class WideFloat_Addition_UnitTests: XCTestCase
     func test_sum_of_finite_numbers_with_opposite_signs()
     {
         typealias FloatType = WideFloat<UInt64>
+        typealias TestCase = (x0: Float80, y0: Float80)
+        let testCases: [TestCase] =
+        [
+            (x0: -798663440288876065.44, y0: 4069591507036733882.5),
+            (x0: -2509994308763587309.2, y0: 684125384768649593.1),
+            (x0: -798663440288876065.44, y0: 4069591507036733882.5),
+            (x0: -3989386152194345781.0, y0: 144416403467492684.47),
+        ]
+        
+        for (x0, y0) in testCases
+        {
+            let expected = x0 + y0
+            
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            
+            var sum = x + y
+
+            if sum.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x0)")
+                print("           y = \(y0)")
+                print("    expected = \(expected)")
+                print("      actual = \(sum.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: sum._significand)")
+            }
+
+
+            XCTAssertEqual(sum.float80Value, expected)
+
+            sum = y + x
+            XCTAssertEqual(sum.float80Value, expected)
+        }
+        
         for _ in 0..<100
         {
             let x0 = -abs(randomFloat80)
             let y0 = abs(randomFloat80)
             let expected = x0 + y0
-            
             let x = FloatType(x0)
             let y = FloatType(y0)
+            
             var sum = x + y
+
+            if sum.float80Value != expected
+            {
+                print("------- Failing case:")
+                print("           x = \(x0)")
+                print("           y = \(y0)")
+                print("    expected = \(expected)")
+                print("      actual = \(sum.float80Value)")
+                print("")
+                print("  expected sig: \(binary: FloatType(expected)._significand)")
+                print("actual sig sig: \(binary: sum._significand)")
+            }
+
+
             XCTAssertEqual(sum.float80Value, expected)
             
             sum = y + x

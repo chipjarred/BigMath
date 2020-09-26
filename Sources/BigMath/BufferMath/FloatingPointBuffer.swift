@@ -1067,10 +1067,7 @@ struct FloatingPointBuffer
             } while carry != 0
         }
         
-        print("  rBits = \(binary: rBits)")
-        print("z bit 0 = \(binary: zStart.pointee)")
         let rBit = calcRoundingBit(rBits: rBits, and: zStart.pointee)
-        print("   rBit = \(binary: rBit)")
         if rBit == 1
         {
             carry = addReportingCarry(
@@ -1143,11 +1140,6 @@ struct FloatingPointBuffer
             return
         }
         
-        var borrow = roundingBit(
-            forRightShift: exponentDelta.intValue,
-            of: y.significand.immutable
-        )
-        
         let (yDigitIndex, yShift) =
             y.digitAndShift(forRightShift: exponentDelta.intValue)
         
@@ -1158,10 +1150,18 @@ struct FloatingPointBuffer
         let yEnd = yStart + y.significand.count
         var yPtr = yStart + yDigitIndex
         
-        var zPtr = z.significand.baseAddress!
+        let zStart = z.significand.baseAddress!
+        var zPtr = zStart
         
         var yDigitLow = yPtr < yEnd ? yPtr.pointee : 0
         
+        var rBits = guardRoundAndStickyBits(
+            forRightShift: exponentDelta.intValue,
+            of: y.significand.immutable
+        )
+
+        var borrow: UInt = 0
+
         yPtr += 1
         
         while xPtr < xEnd
@@ -1194,9 +1194,55 @@ struct FloatingPointBuffer
             BigMath.arithmeticNegate(z.significand.immutable, to: z.significand)
         }
         
-        // Now we set the sign bit and normalize
+        // Now we normalize and round...
+        var zSig = z.significand
+        let normShift = countLeadingZeroBits(zSig.immutable)
+        z.leftShift(by: normShift)
+        if !z.isSpecialValue
+        {
+            var rBit = rBits >> 2
+            if normShift != 0
+            {
+                rBit &+= calcRoundingBit(rBits: rBits & 3, and: rBit)
+                if rBit != 0
+                {
+                    let (nDigitIndex, nBitShift) =
+                        digitAndBitIndex(for: normShift)
+                    zSig = zSig[(zSig.startIndex + nDigitIndex)...]
+                    rBit <<= (nBitShift - 1)
+                }
+            }
+            else
+            {
+                rBits = update(rBits: rBits & 3, for: rBit)
+                rBit = calcRoundingBit(rBits: rBits, and: zStart.pointee)
+            }
+            
+            if rBit != 0
+            {
+                zPtr = zStart + (z.significand.count &- 1)
+                borrow = subtractReportingBorrow(
+                    zSig.immutable,
+                    rBit,
+                    result: zSig
+                )
+                assert(borrow == 0)
+                if borrow != 0
+                {
+                    resultSign ^= 1
+                    BigMath.arithmeticNegate(z.significand.immutable, to: z.significand)
+                }
+
+                if (zSig.last! >> (UInt.bitWidth - 1)) == 0 {
+                    z.normalize()
+                }
+            }
+        }
+
+        assert(z.isNormalized)
+
+        // Now we set the sign bit
         z.signBit = resultSign
-        z.normalize()
     }
     
     // -------------------------------------

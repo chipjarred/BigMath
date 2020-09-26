@@ -443,8 +443,9 @@ internal func roundingBit(forRightShift shift: Int, of x: UIntBuffer) -> UInt
      The code after the guard statement does the check of the lower bits.
      */
         
-    let maskedDigit = shiftedDigit & 3
-    guard maskedDigit == 1 else { return UInt(maskedDigit == 3) }
+    guard shiftedDigit & 0b10 == 0b10 else {
+        return UInt(shiftedDigit & 0b01 == 0b01)
+    }
 
     // We have to check lower bits
     var accumulatedBits: UInt = digit << highShift

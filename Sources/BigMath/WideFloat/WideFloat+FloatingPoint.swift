@@ -113,17 +113,66 @@ extension WideFloat: FloatingPoint
     }
     
     // -------------------------------------
+    @inlinable
     public mutating func formRemainder(dividingBy other: Self)
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        guard specialValueRemainder(dividingBy: other) else { return }
+        
+        let selfBuf = mutableFloatBuffer()
+        let otherBuf = other.floatBuffer()
+        
+        if selfBuf.compareMagnitudes(right: otherBuf) == .orderedAscending {
+            return
+        }
+        
+        /* TODO: Make more efficient
+         Theoretically we should be able to do this with integer division using
+         the actual remainder; I implemented it but it didn't work so I ripped
+         it out and replaced it with this simple version. However, afterwards
+         I discovered a rounding bug in addition and subtraction that may have
+         been the source of the problem.  It's worth having another go at it
+         because it would do the calculation so much faster than this approach.
+         */
+
+        var q = self / other
+        
+        q.round(.toNearestOrEven)
+
+        q *= other
+        self = self - q
+
+        assert(isNormalized)
     }
     
     // -------------------------------------
     public mutating func formTruncatingRemainder(dividingBy other: Self)
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        guard specialValueRemainder(dividingBy: other) else { return }
+        
+        let selfBuf = mutableFloatBuffer()
+        let otherBuf = other.floatBuffer()
+        
+        if selfBuf.compareMagnitudes(right: otherBuf) == .orderedAscending {
+            return
+        }
+        
+        /* TODO: Make more efficient
+         Theoretically we should be able to do this with integer division using
+         the actual remainder; I implemented it but it didn't work so I ripped
+         it out and replaced it with this simple version. However, afterwards
+         I discovered a rounding bug in addition and subtraction that may have
+         been the source of the problem.  It's worth having another go at it
+         because it would do the calculation so much faster than this approach.
+         */
+
+        var q = self / other
+        
+        q.round(.towardZero)
+
+        q *= other
+        self = self - q
+
+        assert(isNormalized)
     }
     
     // -------------------------------------
@@ -214,8 +263,35 @@ extension WideFloat: FloatingPoint
     @inlinable
     public mutating func round(_ rule: FloatingPointRoundingRule)
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        let exp = self.exponent
+        
+        var selfBuf = self.mutableFloatBuffer()
+        
+        switch rule
+        {
+            case .towardZero: // Simple truncation
+                if exp < 0 { selfBuf.setZero() }
+                else if exp < RawSignificand.bitWidth - 1
+                {
+                    let shift = RawSignificand.bitWidth - 1 - exp
+                    // TO-DO Implement a faster way to zero a bit range
+                    rightShift(buffer: selfBuf.significand, by: shift)
+                    leftShift(buffer: selfBuf.significand, by: shift)
+                }
+            case .toNearestOrEven: // IEEE 754 default for binary floating point
+                if exp < 0 { selfBuf.setZero() }
+                else if exp < RawSignificand.bitWidth - 1
+                {
+                    let shift = RawSignificand.bitWidth - 1 - exp
+                    selfBuf.rightShiftForAddOrSubtract(by: shift)
+                    normalize()
+                }
+            default:
+                #warning("Implement other cases!")
+                fatalError("Unimplemented")
+        }
+        
+        assert(isNormalized)
     }
     
     // -------------------------------------
@@ -654,13 +730,6 @@ extension WideFloat: FloatingPoint
             }
             else if rightBuf.isInfinite
             {
-                if selfBuf.isZero
-                {
-                    var result = Self.zero
-                    result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
-                    return result
-                }
-                
                 var result = Self.zero
                 result.negate(if: selfBuf.isNegative != rightBuf.isNegative)
                 return result
@@ -736,5 +805,101 @@ extension WideFloat: FloatingPoint
         }
         
         return nil
+    }
+    
+    // -------------------------------------
+    /// - Returns: `true` if no special values are involved; otherwise, `false`
+    @usableFromInline @inline(__always)
+    internal mutating func specialValueRemainder(dividingBy other: Self) -> Bool
+    {
+        var selfBuf = mutableFloatBuffer()
+        let otherBuf = other.floatBuffer()
+        
+        /*
+         Ugh - all this conditional branching sucks.  Most of the conditions
+         should be fairly predictable, though, as ideally dividing NaNs and
+         infinities should be unusual.  However, dividing 0 is more common
+         and IEEE 754 has special rules for signed 0s that we have to handle.
+         */
+        let hasSpecialValue =
+            UInt8(selfBuf.isSpecialValue) | UInt8(otherBuf.isSpecialValue)
+        if hasSpecialValue == 1
+        {
+            if UInt8(selfBuf.isNaN) | UInt8(otherBuf.isNaN) == 1
+            {
+                let hasSignalingNaN = UInt8(selfBuf.isSignalingNaN)
+                    | UInt8(otherBuf.isSignalingNaN)
+                
+                if hasSignalingNaN == 1 {
+                    Self.handleSignalingNaN(self, other)
+                }
+                
+                // sNaNs are converted to qNaNs after being handled per IEEE 754
+                selfBuf.setNaN()
+                return false
+            }
+            
+            if selfBuf.isInfinite
+            {
+                if otherBuf.isInfinite
+                {
+                    selfBuf.setNaN()
+                    return false
+                }
+                
+                if otherBuf.isZero
+                {
+                    selfBuf.setInfinity()
+                    selfBuf.signBit =
+                        UInt(selfBuf.isNegative != otherBuf.isNegative)
+                    return false
+                }
+                
+                selfBuf.setZero()
+                selfBuf.signBit =
+                    UInt(selfBuf.isNegative != otherBuf.isNegative)
+                return false
+            }
+            else if otherBuf.isInfinite { return false }
+        }
+        
+        if selfBuf.isZero
+        {
+            if otherBuf.isZero
+            {
+                selfBuf.setNaN()
+                return false
+            }
+            
+            selfBuf.setZero()
+            selfBuf.signBit =
+                UInt(selfBuf.isNegative != otherBuf.isNegative)
+            return false
+        }
+        else if other.isZero
+        {
+            selfBuf.setNaN()
+            return false
+        }
+        
+        // Handle underflow to 0, and overflow to infinity
+        if other.exponent > 0
+        {
+            if WExp.min.intValue + other.exponent > self.exponent
+            {
+                selfBuf.setZero()
+                selfBuf.signBit =
+                    UInt(selfBuf.isNegative != otherBuf.isNegative)
+                return false
+            }
+        }
+        else if WExp.max.intValue + other.exponent <= self.exponent
+        {
+            selfBuf.setInfinity()
+            selfBuf.signBit =
+                UInt(selfBuf.isNegative != otherBuf.isNegative)
+            return false
+        }
+        return true
     }
 }

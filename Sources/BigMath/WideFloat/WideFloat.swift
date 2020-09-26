@@ -357,6 +357,11 @@ public struct WideFloat<T: WideDigit>:  Hashable
             self.init()
             var buf = mutableFloatBuffer()
             buf.setInfinity()
+            buf.negate(if: source.sign == .minus)
+        }
+        else if source.isZero {
+            self.init()
+            self.negate(if: source.sign == .minus)
         }
         else
         {
@@ -367,7 +372,7 @@ public struct WideFloat<T: WideDigit>:  Hashable
             )
             _exponent = WExp(Int(source.exponent))
         }
-        self.negate(if: source < 0)
+        self.negate(if: source.sign == .minus)
     }
     
     // -------------------------------------

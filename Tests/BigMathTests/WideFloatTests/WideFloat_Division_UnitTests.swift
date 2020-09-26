@@ -14,6 +14,16 @@ class WideFloat_Division_UnitTests: XCTestCase
     typealias FloatType = WideFloat<UInt64>
     
     // -------------------------------------
+    var randomFloat80: Float80
+    {
+        let bigLimit = Float80(UInt64.max) / 2
+        let bigRange = -bigLimit...bigLimit
+        let littleRange = Float80.leastNormalMagnitude...1
+        let x = Float80.random(in: bigRange)
+        return  x * Float80.random(in: littleRange)
+    }
+
+    // -------------------------------------
     var randomDouble: Double
     {
         let bigLimit = Double(UInt64.max) / 2
@@ -410,8 +420,8 @@ class WideFloat_Division_UnitTests: XCTestCase
     {
         for _ in 0..<100
         {
-            let x0 = abs(randomDouble)
-            let y0 = abs(randomDouble)
+            let x0 = randomDouble
+            let y0 = randomDouble
             let expected = x0 / y0
 
             // We allow a tolerance because WideFloat has more precision than
@@ -429,6 +439,31 @@ class WideFloat_Division_UnitTests: XCTestCase
             XCTAssertLessThanOrEqual(
                 abs(quotient.doubleValue - expected), tolerance
             )
+        }
+        
+        for _ in 0..<100
+        {
+            let x0 = randomFloat80
+            let y0 = randomFloat80
+            let expected = x0 / y0
+
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            
+            let quotient = x / y
+            
+            let diff = abs(quotient.float80Value - expected)
+            
+            /*
+             Although a 64-bit WideFloat theoretically have the same precision
+             as Float80, Float80 does some mysterious things with rounding the
+             least significant bit.  After much investigation, it seems that
+             we're rounding corrrectly ("bankers' rounding"), but on some
+             occasions that means we get a different result in the last
+             significant bits.  However, we verify that the difference is at
+             most in the least significant bit.
+             */
+            XCTAssertLessThanOrEqual(diff, quotient.ulp.float80Value)
         }
     }
     

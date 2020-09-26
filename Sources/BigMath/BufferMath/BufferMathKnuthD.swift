@@ -440,7 +440,7 @@ internal func floatDivide(
     }
     
     
-    // Need to round least signifcant digit, so we need to do another division.
+    // Need to round least signifcant digit.    
     let truncDigit: UInt
     (truncDigit, r) = y.dividingFullWidth((r, 0))
 

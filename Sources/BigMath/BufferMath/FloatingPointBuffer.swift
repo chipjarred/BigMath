@@ -1233,13 +1233,10 @@ struct FloatingPointBuffer
                     BigMath.arithmeticNegate(z.significand.immutable, to: z.significand)
                 }
 
-                if (zSig.last! >> (UInt.bitWidth - 1)) == 0 {
-                    z.normalize()
-                }
             }
         }
 
-        assert(z.isNormalized)
+        z.normalize()
 
         // Now we set the sign bit
         z.signBit = resultSign

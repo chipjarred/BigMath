@@ -672,6 +672,51 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
+    @usableFromInline @inline(__always)
+    func compareMagnitudes(right: Self) -> ComparisonResult
+    {
+        self.assertNormalized()
+        right.assertNormalized()
+        assert(self.significand.count == right.significand.count)
+        
+        let hasSpecialValue =
+            UInt8(self.exponent.isSpecial) | UInt8(right.exponent.isSpecial)
+        if hasSpecialValue == 1
+        {
+            if UInt8(self.isNaN) | UInt8(right.isNaN) == 1 {
+                return .unordered
+            }
+            if self.isInfinite {
+                return right.isInfinite ? .orderedSame : .orderedDescending
+            }
+            return .orderedAscending
+        }
+        
+        if self.isZero
+        {
+            if right.isZero { return .orderedSame }
+            return .orderedAscending
+        }
+        else if right.isZero {
+            return .orderedDescending
+        }
+        
+        var result = self.exponent.intValue - right.exponent.intValue
+        if result == 0
+        {
+            /*
+             With exponents the same, we have no choice but to do the O(n)
+             check of the signficands.
+             */
+            result =
+                compareBuffers(self.significand, right.significand).rawValue
+
+        }
+
+        return ComparisonResult(result)
+    }
+
+    // -------------------------------------
     @inline(__always)
     private func rightShift(into dst: inout Self, by shift: Int)
     {
@@ -729,6 +774,21 @@ struct FloatingPointBuffer
          so that dst maintains its value.
          */
         addExponent(WExp(-shift))
+    }
+    
+    // -------------------------------------
+    @inline(__always)
+    private mutating func rightShift(by shift: Int)
+    {
+        assert(shift >= 0)
+        
+        BigMath.rightShift(buffer: significand, by: shift)
+
+        /*
+         Now that the shift is done, we just need to adjust the dst exponent
+         so that dst maintains its value.
+         */
+        addExponent(WExp(shift))
     }
     
     // -------------------------------------
@@ -802,6 +862,112 @@ struct FloatingPointBuffer
             bitShift: shift & (UInt.bitWidth - 1)
         )
     }
+    
+    
+    // -------------------------------------
+    /**
+     Update rBits when right-shifting due to carry out of the high
+     significand bit resulting from addition based on the least significant
+     bit of the sum before shifting.  Used to calculate rounding bit as if
+     the shifted-out bits had been kept all along.
+     
+     To understand what this function is meant to do, one has to understand
+     that rBits encodes whether the shifted out bits less than half,
+     exactly half, or more than half of the least signficant bit of the sum.
+     
+     Bit 1 is the guard bit, which simply the most signifiacant of the
+     shifted out bits.  If it's 1, then the shifted out bits form a value
+     that is *at least* half of the value of the least significant bit that
+     isn't shifted out.  If it is 0, the shifted out bits form a value that
+     is less than half of the bit that isn't shifted out..
+     
+     Bit 0 is the "sticky" bit.  It is 1 if any of the bits lower than the
+     guard bit are 1.  If the guard bit is 1 and the sticky bit is 0, then
+     the shifted-out bits form exactly half of the value of the least
+     signficant bit that isn't shifted out.  If both are 1, then the
+     shifted-out bits form a value that is more than half of the least
+     significant bit that isn't shifted-out.
+     
+     The idea is to update these bits to include the bit that will be
+     shifted out to the right to make room for a new high bit resulting
+     from a carry out of the current high bit from the preceding
+     multi-precision addition.  The pre-shift least signficant bit of the
+     sum will become the new guard bit.  The old guard bit then becomes
+     just one of the lower bits to form the sticky bit, so it is bitwise
+     ORed with the sticky bit to form the new sticky bit.  The operation
+     gives the following results.
+     
+            +---------- sum bit that will be shifted-out
+            | +-------- old guard bit
+            | |+------- old sticky bit
+            | ||    +-- new guard bit
+            | ||    |+- new sticky bit
+            v vv    vv
+            0 00 -> 00 -> round down
+            0 01 -> 01 -> round down
+            0 10 -> 01 -> round down
+            0 11 -> 01 -> round down
+            1 00 -> 10 -> round up if shifted sum is odd; round down if even
+            1 01 -> 11 -> round up
+            1 10 -> 11 -> round up
+            1 11 -> 11 -> round up
+     
+     - Parameters:
+        - rBits: a `UInt` containing the guard and sticky bits in bits
+            positions 1 and 0 respectively.  All other bits are ignored.
+        - z: The least significant `UInt` of the multi-precision number to
+            be right-shifted
+     
+     - Returns: new `rBits` value encoding the new information about all
+            the bits that will be shifted out, included those already
+            shifted out.
+     */
+    @inline(__always)
+    fileprivate static func update(rBits: UInt, for z: UInt) -> UInt
+    {
+        assert(rBits & ~3 == 0)
+        
+        return ((z & 1) << 1) | UInt(rBits != 0)
+    }
+    
+    // -------------------------------------
+    /**
+     Calculate the final rounding bit to be added to the least significant
+     bit of an already shifted multi-precision number based on its least
+     significant `UInt` and the guard and sticky bits encoded in `rBits`
+     */
+    @inline(__always)
+    fileprivate static func calcRoundingBit(rBits: UInt, and z: UInt) -> UInt
+    {
+        #if false
+        // Slow but readable
+        switch rBits
+        {
+            /*
+                   +--- Guard bit: Most significant of the shifted-out bits
+                   |      Means shifted-out bits are at least half of the
+                   |      value of the least significant bit that isn't
+                   |      shifted out
+                   |+-- Sticky bit: 1 if at least one of the shifted-out
+                   ||     bits lower than the guard bit is 1.  Can be used
+                   ||     with the guard bit to determine whether the
+                   ||     shifted-out bits are exactly half the value of the
+                   ||     least significant bit that wasn't shifted-out, or
+                   ||     more than half that value.  Needed for "rounding
+                   ||     to nearest or even".
+                   vv */
+            case 0b00: return 0     // round down if rbits < half
+            case 0b01: return 0     // round down if rbits < half
+            case 0b10: return z & 1 // round up if z is odd and rbits = half
+            case 0b11: return 1     // round up if rbits > half
+            default: fatalError("Unreachable")
+        }
+        #else
+        // Fast but cryptic equivalent of the slow version
+        return UInt(rBits & 2 != 0) & (UInt(rBits & 1) | (z & 1))
+        #endif
+    }
+
         
     // -------------------------------------
     @inline(__always)
@@ -839,11 +1005,7 @@ struct FloatingPointBuffer
             z.signBit = x.signBit
             return
         }
-        
-        var carry = roundingBit(
-            forRightShift: exponentDelta.intValue,
-            of: y.significand.immutable
-        )
+                
         
         let (yDigitIndex, yShift) =
             y.digitAndShift(forRightShift: exponentDelta.intValue)
@@ -855,12 +1017,18 @@ struct FloatingPointBuffer
         let yEnd = yStart + y.significand.count
         var yPtr = yStart + yDigitIndex
         
-        var zPtr = z.significand.baseAddress!
-        
+        let zStart = z.significand.baseAddress!
+        var zPtr = zStart
+
         var yDigitLow = yPtr < yEnd ? yPtr.pointee : 0
-        
         yPtr += 1
         
+        var rBits = guardAndStickyBits(
+            forRightShift: exponentDelta.intValue,
+            of: y.significand.immutable
+        )
+        var carry: UInt = 0
+
         while xPtr < xEnd
         {
             let xDigit = xPtr.pointee
@@ -879,15 +1047,54 @@ struct FloatingPointBuffer
             yPtr += 1
             zPtr += 1
         }
-        
+
         // If there was a carry, we need to right shift z by 1.
         zPtr -= 1
         let carryBit = ~(UInt.max >> 1)
-        while carry != 0 {
-            z.rightShiftForAddOrSubtract(by: 1)
-            carry = zPtr.pointee.addToSelfReportingCarry(carryBit)
+        if carry == 1
+        {
+            /*
+             Why not just use a while?  Doing it this way avoids one extra
+             unconditional branch to the top of the loop on the last iteration
+             to check the condition, because the check is now at the end of the
+             loop.
+             */
+            repeat
+            {
+                rBits = update(rBits: rBits, for: zStart.pointee)
+                z.rightShift(by: 1)
+                carry = zPtr.pointee.addToSelfReportingCarry(carryBit)
+            } while carry != 0
         }
         
+        print("  rBits = \(binary: rBits)")
+        print("z bit 0 = \(binary: zStart.pointee)")
+        let rBit = calcRoundingBit(rBits: rBits, and: zStart.pointee)
+        print("   rBit = \(binary: rBit)")
+        if rBit == 1
+        {
+            carry = addReportingCarry(
+                z.significand.immutable,
+                1,
+                result: z.significand
+            )
+            
+            if carry == 1
+            {
+                /*
+                 Why not just use a while?  Doing it this way avoids one extra
+                 unconditional branch to the top of the loop on the last
+                 iteration to check the condition, because the check is now at
+                 the end of the loop.
+                 */
+                repeat
+                {
+                    z.rightShift(by: 1)
+                    carry = zPtr.pointee.addToSelfReportingCarry(carryBit)
+                } while carry == 1
+            }
+        }
+
         // Now we set the sign bit and normalize
         z.signBit = x.signBit
         z.normalize()
@@ -1155,7 +1362,7 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    private func dump(){
+    internal func dump(){
         print(dumpStr)
     }
         

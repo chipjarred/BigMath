@@ -268,6 +268,7 @@ extension WideFloat: FloatingPoint
         var selfBuf = self.mutableFloatBuffer()
         if selfBuf.isSpecialValue { return }
         
+        // Is there even an integer part at all?
         guard exp >= 0 else
         {
             selfBuf.setZero()

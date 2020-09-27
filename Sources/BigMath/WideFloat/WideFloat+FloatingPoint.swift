@@ -317,7 +317,6 @@ extension WideFloat: FloatingPoint
         
         if roundMagnitudeUp
         {
-            // TODO: Implement a faster way to zero a bit range
             selfBuf.rightShift(by: shift)
             _ = addReportingCarry(
                 selfSigImmutable,

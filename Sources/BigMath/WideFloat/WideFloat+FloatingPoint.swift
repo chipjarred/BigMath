@@ -263,10 +263,11 @@ extension WideFloat: FloatingPoint
     @inlinable
     public mutating func round(_ rule: FloatingPointRoundingRule)
     {
-        #warning("Handle special values")
         let exp = self.exponent
         
         var selfBuf = self.mutableFloatBuffer()
+        if selfBuf.isSpecialValue { return }
+        
         guard exp >= 0 else
         {
             selfBuf.setZero()

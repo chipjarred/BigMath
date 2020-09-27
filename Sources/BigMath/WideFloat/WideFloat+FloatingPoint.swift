@@ -263,32 +263,73 @@ extension WideFloat: FloatingPoint
     @inlinable
     public mutating func round(_ rule: FloatingPointRoundingRule)
     {
+        #warning("Handle special values")
         let exp = self.exponent
         
         var selfBuf = self.mutableFloatBuffer()
+        guard exp >= 0 else
+        {
+            selfBuf.setZero()
+            return
+        }
+        // Is the full precision already in the integer range?
+        guard exp < RawSignificand.bitWidth - 1 else { return }
+
+        let shift = RawSignificand.bitWidth - 1 - exp
+
+        var roundMagnitudeUp: Bool
+        let selfSigImmutable = selfBuf.significand.immutable
+        let rBits = guardAndStickyBits(
+            forRightShift: shift,
+            of: selfSigImmutable
+        )
         
+        if rBits == 0 { return }
+
         switch rule
         {
             case .towardZero: // Simple truncation
-                if exp < 0 { selfBuf.setZero() }
-                else if exp < RawSignificand.bitWidth - 1
-                {
-                    let shift = RawSignificand.bitWidth - 1 - exp
-                    // TO-DO Implement a faster way to zero a bit range
-                    rightShift(buffer: selfBuf.significand, by: shift)
-                    leftShift(buffer: selfBuf.significand, by: shift)
-                }
+                roundMagnitudeUp = false
+
+            case .awayFromZero:
+                roundMagnitudeUp = true
+
             case .toNearestOrEven: // IEEE 754 default for binary floating point
-                if exp < 0 { selfBuf.setZero() }
-                else if exp < RawSignificand.bitWidth - 1
-                {
-                    let shift = RawSignificand.bitWidth - 1 - exp
-                    selfBuf.rightShiftForAddOrSubtract(by: shift)
-                    normalize()
-                }
-            default:
-                #warning("Implement other cases!")
-                fatalError("Unimplemented")
+                selfBuf.rightShiftForAddOrSubtract(by: shift)
+                normalize()
+                return
+            
+            case .toNearestOrAwayFromZero:
+                roundMagnitudeUp = rBits & 2 == 2
+            
+            case .up:
+                roundMagnitudeUp = !selfBuf.isNegative
+        
+            case .down:
+                roundMagnitudeUp = selfBuf.isNegative
+
+            @unknown default:
+                selfBuf.rightShiftForAddOrSubtract(by: shift)
+                normalize()
+                return
+        }
+        
+        if roundMagnitudeUp
+        {
+            // TODO: Implement a faster way to zero a bit range
+            selfBuf.rightShift(by: shift)
+            _ = addReportingCarry(
+                selfSigImmutable,
+                1,
+                result: selfBuf.significand
+            )
+            selfBuf.normalize()
+        }
+        else
+        {
+            // TODO: Implement a faster way to zero a bit range
+            rightShift(buffer: selfBuf.significand, by: shift)
+            leftShift(buffer: selfBuf.significand, by: shift)
         }
         
         assert(isNormalized)

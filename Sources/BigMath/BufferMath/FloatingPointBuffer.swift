@@ -777,8 +777,8 @@ struct FloatingPointBuffer
     }
     
     // -------------------------------------
-    @inline(__always)
-    private mutating func rightShift(by shift: Int)
+    @usableFromInline @inline(__always)
+    internal mutating func rightShift(by shift: Int)
     {
         assert(shift >= 0)
         
@@ -936,8 +936,8 @@ struct FloatingPointBuffer
      bit of an already shifted multi-precision number based on its least
      significant `UInt` and the guard and sticky bits encoded in `rBits`
      */
-    @inline(__always)
-    fileprivate static func calcRoundingBit(rBits: UInt, and z: UInt) -> UInt
+    @usableFromInline @inline(__always)
+    internal static func calcRoundingBit(rBits: UInt, and z: UInt) -> UInt
     {
         #if false
         // Slow but readable

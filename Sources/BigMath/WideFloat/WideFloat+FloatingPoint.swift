@@ -296,11 +296,6 @@ extension WideFloat: FloatingPoint
             case .awayFromZero:
                 roundMagnitudeUp = true
 
-            case .toNearestOrEven: // IEEE 754 default for binary floating point
-                selfBuf.rightShiftForAddOrSubtract(by: shift)
-                normalize()
-                return
-            
             case .toNearestOrAwayFromZero:
                 roundMagnitudeUp = rBits & 2 == 2
             
@@ -310,6 +305,9 @@ extension WideFloat: FloatingPoint
             case .down:
                 roundMagnitudeUp = selfBuf.isNegative
 
+            case .toNearestOrEven: // IEEE 754 default for binary floating point
+                fallthrough
+            
             @unknown default:
                 selfBuf.rightShiftForAddOrSubtract(by: shift)
                 normalize()

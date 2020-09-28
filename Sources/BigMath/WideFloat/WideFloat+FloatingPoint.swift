@@ -369,6 +369,7 @@ extension WideFloat: FloatingPoint
         var low = RawSignificand()
         @usableFromInline var r: RawSignificand
         var extra = UInt()
+        var extra2 = UInt()
 
         @usableFromInline init() { r = RawSignificand() }
         
@@ -415,6 +416,7 @@ extension WideFloat: FloatingPoint
     {
         @usableFromInline var r: RawSignificand
         var extra = UInt()
+        var extra2 = UInt()
 
         @usableFromInline init() { r = RawSignificand() }
         
@@ -461,9 +463,11 @@ extension WideFloat: FloatingPoint
 
             let leadZeros = countLeadingZeroBits(buf.immutable)
             
-            let rightShift = UInt.bitWidth - leadZeros
-            if rightShift < 0 { leftShift(buffer: buf, by: -rightShift) }
-            else { BigMath.rightShift(buffer: buf, by: rightShift) }
+            let rightShift = UInt.bitWidth * 2 - leadZeros
+            if rightShift < 0 {
+                leftShift(buffer: buf, by: -rightShift)
+            }
+            else { BigMath.roundingRightShift(buffer: buf, by: rightShift) }
         }
     }
 

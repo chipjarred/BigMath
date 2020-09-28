@@ -454,19 +454,78 @@ class WideFloat_Division_UnitTests: XCTestCase
             
             let diff = abs(quotient.float80Value - expected)
             
-            /*
-             Although a 64-bit WideFloat theoretically have the same precision
-             as Float80, Float80 does some mysterious things with rounding the
-             least significant bit.  After much investigation, it seems that
-             we're rounding corrrectly ("bankers' rounding"), but on some
-             occasions that means we get a different result in the last
-             significant bits.  However, we verify that the difference is at
-             most in the least significant bit.
-             */
-            XCTAssertLessThanOrEqual(diff, quotient.ulp.float80Value)
+            XCTAssertEqual(quotient.float80Value, expected)
         }
     }
     
+    // -------------------------------------
+    func test_division_of_bigger_nonzero_finite_numbers()
+    {
+        typealias FloatType = WideFloat<UInt4096>
+        
+        for _ in 0..<100
+        {
+            let expMin = WExp.min.intValue / 2
+            let expMax = WExp.max.intValue / 2
+            let x = FloatType(
+                significandBitPattern: UInt4096.random(in: ...),
+                exponent: Int.random(in: expMin..<expMax)
+            )
+            let y = FloatType(
+                significandBitPattern: UInt4096.random(in: ...),
+                exponent: Int.random(
+                    in: (-abs(x.exponent))..<(abs(x.exponent))
+                ) - 1
+            )
+                        
+            let q = x.divide_KnuthD(by: y)
+            
+            /*
+             We can't just compare that q * y == x, because with any finite
+             precision, in general they won't be, even if everything is working
+             properly.  We also don't have an equivalent built-in type to
+             compare it to as we do in the 64-bit case.  Instead, we have to
+             check that q, the quotient, is different from the infinitely
+             precise quotient by at most 1 in the least significant bit, but
+             again, we don't have a built-in type capable of representing that
+             to use.  Instead, we rely on multi-precision multiplication and
+             subtraction working to test it indirectly.
+             
+             Given the true quotient, q̅, and our computed quotient, q, our
+             computation of q is good if
+             
+                    -q.ulp <= q̅ - q <= +q.ulp
+
+             Where q.ulp, is the magnitude of q's least significant bit. Given
+             infinite precision division, q̅ = x / y
+             
+                    -q.ulp <= x / y - q <= +q.ulp
+             
+             Multiplying by y gives
+             
+                    -q.ulp * y <= x - q * y <= +q.ulp * y
+             
+             Which can be condensed to
+             
+                    x - q * y <= abs(q.ulp * y)
+             
+             This inequality is our test.
+             
+             Since we have unit tests for multiplication and subtraction, we
+             can assume that they're working for the sake of this test.  If
+             they're not, this test will fail, but so should those other tests.
+             So if this test fails, the first thing should be to review and
+             possibly revise the subtraction and multiplication tests before
+             concluding that division isn't working.
+             */
+            let p = q * y
+            let r = (x - p).magnitude
+            let expected = y * q.ulp
+            
+            XCTAssertLessThanOrEqual(r, expected)
+        }
+    }
+
     // -------------------------------------
     func test_singleDigit_Newton_Raphson_multiplicative_inverse()
     {

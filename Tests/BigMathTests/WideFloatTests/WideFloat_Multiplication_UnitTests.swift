@@ -902,28 +902,32 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
         
         for _ in 0..<100
         {
-            let x0 = -abs(randomFloat80)
-            let y0 = -abs(randomFloat80)
+            let x0 = abs(randomFloat80)
+            let y0 = abs(randomFloat80)
             let expected = x0 * y0
-            
-            // We allow a tolerance because WideFloat has more precision than
-            // Double
-            let tolerance = Float80(
-                sign: .plus,
-                exponent: expected.exponent - 63,
-                significand: 1)
-            
+                        
             let x = FloatType(x0)
             let y = FloatType(y0)
             var product = x * y
-            XCTAssertLessThanOrEqual(
-                abs(product.float80Value - expected), tolerance
-            )
+            XCTAssertEqual(product.float80Value, expected)
             
             product = y * x
-            XCTAssertLessThanOrEqual(
-                abs(product.float80Value - expected), tolerance
-            )
+            XCTAssertEqual(product.float80Value, expected)
+        }
+        
+        for _ in 0..<100
+        {
+            let x0 = -abs(randomFloat80)
+            let y0 = -abs(randomFloat80)
+            let expected = x0 * y0
+                        
+            let x = FloatType(x0)
+            let y = FloatType(y0)
+            var product = x * y
+            XCTAssertEqual(product.float80Value, expected)
+            
+            product = y * x
+            XCTAssertEqual(product.float80Value, expected)
         }
     }
     
@@ -931,7 +935,7 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
     func test_product_of_finite_numbers_with_opposite_signs()
     {
         typealias FloatType = WideFloat<UInt64>
-        for _ in 0..<1000
+        for _ in 0..<100
         {
             let x0 = abs(randomDouble)
             let y0 = -abs(randomDouble)
@@ -957,30 +961,19 @@ class WideFloat_Multiplication_UnitTests: XCTestCase
             )
         }
         
-        for _ in 0..<1000
+        for _ in 0..<100
         {
             let x0 = abs(randomFloat80)
             let y0 = -abs(randomFloat80)
             let expected = x0 * y0
-            
-            // We allow a tolerance because WideFloat has more precision than
-            // Double
-            let tolerance = Float80(
-                sign: .plus,
-                exponent: expected.exponent - 63,
-                significand: 1)
-            
+                        
             let x = FloatType(x0)
             let y = FloatType(y0)
             var product = x * y
-            XCTAssertLessThanOrEqual(
-                abs(product.float80Value - expected), tolerance
-            )
+            XCTAssertEqual(product.float80Value, expected)
             
             product = y * x
-            XCTAssertLessThanOrEqual(
-                abs(product.float80Value - expected), tolerance
-            )
+            XCTAssertEqual(product.float80Value, expected)
         }
     }
     

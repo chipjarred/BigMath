@@ -439,36 +439,6 @@ internal func floatDivide(
         zPtr -= 1
     }
     
-    
-    // Need to round least signifcant digit.    
-    let truncDigit: UInt
-    (truncDigit, r) = y.dividingFullWidth((r, 0))
-
-    let halfDigit = (UInt.max >> 1) &+ 1
-    if truncDigit >= halfDigit
-    {
-        zPtr += 1
-        let roundUp =
-            UInt8(truncDigit > halfDigit) | UInt8(zPtr.pointee & 1 == 1) == 1
-        
-        if roundUp
-        {
-            let carry = addReportingCarry(z.immutable, 1, result: z)
-            if carry == 1
-            {
-                var z = z
-                roundingRightShift(buffer: z, by: 1)
-                assert(
-                    getBit(at: z.count * UInt.bitWidth - 1, from: z.immutable)
-                        == 0,
-                    "Rounding right shift carried 1 into high bit!! No place to"
-                    + " put our rounding bit."
-                )
-                setBit(at: z.count * UInt.bitWidth - 1, in: &z, to: 1)
-            }
-        }
-    }
-    
     return r
 }
 

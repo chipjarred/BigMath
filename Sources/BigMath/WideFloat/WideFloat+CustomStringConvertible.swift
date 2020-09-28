@@ -81,9 +81,6 @@ extension WideFloat: CustomStringConvertible
         let maxDigits = mantissaDigits.capacity
         while !temp.isZero && mantissaDigits.count < maxDigits
         {
-            /*
-             log2(f80Digit) * log10(2) = log10(f80Digit)
-             */
             let f80Digit = temp.float80Value
             let digit = Int(f80Digit)
 

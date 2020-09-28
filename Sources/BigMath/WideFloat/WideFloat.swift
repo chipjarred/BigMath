@@ -363,12 +363,19 @@ public struct WideFloat<T: WideDigit>:  Hashable
         {
             let sourceSig = source.significandBitPattern
             var sig = RawSignificand(sourceSig)
+            
+            let sourceSigBitWidth = Float80.RawSignificand.bitWidth
+            let selfSigBitWidth = RawSignificand.bitWidth
+            
+            if sourceSigBitWidth < RawSignificand.bitWidth {
+                sig <<= selfSigBitWidth - sourceSigBitWidth
+            }
             var exp = source.exponent
             if source.isSubnormal {
                 exp -= sourceSig.leadingZeroBitCount + 1
             }
             else {
-                sig.setBit(at: 63, to: 1)
+                sig.setBit(at: selfSigBitWidth - 1, to: 1)
             }
             
             self.init(

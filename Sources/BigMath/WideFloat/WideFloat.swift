@@ -341,6 +341,46 @@ public struct WideFloat<T: WideDigit>:  Hashable
     
     // -------------------------------------
     @inlinable
+    public init(_ source: Float80)
+    {
+        guard !source.isNaN else
+        {
+            self.init()
+            var buf = mutableFloatBuffer()
+            
+            if source.isSignalingNaN { buf.setSignalingNaN() }
+            else { buf.setNaN() }
+            return
+        }
+        if source.isInfinite
+        {
+            self.init()
+            var buf = mutableFloatBuffer()
+            buf.setInfinity()
+        }
+        else if source.isZero { self.init() }
+        else
+        {
+            let sourceSig = source.significandBitPattern
+            var sig = RawSignificand(sourceSig)
+            var exp = source.exponent
+            if source.isSubnormal {
+                exp -= sourceSig.leadingZeroBitCount + 1
+            }
+            else {
+                sig.setBit(at: 63, to: 1)
+            }
+            
+            self.init(
+                significandBitPattern: sig,
+                exponent: exp
+            )
+        }
+        self.negate(if: source.sign == .minus)
+}
+    
+    // -------------------------------------
+    @inlinable
     public init<F: BinaryFloatingPoint>(_ source: F)
     {
         guard !source.isNaN else

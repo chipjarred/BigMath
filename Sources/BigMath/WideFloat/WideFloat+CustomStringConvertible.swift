@@ -32,6 +32,7 @@ extension WideFloat: CustomStringConvertible
         if isZero { return isNegative ? "-0" : "0" }
         if isInfinite { return isNegative ? "-inf" : "inf" }
         let ten = Self(10)
+        let one = Self.one
 
         /*
          TODO: Fix precision/rounding binary to decimal conversion.
@@ -67,12 +68,12 @@ extension WideFloat: CustomStringConvertible
             Int(log10(pow(2, Double(RawSignificand.bitWidth))))
         )
         
-        if temp > ten
+        while temp >= ten
         {
             temp /= ten
             decExponent += 1
         }
-        else if temp.intValue == 0
+        while temp < one
         {
             temp *= ten
             decExponent -= 1

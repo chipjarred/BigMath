@@ -48,10 +48,12 @@ extension WideFloat: CustomStringConvertible
          The fast and accurate methods I've seen for doing this conversion are
          for Doubles or Floats.  The Swift standard library uses a technique
          I have a paper about, but it uses a lookup table, which is not going
-         to be practical for a multi-precision library.  The performance using
-         this technique is not great, but actually not too bad as along as the
-         string conversion doesn't happen too often.  I use a power scaling
-         that is then refined to get an intial multiplier.
+         to be practical for a multi-precision library.
+         
+         Originally I said the performance wasn't terrible.  I take it back.
+         It's not that bad for 64-bit WideFloat, but for 4096-bits it's truly
+         awful!  I definitely have to replace this with a more efficient
+         implementation.
          */        
         
         var temp = self.magnitude
@@ -64,8 +66,10 @@ extension WideFloat: CustomStringConvertible
         temp *= scaleFactor
 
         var mantissaDigits = [Int]()
+        // This isn't a correct calculation for the number of mantissa digits,
+        // but the log calculation overflows for 4096-bit WideFloats
         mantissaDigits.reserveCapacity(
-            Int(log10(pow(2, Double(RawSignificand.bitWidth))))
+            20 * MemoryLayout<RawSignificand>.size / MemoryLayout<UInt>.size - 1
         )
         
         while temp >= ten

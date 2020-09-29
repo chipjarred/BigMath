@@ -23,6 +23,29 @@ SOFTWARE.
 import Foundation
 
 // -------------------------------------
+// TODO: Replace this with precomputed values.  Will need to be conditionally
+// compiled to take into account 32-bit UInts on some platforms.
+let powerOf10Ladder: [(value: UInt, decimalExponent: Int)] =
+{
+    var decExp: Int = 1
+    var val: UInt = 10
+    
+    var pairs = [(value: UInt, decimalExponent: Int)]()
+    pairs.reserveCapacity(Int(log10(Double(UInt.max))))
+    
+    while true
+    {
+        let temp = val &* 10
+        if temp < val { break }
+        val = temp
+        decExp += 1
+        pairs.append((val, decExp))
+    }
+    
+    return pairs
+}()
+
+// -------------------------------------
 extension WideFloat: CustomStringConvertible
 {
     // -------------------------------------
@@ -58,19 +81,14 @@ extension WideFloat: CustomStringConvertible
         
         var temp = self.magnitude
         
-        let scaleFactor: Self
+        // Scale the WideFloat - this is the slow part, especially considering
+        // our exponents can be 63.  The value range this scaling has to cover
+        // is massive.
         var decExponent: Int
-        (scaleFactor, decExponent) =
-            temp.scalingFactorForConversionToBase10()
-
-        temp *= scaleFactor
-
-        var mantissaDigits = [Int]()
-        // This isn't a correct calculation for the number of mantissa digits,
-        // but the log calculation overflows for 4096-bit WideFloats
-        mantissaDigits.reserveCapacity(
-            20 * MemoryLayout<RawSignificand>.size / MemoryLayout<UInt>.size - 1
-        )
+        let scale: Self
+        (scale, decExponent) = temp.scalingFactorForConversionToBase10()
+        
+        temp *= scale
         
         while temp >= ten
         {
@@ -82,6 +100,13 @@ extension WideFloat: CustomStringConvertible
             temp *= ten
             decExponent -= 1
         }
+
+        var mantissaDigits = [Int]()
+        // This isn't a correct calculation for the number of mantissa digits,
+        // but the log calculation overflows for 4096-bit WideFloats
+        mantissaDigits.reserveCapacity(
+            20 * MemoryLayout<RawSignificand>.size / MemoryLayout<UInt>.size - 1
+        )
         
         let maxDigits = mantissaDigits.capacity
         while !temp.isZero && mantissaDigits.count < maxDigits
@@ -146,64 +171,59 @@ extension WideFloat: CustomStringConvertible
     private func scalingFactorForConversionToBase10()
         -> (scale: Self, decimalExponent: Int)
     {
-        assert(!isNegative)
+        let one = Self.one
+        let selfExp = self.exponent
+
+        if selfExp == 0 { return (Self.one, 0) }
         
         let ten = Self(10)
-        let hundred = ten * ten
-        let thousand = hundred * ten
-        
-        typealias ScalingInfo = (factor: Self, exp: Int)
-        var scalingFactors: [ScalingInfo] =
-        [
-            (ten, 1),
-            (hundred, 2),
-            (thousand, 3),
-        ]
-        
-        var scaleExp = 3
-        var scalingFactor = thousand
-        while scalingFactor.exponent < abs(self.exponent)
+        var scale = one
+        var decExp: Int = 0
+
+        for (decMultiple, decExpDelta) in powerOf10Ladder
         {
-            let newFactor = scalingFactor * scalingFactor
-            if newFactor.isInfinite { break }
-            scalingFactor = newFactor
-            scaleExp *= 2
-            scalingFactors.append((scalingFactor, scaleExp))
-        }
-        
-        var decExp = 0
-        var s = Self.one
-        for (scalingFactor, scaleExp) in scalingFactors.reversed()
-        {
-            if self.exponent < 0
+            let fMul = Self(decMultiple)
+            let fMulExp = fMul.exponent
+
+            if fMul.exponent > (abs(selfExp) - abs(scale.exponent))
             {
-                while s.exponent < -self.exponent - scalingFactor.exponent
+                if selfExp < 0
                 {
-                    s *= scalingFactor
-                    decExp -= scaleExp
+                    while scale.exponent > -selfExp + fMulExp + 1
+                    {
+                        scale *= fMul
+                        decExp -= decExpDelta
+                    }
                 }
-            }
-            else
-            {
-                while s.exponent > -self.exponent + scalingFactor.exponent
+                else
                 {
-                    s /= scalingFactor
-                    decExp += scaleExp
+                    while scale.exponent < selfExp - fMulExp - 1
+                    {
+                        scale /= fMul
+                        decExp += decExpDelta
+                    }
                 }
             }
         }
         
-        while s.exponent < -self.exponent - hundred.exponent
+        let tenExp = ten.exponent
+        if selfExp < 0
         {
-            s *= hundred
-            decExp -= 2
+            while scale.exponent < -selfExp - tenExp
+            {
+                scale *= ten
+                decExp -= 1
+            }
         }
-        while s.exponent > -self.exponent + ten.exponent
+        else
         {
-            s /= ten
-            decExp += 1
+            while scale.exponent > -selfExp + tenExp
+            {
+                scale /= ten
+                decExp += 1
+            }
         }
 
-        return (s, decExp)
+        return (scale, decExp)
     }
 }

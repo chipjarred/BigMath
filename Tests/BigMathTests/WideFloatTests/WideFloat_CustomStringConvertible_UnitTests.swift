@@ -79,7 +79,7 @@ class WideFloat_CustomStringConvertible_UnitTests: XCTestCase
         s = FloatType(Float80.leastNormalMagnitude).description
         XCTAssertEqual(
             s,
-            "3.362103143112093517e-4932"
+            "3.362103143112093506e-4932"
         )
         
         // TODO: Fix conversion from subnormal Float80, and retry this test.
@@ -95,7 +95,7 @@ class WideFloat_CustomStringConvertible_UnitTests: XCTestCase
         s = FloatType(Float80.greatestFiniteMagnitude).description
         XCTAssertEqual(
             s,
-            "1.189731495357231761e+4932"
+            "1.189731495357231764e+4932"
         )
         
         var f80: Float80 = 6811486791259321580.0
@@ -103,7 +103,7 @@ class WideFloat_CustomStringConvertible_UnitTests: XCTestCase
         s = FloatType(f80).description
         XCTAssertEqual(
             s,
-            "6.811486791259321580e+18"
+            "6.811486791259321579e+18"
         )
         
         f80 = -999460035951907607.2
@@ -111,7 +111,7 @@ class WideFloat_CustomStringConvertible_UnitTests: XCTestCase
         s = FloatType(f80).description
         XCTAssertEqual(
             s,
-            "-9.994600359519076072e+17"
+            "-9.994600359519076071e+17"
         )
     }
 }

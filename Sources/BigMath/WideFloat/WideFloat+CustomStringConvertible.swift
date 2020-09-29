@@ -180,7 +180,7 @@ extension WideFloat: CustomStringConvertible
         var scale = one
         var decExp: Int = 0
 
-        for (decMultiple, decExpDelta) in powerOf10Ladder
+        for (decMultiple, decExpDelta) in powerOf10Ladder.reversed()
         {
             let fMul = Self(decMultiple)
             let fMulExp = fMul.exponent

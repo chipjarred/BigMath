@@ -23,29 +23,6 @@ SOFTWARE.
 import Foundation
 
 // -------------------------------------
-// TODO: Replace this with precomputed values.  Will need to be conditionally
-// compiled to take into account 32-bit UInts on some platforms.
-let powerOf10Ladder: [(value: UInt, decimalExponent: Int)] =
-{
-    var decExp: Int = 1
-    var val: UInt = 10
-    
-    var pairs = [(value: UInt, decimalExponent: Int)]()
-    pairs.reserveCapacity(Int(log10(Double(UInt.max))))
-    
-    while true
-    {
-        let temp = val &* 10
-        if temp < val { break }
-        val = temp
-        decExp += 1
-        pairs.append((val, decExp))
-    }
-    
-    return pairs
-}()
-
-// -------------------------------------
 extension WideFloat: CustomStringConvertible
 {
     // -------------------------------------
@@ -182,7 +159,7 @@ extension WideFloat: CustomStringConvertible
         var scale = one
         var decExp: Int = 0
 
-        for (decMultiple, decExpDelta) in powerOf10Ladder.reversed()
+        for (decMultiple, decExpDelta) in PowerOf10Ladder.uintLadder.reversed()
         {
             let fMul = Self(decMultiple)
             let fMulExp = fMul.exponent

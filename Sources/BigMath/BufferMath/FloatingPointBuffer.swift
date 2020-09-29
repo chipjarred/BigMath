@@ -990,7 +990,7 @@ struct FloatingPointBuffer
         var y = y
         if x.exponent < y.exponent { swap(&x, &y) }
         
-        let exponentDelta = x.exponent - y.exponent
+        let exponentDelta = x.exponent.intValue - y.exponent.intValue
         z.exponent = x.exponent
         
         /*
@@ -999,7 +999,7 @@ struct FloatingPointBuffer
          sum, even with rounding.  z's exponent is already set, so just copy
          x's significand into z, and we're done.
          */
-        if exponentDelta.intValue > x.significand.count * UInt.bitWidth + 1
+        if exponentDelta > x.significand.count * UInt.bitWidth + 1
         {
             BigMath.copy(buffer: x.significand.immutable, to: z.significand)
             z.signBit = x.signBit
@@ -1008,7 +1008,7 @@ struct FloatingPointBuffer
                 
         
         let (yDigitIndex, yShift) =
-            y.digitAndShift(forRightShift: exponentDelta.intValue)
+            y.digitAndShift(forRightShift: exponentDelta)
         
         var xPtr = x.significand.baseAddress!
         let xEnd = xPtr + x.significand.count
@@ -1024,7 +1024,7 @@ struct FloatingPointBuffer
         yPtr += 1
         
         var rBits = guardAndStickyBits(
-            forRightShift: exponentDelta.intValue,
+            forRightShift: exponentDelta,
             of: y.significand.immutable
         )
         var carry: UInt = 0
@@ -1124,7 +1124,7 @@ struct FloatingPointBuffer
             resultSign ^= 1
         }
         
-        let exponentDelta = x.exponent - y.exponent
+        let exponentDelta = x.exponent.intValue - y.exponent.intValue
         z.exponent = x.exponent
         
         /*
@@ -1133,7 +1133,7 @@ struct FloatingPointBuffer
          sum, even with rounding.  z's exponent is already set, so just copy
          x's significand into z, and we're done.
          */
-        if exponentDelta.intValue > x.significand.count * UInt.bitWidth + 1
+        if exponentDelta > x.significand.count * UInt.bitWidth + 1
         {
             BigMath.copy(buffer: x.significand.immutable, to: z.significand)
             z.signBit = x.signBit
@@ -1141,7 +1141,7 @@ struct FloatingPointBuffer
         }
         
         let (yDigitIndex, yShift) =
-            y.digitAndShift(forRightShift: exponentDelta.intValue)
+            y.digitAndShift(forRightShift: exponentDelta)
         
         var xPtr = x.significand.baseAddress!
         let xEnd = xPtr + x.significand.count
@@ -1156,7 +1156,7 @@ struct FloatingPointBuffer
         var yDigitLow = yPtr < yEnd ? yPtr.pointee : 0
         
         var rBits = guardRoundAndStickyBits(
-            forRightShift: exponentDelta.intValue,
+            forRightShift: exponentDelta,
             of: y.significand.immutable
         )
 

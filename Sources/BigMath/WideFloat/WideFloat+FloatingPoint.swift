@@ -176,10 +176,58 @@ extension WideFloat: FloatingPoint
     }
     
     // -------------------------------------
-    public mutating func formSquareRoot()
+    @inlinable
+    public mutating func formSquareRoot() {
+        self = squareRoot()
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func squareRoot() -> Self {
+        return squareRoot_Babylonian()
+    }
+    
+    // -------------------------------------
+    @inlinable
+    public func squareRoot_Babylonian() -> Self
     {
-        #warning("Implement me!")
-        fatalError("Unimplemented")
+        // TODO: Optimize - simple straight-forward implementation to start
+        let selfBuf = floatBuffer()
+        if UInt8(selfBuf.isNaN) | UInt8(selfBuf.isZero) == 1{ return self }
+        if selfBuf.isNegative { return Self.nan }
+        if selfBuf.isInfinite { return self }
+        
+        typealias BigSig = WideUInt<RawSignificand>
+        typealias BigFloat = WideFloat<BigSig>
+
+        // We'll start with 64-ish good bits, which should double each iteration
+        let f80Val = self.significand.float80Value
+        let f80Sqrt = f80Val.squareRoot()
+        var x = Self(f80Sqrt)
+        x._exponent.intValue =
+            self.exponent / 2 + (f80Sqrt.exponent - f80Val.exponent)
+        let iterations = Int(log2(Double(RawSignificand.bitWidth)))
+
+        var y: Self
+        for _ in 0..<iterations
+        {
+            y = x
+            let u = self / x
+            if u.isZero || u.isInfinite || u.isNaN { break }
+            
+            x = u + x
+            assert(x.isNormalized)
+            assert(!x.isNaN)
+            assert(!x.isInfinite)
+            x.addExponent(WExp(-1)) // divide by 2
+            assert(x.isNormalized)
+            assert(!x.isNaN)
+            assert(!x.isInfinite)
+            if x == y { break }
+            
+        }
+        
+        return x
     }
     
     // -------------------------------------

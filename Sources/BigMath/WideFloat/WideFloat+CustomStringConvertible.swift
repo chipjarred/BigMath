@@ -81,9 +81,11 @@ extension WideFloat: CustomStringConvertible
         
         var temp = self.magnitude
         
-        // Scale the WideFloat - this is the slow part, especially considering
-        // our exponents can be 63.  The value range this scaling has to cover
-        // is massive.
+        /*
+         Scale the WideFloat - this is the slow part, especially considering
+         our exponents can be 63 bits.  The value range this scaling has to
+         cover is massive.
+         */
         var decExponent: Int
         let scale: Self
         (scale, decExponent) = temp.scalingFactorForConversionToBase10()

@@ -452,8 +452,6 @@ class WideFloat_Division_UnitTests: XCTestCase
             
             let quotient = x / y
             
-            let diff = abs(quotient.float80Value - expected)
-            
             XCTAssertEqual(quotient.float80Value, expected)
         }
     }

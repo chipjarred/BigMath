@@ -539,7 +539,7 @@ class WideFloat_Division_UnitTests: XCTestCase
             let xInv = x.multiplicativeInverse_NewtonRaphson
             
             let product = x * xInv
-            XCTAssertLessThanOrEqual(FloatType(1) - product, product.ulp)
+            XCTAssertLessThanOrEqual(FloatType(1) - product, 2 * product.ulp)
         }
     }
 

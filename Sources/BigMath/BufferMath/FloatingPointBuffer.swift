@@ -1333,8 +1333,8 @@ struct FloatingPointBuffer
         scratch1: inout MutableUIntBuffer,
         scratch2: inout MutableUIntBuffer,
         scratch3: inout MutableUIntBuffer,
-        result: inout Self
-        ) -> Self
+        result: inout Self,
+        forceUse: Bool = false) -> Self
     {
         assert(self.significand.count == other.significand.count)
         assert(result.significand.count == 2 * self.significand.count)
@@ -1368,7 +1368,92 @@ struct FloatingPointBuffer
             scratch1: scratch1,
             scratch2: scratch2,
             scratch3: scratch3,
-            result: zSig
+            result: zSig,
+            forceUse: forceUse
+        )
+        
+        result.exponent = 1
+        result.normalize()
+        result.addExponent(self.exponent)
+        result.addExponent(other.exponent)
+        result.assertNormalized()
+
+        assert(!result.isNegative)
+        result.assertNormalized()
+        return result.upperHalf()
+    }
+    
+    // -------------------------------------
+    /**
+     Multiply this `FloatingPointBuffer` by another using the karatsuba
+     method.
+     
+     Caller must handle signs, including for infinities and zero.
+
+     - Parameters:
+        - other: Muptiplier.  Must be positive and be the same precision as the
+            receiving `FloatingPointBuffer`.
+        - scratch1: `MutableUIntBuffer` which must be at least as large as the
+            receiving `FloatingPointBuffer`'s significand
+        - scratch2: `MutableUIntBuffer` which must be at least as large as the
+            receiving `FloatingPointBuffer`'s significand
+        - scratch2: `MutableUIntBuffer` which must be at least **twice** as
+            large as the receiving `FloatingPointBuffer`'s significand
+        - result: `FloatingPoint` buffer to receive the result.  Must be twice
+            the precision of the receiving `FloatingPointBuffer`.
+
+     
+     - Returns: A `FloatingPointBuffer` referring to the upper half of `result`.
+     */
+    @usableFromInline @inline(__always)
+    internal func multiply_karatsuba_async(
+        by other: Self,
+        scratch1: inout MutableUIntBuffer,
+        scratch2: inout MutableUIntBuffer,
+        scratch3: inout MutableUIntBuffer,
+        scratch4: inout MutableUIntBuffer,
+        scratch5: inout MutableUIntBuffer,
+        result: inout Self,
+        forceUse: Bool = false) -> Self
+    {
+        assert(self.significand.count == other.significand.count)
+        assert(result.significand.count == 2 * self.significand.count)
+        assert(scratch1.count >= self.significand.count)
+        assert(scratch2.count >= self.significand.count)
+        assert(scratch3.count >= 2 * self.significand.count)
+        assert(scratch4.count >= self.significand.count)
+        assert(scratch5.count >= 2 * self.significand.count)
+
+        if UInt8(self.isSpecialValue) | UInt8(other.isSpecialValue) == 1
+        {
+            if UInt8(self.isNaN) | UInt8(other.isNaN) == 1 {
+                result.setNaN()
+            }
+            else { result.setInfinity() }
+            
+            return result.upperHalf()
+        }
+                
+        let zSig = result.significand
+
+        let halfWidth = zSig.count / 2
+        let midIndex = zSig.startIndex &+ halfWidth
+
+        let zSigLow = zSig[..<midIndex]
+        let zSigHigh = zSig[midIndex...]
+        
+        assert(zSigLow.count == zSigHigh.count)
+        
+        BigMath.fullMultiplyBuffers_Karatsuba_Async(
+            self.significand.immutable,
+            other.significand.immutable,
+            scratch1: scratch1,
+            scratch2: scratch2,
+            scratch3: scratch3,
+            scratch4: scratch4,
+            scratch5: scratch5,
+            result: zSig,
+            forceUse: forceUse
         )
         
         result.exponent = 1

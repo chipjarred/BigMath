@@ -21,11 +21,13 @@ SOFTWARE.
 */
 
 import Foundation
+import Async
 
 fileprivate let uintBitWidth = MemoryLayout<UInt>.size * 8
 
 /// Number of digits below which Karatsuba fails over to school book
-internal let karatsubaCutoff = 128
+internal let karatsubaCutoff = 2048 / MemoryLayout<UInt>.size
+@usableFromInline internal let karatsubaAsynCutoff = 8 * karatsubaCutoff
 
 
 // MARK:- Buffer comparison
@@ -1131,7 +1133,8 @@ internal func fullMultiplyBuffers_Karatsuba(
     scratch1: MutableUIntBuffer,
     scratch2: MutableUIntBuffer,
     scratch3: MutableUIntBuffer,
-    result zBuf: MutableUIntBuffer)
+    result zBuf: MutableUIntBuffer,
+    forceUse: Bool)
 {
     assert(xBuf.count == yBuf.count)
     assert(xBuf.count == scratch1.count)
@@ -1144,7 +1147,10 @@ internal func fullMultiplyBuffers_Karatsuba(
     let middleProduct = scratch3.low
     let extraScratch = scratch3.high
     
-    guard xBuf.count > karatsubaCutoff else
+    let forceUse =
+        UInt(forceUse) & UInt(bitPattern: ((xBuf.count & 1) ^ 1)) == 1
+
+    guard xBuf.count > karatsubaCutoff || forceUse else
     {
         fullMultiplyBuffers_SchoolBook(
             xBuf,
@@ -1161,7 +1167,8 @@ internal func fullMultiplyBuffers_Karatsuba(
         scratch1: differences.low,
         scratch2: differences.high,
         scratch3: middleTerm,
-        result: zBuf.low
+        result: zBuf.low,
+        forceUse: forceUse
     )
     
     fullMultiplyBuffers_Karatsuba(
@@ -1170,7 +1177,8 @@ internal func fullMultiplyBuffers_Karatsuba(
         scratch1: differences.low,
         scratch2: differences.high,
         scratch3: middleTerm,
-        result: zBuf.high
+        result: zBuf.high,
+        forceUse: forceUse
     )
 
     let sign1 = compareBuffers(xBuf.high, xBuf.low) == .orderedDescending
@@ -1216,7 +1224,8 @@ internal func fullMultiplyBuffers_Karatsuba(
         scratch1: middleTerm.low,
         scratch2: middleTerm.high,
         scratch3: extraScratch,
-        result: middleProduct
+        result: middleProduct,
+        forceUse: forceUse
     )
     
     var carry = addReportingCarry(
@@ -1257,6 +1266,202 @@ internal func fullMultiplyBuffers_Karatsuba(
     carry &+= addReportingCarry(
         zBuf.high.low.immutable,
         middleTerm.high.immutable,
+        result: zBuf.high.low
+    )
+    
+    _ = addReportingCarry(
+        zBuf.high.high.immutable,
+        carry,
+        result: zBuf.high.high
+    )
+}
+
+// -------------------------------------
+/**
+ Full width multiplication using the Karatsuba algorithm.  This method needs
+ space for intermediate computation, and rather than dynamically allocate it as
+ we go, which is slow, and takes up more memory the deeper the recursion goes,
+ we pass in mutable, pre-allocated buffers that are reused through the  recursion.
+ 
+ - Parameters:
+    - xBuf: first muliplicand stored with least signficant `UInt` "digit"
+        at index 0 (little endian)
+    - yBuf: second muliplicand stored with least signficant `UInt` "digit"
+        at index 0 (little endian).  Must be the same size as `xBuf`.
+    - scratch1: scratch buffer for internal computation.  Must be the same
+        size as `xBuf`.
+    - scratch2: scratch buffer for internal computation.  Must be the same
+        size as `xBuf`.
+    - scratch3: scratch buffer for internal computation.  Must be the twice the
+        size as `xBuf`.
+    - zBuf: result buffer.  It's size must be the sum of the sizes of
+        `xBuf` and `yBuf` (ie. twice the size of `xBuf`).
+ */
+@usableFromInline
+internal func fullMultiplyBuffers_Karatsuba_Async(
+    _ xBuf: UIntBuffer,
+    _ yBuf: UIntBuffer,
+    scratch1: MutableUIntBuffer,
+    scratch2: MutableUIntBuffer,
+    scratch3: MutableUIntBuffer,
+    scratch4: MutableUIntBuffer,
+    scratch5: MutableUIntBuffer,
+    result zBuf: MutableUIntBuffer,
+    forceUse: Bool)
+{
+    assert(xBuf.count == yBuf.count)
+    assert(xBuf.count == scratch1.count)
+    assert(xBuf.count == scratch2.count)
+    assert(xBuf.count * 2 == scratch3.count)
+    assert(xBuf.count == scratch4.count)
+    assert(xBuf.count * 2 == scratch5.count)
+    assert(xBuf.count * 2 == zBuf.count)
+    
+    let forceUse =
+        UInt(forceUse) & UInt(bitPattern: ((xBuf.count & 1) ^ 1)) == 1
+
+    guard xBuf.count > karatsubaAsynCutoff || forceUse
+    else
+    {
+        guard xBuf.count > karatsubaCutoff else
+        {
+            fullMultiplyBuffers_SchoolBook(
+                xBuf,
+                yBuf,
+                result: zBuf,
+                needToZeroResult: true
+            )
+            return
+        }
+        
+        fullMultiplyBuffers_Karatsuba(
+            xBuf,
+            yBuf,
+            scratch1: scratch1,
+            scratch2: scratch2,
+            scratch3: scratch3,
+            result: zBuf,
+            forceUse: false
+        )
+        return
+    }
+    
+    let future1 = async
+    {
+        fullMultiplyBuffers_Karatsuba_Async(
+            xBuf.low,
+            yBuf.low,
+            scratch1: scratch1.low,
+            scratch2: scratch1.high,
+            scratch3: scratch2,
+            scratch4: scratch3.low.low,
+            scratch5: scratch3.high,
+            result: zBuf.low,
+            forceUse: forceUse
+        )
+    }
+    
+    fullMultiplyBuffers_Karatsuba_Async(
+        xBuf.high,
+        yBuf.high,
+        scratch1: scratch3.low.high,
+        scratch2: scratch4.low,
+        scratch3: scratch5.low,
+        scratch4: scratch4.high,
+        scratch5: scratch5.high,
+        result: zBuf.high,
+        forceUse: forceUse
+    )
+    
+    future1.wait()
+
+    let sign1 = compareBuffers(xBuf.high, xBuf.low) == .orderedDescending
+    let sign2 = compareBuffers(yBuf.low, yBuf.high) == .orderedDescending
+    
+    if sign1
+    {
+        _ = subtractReportingBorrow(
+            xBuf.high,
+            xBuf.low,
+            result: scratch1.low
+        )
+    }
+    else
+    {
+        _ = subtractReportingBorrow(
+            xBuf.low,
+            xBuf.high,
+            result: scratch1.low
+        )
+    }
+    
+    if sign2
+    {
+        _ = subtractReportingBorrow(
+            yBuf.low,
+            yBuf.high,
+            result: scratch1.high
+        )
+    }
+    else
+    {
+        _ = subtractReportingBorrow(
+            yBuf.high,
+            yBuf.low,
+            result: scratch1.high
+        )
+    }
+
+    fullMultiplyBuffers_Karatsuba_Async(
+        scratch1.low.immutable,
+        scratch1.high.immutable,
+        scratch1: scratch2.low,
+        scratch2: scratch2.high,
+        scratch3: scratch3.high,
+        scratch4: scratch4.low,
+        scratch5: scratch5.low,
+        result: scratch3.low,
+        forceUse: forceUse
+    )
+    
+    var carry = addReportingCarry(
+        zBuf.low.immutable,
+        zBuf.high.immutable,
+        result: scratch2
+    )
+    
+
+    if sign1 == sign2
+    {
+        carry &+= addReportingCarry(
+            scratch2.immutable,
+            scratch3.low.immutable,
+            result: scratch2
+        )
+    }
+    else {
+        carry &-= subtractReportingBorrow(
+            scratch2.immutable,
+            scratch3.low.immutable,
+            result: scratch2
+        )
+    }
+    
+    let c = addReportingCarry(
+        zBuf.low.high.immutable,
+        scratch2.low.immutable,
+        result: zBuf.low.high
+    )
+    
+    carry &+= addReportingCarry(
+        zBuf.high.low.immutable,
+        c,
+        result: zBuf.high.low
+    )
+    
+    carry &+= addReportingCarry(
+        zBuf.high.low.immutable,
+        scratch2.high.immutable,
         result: zBuf.high.low
     )
     

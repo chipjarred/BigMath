@@ -11,16 +11,6 @@ import Foundation
 
 
 // -------------------------------------
-fileprivate func setWithRandomBytes<T>(_ dst: inout T)
-{
-    withUnsafeMutableBytes(of: &dst) {
-        for i in $0.indices {
-            $0[i] = UInt8.random(in: 0...UInt8.max)
-        }
-    }
-}
-
-// -------------------------------------
 class SchoolBook_v_Karatsuba_Tests: XCTestCase
 {
     // -------------------------------------
@@ -65,7 +55,7 @@ class SchoolBook_v_Karatsuba_Tests: XCTestCase
                 x.wrapped.multipliedFullWidth_schoolbook(by: y.wrapped)
         }
         let schoolBookTime = Date().timeIntervalSince(start)
-
+        
         start = Date()
         for (x, y) in testCases
         {
@@ -73,11 +63,20 @@ class SchoolBook_v_Karatsuba_Tests: XCTestCase
                 x.wrapped.multipliedFullWidth_karatsuba(by: y.wrapped)
         }
         let karatsubaTime = Date().timeIntervalSince(start)
+        
+        start = Date()
+        for (x, y) in testCases
+        {
+            (productHigh.wrapped, productLow.wrapped) =
+                x.wrapped.multipliedFullWidth_karatsuba_async(by: y.wrapped)
+        }
+        let karatsubaAsyncTime = Date().timeIntervalSince(start)
 
         print("\n")
         print("Results for \(T.self): \(iterations) iterations")
-        print("    School book = \(schoolBookTime) seconds")
-        print("      Karatsuba = \(karatsubaTime) seconds")
+        print("          School book = \(schoolBookTime) seconds")
+        print("            Karatsuba = \(karatsubaTime) seconds")
+        print("    Karatsuba (async) = \(karatsubaAsyncTime) seconds")
     }
     
     // -------------------------------------
@@ -91,9 +90,9 @@ class SchoolBook_v_Karatsuba_Tests: XCTestCase
         compare_algorithms(iterations, forType: UInt1024.self)
         compare_algorithms(iterations, forType: UInt2048.self)
         compare_algorithms(iterations, forType: UInt4096.self)
-//        compare_algorithms(iterations, forType: UInt8192.self)
-//        compare_algorithms(iterations, forType: UInt16384.self)
-//        compare_algorithms(iterations, forType: UInt32768.self)
+        compare_algorithms(iterations, forType: UInt8192.self)
+        compare_algorithms(iterations, forType: UInt16384.self)
+        compare_algorithms(iterations, forType: UInt32768.self)
 //        compare_algorithms(iterations, forType: UInt65536.self)
     }
 }

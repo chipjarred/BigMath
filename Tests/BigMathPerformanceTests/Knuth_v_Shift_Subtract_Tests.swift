@@ -11,16 +11,6 @@ import Foundation
 
 
 // -------------------------------------
-fileprivate func setWithRandomBytes<T>(_ dst: inout T)
-{
-    withUnsafeMutableBytes(of: &dst) {
-        for i in $0.indices {
-            $0[i] = UInt8.random(in: 0...UInt8.max)
-        }
-    }
-}
-
-// -------------------------------------
 class Knuth_v_Shift_Subtract_Tests: XCTestCase
 {
     // -------------------------------------

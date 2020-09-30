@@ -1,6 +1,6 @@
 //
 //  WideUInt_Multiplication_Karatsuba_UnitTests.swift
-//  
+//
 //
 //  Created by Chip Jarred on 8/22/20.
 //
@@ -9,7 +9,7 @@ import XCTest
 @testable import BigMath
 
 // -------------------------------------
-class WideUInt_Multiplication_Karatsuba_UnitTests: WideUInt_Multiplication_UnitTests
+class WideUInt_Multiplication_Karatsuba_Async_UnitTests: WideUInt_Multiplication_UnitTests
 {
     typealias Digit = UInt32
     typealias IntType = WideUInt<Digit>
@@ -23,7 +23,7 @@ class WideUInt_Multiplication_Karatsuba_UnitTests: WideUInt_Multiplication_UnitT
         _ x: WideUInt<T>,
         by y: WideUInt<T>) -> (high: WideUInt<T>, low: WideUInt<T>)
     {
-        return x.multipliedFullWidth_karatsuba(by: y, forceUse: true)
+        return x.multipliedFullWidth_karatsuba_async(by: y, forceUse: true)
     }
     
     // -------------------------------------
@@ -34,9 +34,9 @@ class WideUInt_Multiplication_Karatsuba_UnitTests: WideUInt_Multiplication_UnitT
             let x = UInt4096.random(in: 0..<UInt4096.max / 2)
             let y = UInt4096.random(in: 0..<UInt4096.max / 2)
             
-            let zKaratsuba = x.wrapped.multipliedFullWidth_karatsuba(
-                by: y.wrapped,
-                forceUse: true
+            let zKaratsuba = x.wrapped.multipliedFullWidth_karatsuba_async(
+                    by: y.wrapped,
+                    forceUse: true
             )
             let zSchoolBook =
                 x.wrapped.multipliedFullWidth_schoolbook(by: y.wrapped)

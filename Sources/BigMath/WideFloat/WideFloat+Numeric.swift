@@ -67,18 +67,38 @@ extension WideFloat: Numeric
             var scratch1 = RawSignificand()
             var scratch2 = RawSignificand()
             var scratch3 = WideProduct.RawSignificand()
-            
             var s1Buf = scratch1.mutableBuffer()
             var s2Buf = scratch2.mutableBuffer()
             var s3Buf = scratch3.mutableBuffer()
-            
-            _ = xBuf.multiply_karatsuba(
-                by: yBuf,
-                scratch1: &s1Buf,
-                scratch2: &s2Buf,
-                scratch3: &s3Buf,
-                result: &zBuf
-            )
+
+            if MemoryLayout<RawSignificand>.size > karatsubaAsynCutoff
+            {
+                var scratch4 = RawSignificand()
+                var scratch5 = WideProduct.RawSignificand()
+
+                var s4Buf = scratch4.mutableBuffer()
+                var s5Buf = scratch5.mutableBuffer()
+
+                _ = xBuf.multiply_karatsuba_async(
+                    by: yBuf,
+                    scratch1: &s1Buf,
+                    scratch2: &s2Buf,
+                    scratch3: &s3Buf,
+                    scratch4: &s4Buf,
+                    scratch5: &s5Buf,
+                    result: &zBuf
+                )
+            }
+            else
+            {
+                _ = xBuf.multiply_karatsuba(
+                    by: yBuf,
+                    scratch1: &s1Buf,
+                    scratch2: &s2Buf,
+                    scratch3: &s3Buf,
+                    result: &zBuf
+                )
+            }
         }
         else {
             _ = xBuf.multiply_schoolBook(by: yBuf, result: &zBuf)

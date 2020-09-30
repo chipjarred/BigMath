@@ -613,43 +613,92 @@ extension WideFloat: FloatingPoint
             var scratch1 = RawSignificand()
             var scratch2 = RawSignificand()
             var scratch3 = BiggerSig()
-            
             var s1Buf = scratch1.mutableBuffer()
             var s2Buf = scratch2.mutableBuffer()
             var s3Buf = scratch3.mutableBuffer()
 
-            for _ in 0..<iterations
+            if xBuf.significand.count > karatsubaAsynCutoff
             {
-                /*
-                 There are two formulations
-                    x = x * (2 - s * x)
-                    x = x + x * (1 - s * x)
-                 We're using the first one
-                 */
-                
-                let sxHigh = sBuf.multiply_karatsuba(
-                    by: xBuf,
-                    scratch1: &s1Buf,
-                    scratch2: &s2Buf,
-                    scratch3: &s3Buf,
-                    result: &sxBuf
-                )
+                var scratch4 = RawSignificand()
+                var scratch5 = BiggerSig()
 
-                assert(!sxHigh.isZero)
-                assert(!sxHigh.isNegative)
-                
-                FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
-                assert(!twoMinusSXBuf.isZero)
+                var s4Buf = scratch4.mutableBuffer()
+                var s5Buf = scratch5.mutableBuffer()
 
-                let xHigh = xBuf.multiply_karatsuba(
-                    by: twoMinusSXBuf,
-                    scratch1: &s1Buf,
-                    scratch2: &s2Buf,
-                    scratch3: &s3Buf,
-                    result: &sxBuf
-                )
-                assert(!xHigh.isZero)
-                copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
+                for _ in 0..<iterations
+                {
+                    /*
+                     There are two formulations
+                        x = x * (2 - s * x)
+                        x = x + x * (1 - s * x)
+                     We're using the first one
+                     */
+                    
+                    let sxHigh = sBuf.multiply_karatsuba_async(
+                        by: xBuf,
+                        scratch1: &s1Buf,
+                        scratch2: &s2Buf,
+                        scratch3: &s3Buf,
+                        scratch4: &s4Buf,
+                        scratch5: &s5Buf,
+                        result: &sxBuf
+                    )
+
+                    assert(!sxHigh.isZero)
+                    assert(!sxHigh.isNegative)
+                    
+                    FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
+                    assert(!twoMinusSXBuf.isZero)
+
+                    let xHigh = xBuf.multiply_karatsuba_async(
+                        by: twoMinusSXBuf,
+                        scratch1: &s1Buf,
+                        scratch2: &s2Buf,
+                        scratch3: &s3Buf,
+                        scratch4: &s4Buf,
+                        scratch5: &s5Buf,
+                        result: &sxBuf
+                    )
+                    assert(!xHigh.isZero)
+                    copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
+                }
+            }
+            else
+            {
+                for _ in 0..<iterations
+                {
+                    /*
+                     There are two formulations
+                        x = x * (2 - s * x)
+                        x = x + x * (1 - s * x)
+                     We're using the first one
+                     */
+                    
+                    let sxHigh = sBuf.multiply_karatsuba(
+                        by: xBuf,
+                        scratch1: &s1Buf,
+                        scratch2: &s2Buf,
+                        scratch3: &s3Buf,
+                        result: &sxBuf,
+                        forceUse: false
+                    )
+
+                    assert(!sxHigh.isZero)
+                    assert(!sxHigh.isNegative)
+                    
+                    FloatingPointBuffer.subtract(twoBuf, sxHigh, into: &twoMinusSXBuf)
+                    assert(!twoMinusSXBuf.isZero)
+
+                    let xHigh = xBuf.multiply_karatsuba(
+                        by: twoMinusSXBuf,
+                        scratch1: &s1Buf,
+                        scratch2: &s2Buf,
+                        scratch3: &s3Buf,
+                        result: &sxBuf
+                    )
+                    assert(!xHigh.isZero)
+                    copy(buffer: xHigh.uintBuf.immutable, to: xBuf.uintBuf)
+                }
             }
         }
         else

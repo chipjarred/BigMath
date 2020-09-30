@@ -36,7 +36,7 @@ extension UInt
 
 
 // -------------------------------------
-fileprivate func setWithRandomBytes<T>(_ dst: inout T)
+internal func setWithRandomBytes<T>(_ dst: inout T)
 {
     assert(MemoryLayout<T>.size >= MemoryLayout<UInt>.size)
 

@@ -85,7 +85,9 @@ extension WideUInt: Numeric
         -> (high: Self, low: Self.Magnitude)
     {
         return useKaratsuba
-            ? multipliedFullWidth_karatsuba(by: other)
+            ? MemoryLayout<Self>.size > karatsubaAsynCutoff
+                ? multipliedFullWidth_karatsuba_async(by: other)
+                : multipliedFullWidth_karatsuba(by: other)
             : multipliedFullWidth_schoolbook(by: other)
     }
     
@@ -120,13 +122,15 @@ extension WideUInt: Numeric
 
         return (high: result.high, low: result.low)
     }
-
+    
     // -------------------------------------
     /**
      Full width multiplication using the Karatsuba method
      */
     @inlinable
-    public func multipliedFullWidth_karatsuba(by other: Self)
+    public func multipliedFullWidth_karatsuba(
+        by other: Self,
+        forceUse: Bool = false)
         -> (high: Self, low: Self.Magnitude)
     {
         var result = WideUInt<Self>()
@@ -147,7 +151,49 @@ extension WideUInt: Numeric
             scratch1: s1Buf,
             scratch2: s2Buf,
             scratch3: s3Buf,
-            result: rBuf
+            result: rBuf,
+            forceUse: forceUse
+        )
+
+        return (result.high, result.low)
+    }
+    
+    // -------------------------------------
+    /**
+     Full width multiplication using the Karatsuba method
+     */
+    @inlinable
+    public func multipliedFullWidth_karatsuba_async(
+        by other: Self,
+        forceUse: Bool = false)
+        -> (high: Self, low: Self.Magnitude)
+    {
+        var result = WideUInt<Self>()
+        var scratch1 = Self()
+        var scratch2 = Self()
+        var scratch3 = WideUInt<Self>()
+        var scratch4 = Self()
+        var scratch5 = WideUInt<Self>()
+
+        let rBuf = result.mutableBuffer()
+        let xBuf = self.buffer()
+        let yBuf = other.buffer()
+        let s1Buf = scratch1.mutableBuffer()
+        let s2Buf = scratch2.mutableBuffer()
+        let s3Buf = scratch3.mutableBuffer()
+        let s4Buf = scratch4.mutableBuffer()
+        let s5Buf = scratch5.mutableBuffer()
+
+        fullMultiplyBuffers_Karatsuba_Async(
+            xBuf,
+            yBuf,
+            scratch1: s1Buf,
+            scratch2: s2Buf,
+            scratch3: s3Buf,
+            scratch4: s4Buf,
+            scratch5: s5Buf,
+            result: rBuf,
+            forceUse: forceUse
         )
 
         return (result.high, result.low)

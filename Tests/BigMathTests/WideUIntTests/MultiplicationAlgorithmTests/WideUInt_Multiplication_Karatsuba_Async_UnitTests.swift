@@ -29,7 +29,7 @@ class WideUInt_Multiplication_Karatsuba_Async_UnitTests: WideUInt_Multiplication
     // -------------------------------------
     func test_randomValues()
     {
-        for _ in 0..<100
+        for _ in 0..<50
         {
             let x = UInt4096.random(in: 0..<UInt4096.max / 2)
             let y = UInt4096.random(in: 0..<UInt4096.max / 2)

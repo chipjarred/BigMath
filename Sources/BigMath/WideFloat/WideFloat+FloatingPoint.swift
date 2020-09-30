@@ -191,9 +191,8 @@ extension WideFloat: FloatingPoint
     @inlinable
     public func squareRoot_Babylonian() -> Self
     {
-        // TODO: Optimize - simple straight-forward implementation to start
         let selfBuf = floatBuffer()
-        if UInt8(selfBuf.isNaN) | UInt8(selfBuf.isZero) == 1{ return self }
+        if UInt8(selfBuf.isNaN) | UInt8(selfBuf.isZero) == 1 { return self }
         if selfBuf.isNegative { return Self.nan }
         if selfBuf.isInfinite { return self }
         
@@ -207,24 +206,49 @@ extension WideFloat: FloatingPoint
         x._exponent.intValue =
             self.exponent / 2 + (f80Sqrt.exponent - f80Val.exponent)
         let iterations = Int(log2(Double(RawSignificand.bitWidth)))
+        
+        var y = x
+        var u = x
+        var xTemp = x
+        var q = Quotient()
+        var r = Remainder()
 
-        var y: Self
+        var xBuf = x.mutableFloatBuffer()
+        let yBuf = y.mutableFloatBuffer()
+        var uBuf = u.mutableFloatBuffer()
+        var xTempBuf = xTemp.mutableFloatBuffer()
+        let qBuf = q.mutableBuffer()
+        let rBuf = r.mutableBuffer()
+
         for _ in 0..<iterations
         {
+            u._exponent.intValue = Self.divide_KnuthD_Buffers(
+                dividend: selfBuf,
+                divisor: xBuf,
+                quotient: qBuf,
+                remainder: rBuf
+            )
+            u._significand = q.r
+            uBuf.signBit = UInt(selfBuf.isNegative != xBuf.isNegative)
+            assert(u.isNormalized)
+            
+            if uBuf.isZero || uBuf.isSpecialValue { break }
+            
+            FloatingPointBuffer.add(uBuf, xBuf, into: &xTempBuf)
+            x = xTemp
+
+            assert(x.isNormalized)
+            assert(!x.isNaN)
+            assert(!x.isInfinite)
+            
+            xBuf.addExponent(WExp(-1)) // divide by 2
+            
+            assert(x.isNormalized)
+            assert(!x.isNaN)
+            assert(!x.isInfinite)
+            
+            if xBuf == yBuf { break }
             y = x
-            let u = self / x
-            if u.isZero || u.isInfinite || u.isNaN { break }
-            
-            x = u + x
-            assert(x.isNormalized)
-            assert(!x.isNaN)
-            assert(!x.isInfinite)
-            x.addExponent(WExp(-1)) // divide by 2
-            assert(x.isNormalized)
-            assert(!x.isNaN)
-            assert(!x.isInfinite)
-            if x == y { break }
-            
         }
         
         return x
@@ -536,27 +560,66 @@ extension WideFloat: FloatingPoint
         let dividendBuf = self.floatBuffer()
         let qBuf = q.mutableBuffer()
         let rBuf = r.mutableBuffer()
-
-        floatDivide_KnuthD(
-            dividendBuf.significand.immutable,
-            by: divisorBuf.significand.immutable,
+        
+        let qExp = Self.divide_KnuthD_Buffers(
+            dividend: dividendBuf,
+            divisor: divisorBuf,
             quotient: qBuf,
             remainder: rBuf
         )
-        
-        q.adjust()
-        
-        let dividendFloatSig = dividendBuf.floatSignificand
-        let divisorFloatSig = divisorBuf.floatSignificand
-        
-        let qExpDelta = (dividendFloatSig / divisorFloatSig).exponent
-        
+
         var result = Self(
             significandBitPattern: q.r,
-            exponent: self.exponent - divisor.exponent + qExpDelta
+            exponent: qExp
         )
         result.negate(if: self.isNegative != divisor.isNegative)
         return result
+    }
+    
+    // -------------------------------------
+    /*
+     Performs floating point division given buffers, placing the quotient
+     signficand in `quotient` and returning the quotient's exponent.
+     */
+    @usableFromInline @inline(__always)
+    internal static func divide_KnuthD_Buffers(
+        dividend: FloatingPointBuffer,
+        divisor: FloatingPointBuffer,
+        quotient: MutableUIntBuffer,
+        remainder: MutableUIntBuffer) -> Int
+    {
+        assert(
+            quotient.count * MemoryLayout<UInt>.size ==
+                MemoryLayout<Quotient>.size
+        )
+        assert(
+            remainder.count * MemoryLayout<UInt>.size ==
+                MemoryLayout<Remainder>.size
+        )
+        
+        floatDivide_KnuthD(
+            dividend.significand.immutable,
+            by: divisor.significand.immutable,
+            quotient: quotient,
+            remainder: remainder
+        )
+        
+        let leadZeros = countLeadingZeroBits(quotient.immutable)
+        
+        let rightShift = UInt.bitWidth * 2 - leadZeros
+        if rightShift < 0 {
+            leftShift(buffer: quotient, by: -rightShift)
+        }
+        else { BigMath.roundingRightShift(buffer: quotient, by: rightShift) }
+
+        let dividendFloatSig = dividend.floatSignificand
+        let divisorFloatSig = divisor.floatSignificand
+        
+        let qExpDelta = (dividendFloatSig / divisorFloatSig).exponent
+        
+        return dividend.exponent.intValue
+            - divisor.exponent.intValue
+            + qExpDelta
     }
 
     // MARK:- Multiplicative inverses

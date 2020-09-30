@@ -237,15 +237,7 @@ extension WideFloat: FloatingPoint
             FloatingPointBuffer.add(uBuf, xBuf, into: &xTempBuf)
             x = xTemp
 
-            assert(x.isNormalized)
-            assert(!x.isNaN)
-            assert(!x.isInfinite)
-            
             xBuf.addExponent(WExp(-1)) // divide by 2
-            
-            assert(x.isNormalized)
-            assert(!x.isNaN)
-            assert(!x.isInfinite)
             
             if xBuf == yBuf { break }
             y = x

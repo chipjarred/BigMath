@@ -23,6 +23,13 @@ SOFTWARE.
 import Foundation
 
 // -------------------------------------
+/*
+ Data structure for caching power of 10 ladders needed for rescaling WideFloat's
+ for conversion to decimal representation.  A power of 10 ladder is an array
+ of pairs of a WideFloat containing a power of 10 and its corresponding decimal
+ exponent.  For scaling WideFloats the ladder is used in reverse to quickly
+ bring down large exponents.
+ */
 internal struct PowerOf10Ladder
 {
     // -------------------------------------
@@ -36,6 +43,8 @@ internal struct PowerOf10Ladder
         var pairs = [(value: UInt, decimalExponent: Int)]()
         pairs.reserveCapacity(Int(log10(Double(UInt.max))))
         
+        pairs.append((val, decExp))
+
         while true
         {
             let temp = val &* 10
@@ -79,7 +88,7 @@ internal struct PowerOf10Ladder
             decExp += 1
             pairs.append((FloatType(val), decExp))
         }
-        
+
         return pairs
     }
 
@@ -107,7 +116,7 @@ internal struct PowerOf10Ladder
         {
             let newLadder =
                 UnsafeMutableBufferPointer<PairType>.allocate(capacity: $0.count)
-            newLadder.initialize(from: $0)
+            _ = newLadder.initialize(from: $0)
             let ladderPtr = UnsafeBufferPointer(newLadder)
             wFloatPowerOf10Ladders[sigSize] = UnsafeRawBufferPointer(ladderPtr)
             return ladderPtr

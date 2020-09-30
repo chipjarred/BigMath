@@ -40,7 +40,7 @@ internal struct WExp:
 {
     @usableFromInline internal typealias IntegerLiteralType = Int
     
-    private static let intMax = Int.max >> 1
+    private static let intMax = Float80.greatestFiniteMagnitude.exponent * 8
     private static let intMin = -intMax
     @usableFromInline internal static let max: Self = Self(intMax)
     @usableFromInline internal static let min: Self = Self(intMin)

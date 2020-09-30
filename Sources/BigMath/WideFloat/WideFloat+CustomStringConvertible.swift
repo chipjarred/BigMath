@@ -156,36 +156,44 @@ extension WideFloat: CustomStringConvertible
         if selfExp == 0 { return (Self.one, 0) }
         
         let ten = Self(10)
+        let tenExp = ten.exponent
+
         var scale = one
         var decExp: Int = 0
 
-        for (decMultiple, decExpDelta) in PowerOf10Ladder.uintLadder.reversed()
-        {
-            let fMul = Self(decMultiple)
-            let fMulExp = fMul.exponent
+        let ladder =
+            PowerOf10Ladder.getPowerOf10LadderPtr(for: RawSignificand.self)
 
-            if fMul.exponent > (abs(selfExp) - abs(scale.exponent))
+        for (fMul, decExpDelta) in ladder.reversed()
+        {
+            let fMulExp = fMul.exponent
+            let fMulExpDelta = fMulExp - tenExp
+
+            if fMulExp < (abs(selfExp) - abs(scale.exponent))
             {
                 if selfExp < 0
                 {
-                    while scale.exponent > -selfExp + fMulExp + 1
+                    while abs(selfExp) - scale.exponent > fMulExpDelta
                     {
-                        scale *= fMul
+                        let temp = scale * fMul
+                        if temp.isInfinite { break }
+                        scale = temp
                         decExp -= decExpDelta
                     }
                 }
                 else
                 {
-                    while scale.exponent < selfExp - fMulExp - 1
+                    while selfExp - abs(scale.exponent) > fMulExpDelta
                     {
-                        scale /= fMul
+                        let temp = scale / fMul
+                        if temp.isZero { break }
+                        scale = temp
                         decExp += decExpDelta
                     }
                 }
             }
         }
         
-        let tenExp = ten.exponent
         if selfExp < 0
         {
             while scale.exponent < -selfExp - tenExp

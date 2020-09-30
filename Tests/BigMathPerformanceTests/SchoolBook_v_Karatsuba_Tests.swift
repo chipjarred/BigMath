@@ -90,9 +90,9 @@ class SchoolBook_v_Karatsuba_Tests: XCTestCase
         compare_algorithms(iterations, forType: UInt1024.self)
         compare_algorithms(iterations, forType: UInt2048.self)
         compare_algorithms(iterations, forType: UInt4096.self)
-        compare_algorithms(iterations, forType: UInt8192.self)
-        compare_algorithms(iterations, forType: UInt16384.self)
-        compare_algorithms(iterations, forType: UInt32768.self)
+//        compare_algorithms(iterations, forType: UInt8192.self)
+//        compare_algorithms(iterations, forType: UInt16384.self)
+//        compare_algorithms(iterations, forType: UInt32768.self)
 //        compare_algorithms(iterations, forType: UInt65536.self)
     }
 }

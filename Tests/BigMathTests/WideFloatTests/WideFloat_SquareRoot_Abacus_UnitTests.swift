@@ -1,5 +1,5 @@
 //
-//  WideFloat_SquareRoot_SchoolBook_UnitTests.swift
+//  WideFloat_SquareRoot_Abacus_UnitTests.swift
 //
 //
 //  Created by Chip Jarred on 9/26/20.
@@ -9,7 +9,7 @@ import XCTest
 @testable import BigMath
 
 // -------------------------------------
-class WideFloat_SquareRoot_SchoolBook_UnitTests: XCTestCase
+class WideFloat_SquareRoot_Abacus_UnitTests: XCTestCase
 {
     typealias FloatType = WideFloat<UInt64>
     

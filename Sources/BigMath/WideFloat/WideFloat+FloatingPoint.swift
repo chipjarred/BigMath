@@ -262,7 +262,10 @@ extension WideFloat: FloatingPoint
      does a shift of the `one` variable which isn't needed for floating point
      implementation; however, we do have to do an initial shift of the
      significand to align it on a proper power of 2 boundary based on its
-     exponent, otherwise we'll get the wrong answer.
+     exponent, otherwise we'll get the wrong answer.  Instead of shifting `one`
+     I keep track of the bit index that is supposed to be set, and set/clear.
+     In the multi-precision case, it's faster than actually shifting.  It's
+     probably a little slower for 64-bit WideFloat case that shifting.
      
      For 64-bits WideFloat, there can be a discrepancy in the least significant
      bit, because the method treats the significand as an integer and stops
@@ -291,43 +294,98 @@ extension WideFloat: FloatingPoint
         var op = BigSig(high: self._significand)
         var res = BigSig()
         var one = BigSig()
+        var resPlusOne = BigSig()
         
-        op.setBit(at: RawSignificand.bitWidth - 1, to: 1)
-        op.setBit(at: RawSignificand.bitWidth - 2, to: 1)
-        op.setBit(at: RawSignificand.bitWidth - 3, to: 1)
-        op.setBit(at: RawSignificand.bitWidth - 4, to: 1)
+        var opBuf = op.mutableBuffer()
+        let resBuf = res.mutableBuffer()
+        var oneBuf = one.mutableBuffer()
+        let resPlusOneBuf = resPlusOne.mutableBuffer()
+        
+        let opImmutable = opBuf.immutable
+        let resImmutable = resBuf.immutable
+        let oneImmutable = oneBuf.immutable
+        let resPlusOneImmutable = resPlusOneBuf.immutable
+        
+        for i in 1...4 {
+            setBit(at: RawSignificand.bitWidth - i, in: &opBuf, to: 1)
+        }
+
         let shift = exponent & 1
         op >>= shift
-        one.setBit(at: BigSig.bitWidth - 1, to: 1)
+        
+        var oneBitPos = BigSig.bitWidth - 1
 
         if shift == 1
         {
+            // If we had to shift, we'll lose a significant bit if we don't
+            // shift back after a couple of iterations.
             for _ in 0..<2
             {
-                let resPlusOne = res &+ one
-                res >>= 1
-                if op >= resPlusOne
+                setBit(at: oneBitPos, in: &oneBuf, to: 1)
+                
+                _ = addReportingCarry(
+                    resImmutable,
+                    oneImmutable,
+                    result: resPlusOneBuf
+                )
+                rightShift(buffer: resBuf, by: 1)
+
+                let cmpResult = compareBuffers(
+                    opImmutable,
+                    resPlusOneImmutable)
+                if cmpResult != .orderedAscending
                 {
-                    _ = op.subtractFromSelfReportingBorrow(resPlusOne)
-                    res &+= one
+                    _ = subtractReportingBorrow(
+                        opImmutable,
+                        resPlusOneImmutable,
+                        result: opBuf
+                    )
+                    _ = addReportingCarry(
+                        resImmutable,
+                        oneImmutable,
+                        result: resBuf
+                    )
                 }
-                one >>= 2
+                
+                // This is faster than shifting in the special case of one
+                setBit(at: oneBitPos, in: &oneBuf, to: 0)
+                oneBitPos &-= 2
             }
             
-            res <<= 1
-            one <<= 2
+            leftShift(buffer: resBuf, by: 1)
+            oneBitPos &+= 2
         }
                 
-        while one != 0
+        while oneBitPos >= 0
         {
-            let resPlusOne = res &+ one
-            res >>= 1
-            if op >= resPlusOne
+            setBit(at: oneBitPos, in: &oneBuf, to: 1)
+            
+            _ = addReportingCarry(
+                resImmutable,
+                oneImmutable,
+                result: resPlusOneBuf
+            )
+            rightShift(buffer: resBuf, by: 1)
+
+            let cmpResult = compareBuffers(
+                opImmutable,
+                resPlusOneImmutable)
+            if cmpResult != .orderedAscending
             {
-                _ = op.subtractFromSelfReportingBorrow(resPlusOne)
-                res &+= one
+                _ = subtractReportingBorrow(
+                    opImmutable,
+                    resPlusOneImmutable,
+                    result: opBuf
+                )
+                _ = addReportingCarry(
+                    resImmutable,
+                    oneImmutable,
+                    result: resBuf
+                )
             }
-            one >>= 2
+            
+            setBit(at: oneBitPos, in: &oneBuf, to: 0)
+            oneBitPos &-= 2
         }
 
         let leadZeros = res.leadingZeroBitCount

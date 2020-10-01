@@ -202,9 +202,10 @@ extension WideFloat: FloatingPoint
         // We'll start with 64-ish good bits, which should double each iteration
         let f80Val = self.significand.float80Value
         let f80Sqrt = f80Val.squareRoot()
+        let expScale = log2(f80Sqrt) / log2(f80Val)
+        let exp = Float80(self.exponent) * expScale
         var x = Self(f80Sqrt)
-        x._exponent.intValue =
-            self.exponent / 2 + (f80Sqrt.exponent - f80Val.exponent)
+        x._exponent.intValue = Int(exp)
         let iterations = Int(log2(Double(RawSignificand.bitWidth)))
         
         var y = x
@@ -246,6 +247,103 @@ extension WideFloat: FloatingPoint
         return x
     }
     
+    // -------------------------------------
+    /*
+     Implements finding the square root by the abacus method.
+     
+     The code for this function that finds the square root of the significand
+     is adapted from the integer square root implementation in C by Martin Guy
+     which can be found archived at:
+     
+        https://web.archive.org/web/20190316213428/http://medialab.freaknet.org/martin/src/sqrt/sqrt.c
+     
+     The exponent adjustment is my own, as are the rounding extra bits appended
+     to the shifted significand to help rounding of the results.  The original
+     does a shift of the `one` variable which isn't needed for floating point
+     implementation; however, we do have to do an initial shift of the
+     significand to align it on a proper power of 2 boundary based on its
+     exponent, otherwise we'll get the wrong answer.
+     
+     For 64-bits WideFloat, there can be a discrepancy in the least significant
+     bit, because the method treats the significand as an integer and stops
+     when the integer square root is found.  I get full precision by performing
+     the square root in a double-wide integer which retains bits that would
+     otherwise be right-shifted out.
+     */
+    @inlinable
+    public func squareRoot_abacus() -> Self
+    {
+        let selfBuf = floatBuffer()
+        if UInt8(selfBuf.isNaN) | UInt8(selfBuf.isZero) == 1 { return self }
+        if selfBuf.isNegative { return Self.nan }
+        if selfBuf.isInfinite { return self }
+        
+        typealias BigSig = WideUInt<RawSignificand>
+        typealias BigFloat = WideFloat<BigSig>
+
+        let f80Val = self.significand.float80Value
+        let f80Sqrt = f80Val.squareRoot()
+        let expScale = log2(f80Sqrt) / log2(f80Val)
+        var exp = Float80(self.exponent) * expScale
+
+        // TODO: This can be made a lot more efficient by using buffers directly
+        // and eliminating temporaries.
+        var op = BigSig(high: self._significand)
+        var res = BigSig()
+        var one = BigSig()
+        
+        op.setBit(at: RawSignificand.bitWidth - 1, to: 1)
+        op.setBit(at: RawSignificand.bitWidth - 2, to: 1)
+        op.setBit(at: RawSignificand.bitWidth - 3, to: 1)
+        op.setBit(at: RawSignificand.bitWidth - 4, to: 1)
+        let shift = exponent & 1
+        op >>= shift
+        one.setBit(at: BigSig.bitWidth - 1, to: 1)
+
+        if shift == 1
+        {
+            for _ in 0..<2
+            {
+                let resPlusOne = res &+ one
+                res >>= 1
+                if op >= resPlusOne
+                {
+                    _ = op.subtractFromSelfReportingBorrow(resPlusOne)
+                    res &+= one
+                }
+                one >>= 2
+            }
+            
+            res <<= 1
+            one <<= 2
+        }
+                
+        while one != 0
+        {
+            let resPlusOne = res &+ one
+            res >>= 1
+            if op >= resPlusOne
+            {
+                _ = op.subtractFromSelfReportingBorrow(resPlusOne)
+                res &+= one
+            }
+            one >>= 2
+        }
+
+        let leadZeros = res.leadingZeroBitCount
+        res <<= leadZeros
+        if exponent & 1 == 1 {
+            if exponent < 0 && leadZeros & 1 == 0 { exp -= 1 }
+        }
+        else
+        {
+            if exponent > 0 { exp += 0.5 }
+            else if leadZeros & 1 == 1 { exp -= 0.5 }
+        }
+        return Self(significandBitPattern: res.high, exponent: Int(exp))
+    }
+    
+
     // -------------------------------------
     @inlinable
     public mutating func addProduct(_ lhs: Self, _ rhs: Self) {

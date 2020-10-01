@@ -397,13 +397,13 @@ internal func indexOfMostSignificantUInt(of x: MutableUIntBuffer) -> Int
 
 // -------------------------------------
 @usableFromInline @inline(__always)
-internal func signficantDigits(of x: UIntBuffer) -> UIntBuffer {
+internal func significantDigits(of x: UIntBuffer) -> UIntBuffer {
     return x[...indexOfMostSignificantUInt(of: x)]
 }
 
 // -------------------------------------
 @usableFromInline @inline(__always)
-internal func signficantDigits(of x: MutableUIntBuffer) -> MutableUIntBuffer {
+internal func significantDigits(of x: MutableUIntBuffer) -> MutableUIntBuffer {
     return x[...indexOfMostSignificantUInt(of: x.immutable)]
 }
 

@@ -90,8 +90,8 @@ internal func fullWidthDivide_ShiftSubtract(
     var quotient = quotient
     var r = remainder[0...0]
     
-    let x = signficantDigits(of: dividend)
-    let y = signficantDigits(of: divisor)
+    let x = significantDigits(of: dividend)
+    let y = significantDigits(of: divisor)
     
     /*
      Quick check - if divisor has more signficant digits than dividend, then

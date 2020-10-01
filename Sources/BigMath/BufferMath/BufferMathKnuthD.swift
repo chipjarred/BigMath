@@ -303,8 +303,8 @@ internal func fullWidthDivide_KnuthD(
     remainder: MutableUIntBuffer,
     scratch: MutableUIntBuffer)
 {
-    let divisor = signficantDigits(of: divisor)
-    let dividend = signficantDigits(of: dividend)
+    let divisor = significantDigits(of: divisor)
+    let dividend = significantDigits(of: dividend)
     var quotient = quotient[...]
     var remainder = remainder[...]
     

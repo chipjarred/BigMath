@@ -24,6 +24,7 @@ SOFTWARE.
 public extension String.StringInterpolation
 {
     // --------------------------------------
+    @usableFromInline
     internal mutating func appendInterpolation(binary buf: UIntBuffer)
     {
         for digit in buf.reversed() {
@@ -32,6 +33,7 @@ public extension String.StringInterpolation
     }
     
     // --------------------------------------
+    @usableFromInline
     internal mutating func appendInterpolation(binary buf: MutableUIntBuffer) {
         appendInterpolation(binary: buf.immutable)
     }

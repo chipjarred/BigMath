@@ -41,8 +41,8 @@ internal func compareBuffers(
         return .orderedSame
     }
     
-    let left = left.count == 0 ? left : signficantDigits(of: left)
-    let right = right.count == 0 ? right : signficantDigits(of: right)
+    let left = left.count == 0 ? left : significantDigits(of: left)
+    let right = right.count == 0 ? right : significantDigits(of: right)
     let leftCount = left.count
     let rightCount = right.count
 
@@ -1580,10 +1580,24 @@ internal func multiply(
     by y: UInt,
     result zBuf: MutableUIntBuffer) -> Bool
 {
+    return 0 != multiplyAdd(buffer: xBuf, times: y, plus: 0, result: zBuf)
+}
+
+// -------------------------------------
+/**
+ Fused multiply-add of a `UInt` to a buffer times a `UInt`
+ */
+@usableFromInline @inline(__always)
+internal func multiplyAdd(
+    buffer xBuf: UIntBuffer,
+    times k: UInt,
+    plus y: UInt,
+    result zBuf: MutableUIntBuffer) -> UInt
+{
     assert(xBuf.count > 0, "xBuf: empty buffer")
     assert(zBuf.count >= xBuf.count, "Result buffer: too small")
     
-    var carry: UInt = 0
+    var carry: UInt = y
     
     var xPtr = xBuf.baseAddress!
     let xEnd = xPtr + xBuf.count
@@ -1593,7 +1607,7 @@ internal func multiply(
     repeat
     {
         let overflow: UInt
-        (overflow, zPtr.pointee) = xPtr.pointee.multipliedFullWidth(by: y)
+        (overflow, zPtr.pointee) = xPtr.pointee.multipliedFullWidth(by: k)
         carry = zPtr.pointee.addToSelfReportingCarry(carry)
         carry &+= overflow
         
@@ -1611,7 +1625,87 @@ internal func multiply(
         }
     }
     
-    return carry != 0
+    return carry
+}
+
+// -------------------------------------
+/**
+ Performs  fused multiply-add of a buffer times `UInt` plus a buffer.
+ */
+@usableFromInline @inline(__always)
+internal func multiplyAdd(
+    buffer xBuf: UIntBuffer,
+    times k: UInt,
+    plus yBuf: UIntBuffer,
+    result zBuf: MutableUIntBuffer) -> UInt
+{
+    assert(yBuf.count > 0, "xBuf: empty buffer")
+    assert(xBuf.count > 0, "yBuf: empty buffer")
+    assert(
+        zBuf.count >= max(yBuf.count, xBuf.count),
+        "Result buffer: too small"
+    )
+    
+    var carry: UInt = 0
+    
+    var xPtr = xBuf.baseAddress!
+    let xEnd = xPtr + xBuf.count
+    var yPtr = yBuf.baseAddress!
+    let yEnd = yPtr + yBuf.count
+    var zPtr = zBuf.baseAddress!
+    let zEnd = zPtr + zBuf.count
+    let commonCount = min(yBuf.count, xBuf.count)
+    let commonEnd = yPtr + commonCount
+
+    repeat
+    {
+        var zVal = carry
+        let p: UInt
+        (carry, p) = xPtr.pointee.multipliedFullWidth(by: k)
+        carry &+= zVal.addToSelfReportingCarry(p)
+        carry &+= zVal.addToSelfReportingCarry(yPtr.pointee)
+        zPtr.pointee = zVal
+        
+        yPtr += 1
+        xPtr += 1
+        zPtr += 1
+    } while yPtr < commonEnd
+    
+    while yPtr < yEnd
+    {
+        zPtr.pointee = carry
+        carry = zPtr.pointee.addToSelfReportingCarry(yPtr.pointee)
+        
+        yPtr += 1
+        zPtr += 1
+    }
+    
+    while xPtr < xEnd
+    {
+        var zVal = carry
+        let p: UInt
+        (carry, p) = xPtr.pointee.multipliedFullWidth(by: k)
+        carry &+= zVal.addToSelfReportingCarry(p)
+        zPtr.pointee = zVal
+        
+        xPtr += 1
+        zPtr += 1
+    }
+
+    if zPtr < zEnd
+    {
+        zPtr.pointee = carry
+        carry = 0
+        zPtr += 1
+        
+        while zPtr < zEnd
+        {
+            zPtr.pointee = 0
+            zPtr += 1
+        }
+    }
+    
+    return carry
 }
 
 // -------------------------------------
